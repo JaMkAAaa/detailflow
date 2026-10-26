@@ -9,3 +9,14 @@
 - Provisioning zaproszonego konta i odkrywanie membershipów/tokenu to granice auth korzystające z `platformDb`; operacje znanego studia używają `studioDb`.
 
 Testy `acl.test.ts` wymagają PostgreSQL z migracjami. Tworzą dwa niezależne studia i sprawdzają ten sam endpoint, role, picker, wygasanie i równoległe wykorzystanie zaproszenia. Nie używać produkcyjnej bazy do testów.
+
+# Maszyna stanów zlecenia (#31)
+
+`src/server/zlecenia/state.ts`. Mutacje wymagają `orders:update` (owner, manager, worker) i `studioDb(studioId)`.
+
+- Mapa przejść jest tabelą `ORDER_TRANSITIONS`: `accepted → in_progress | canceled`, `in_progress → ready_for_pickup | canceled`, `ready_for_pickup → completed | in_progress` (poprawka). `completed` i `canceled` są końcowe. Skok `accepted → completed/ready_for_pickup` jest odrzucany (`invalid_transition`).
+- Etap pasuje do statusu: przyjęte 1, w trakcie 1–3, do odbioru i zakończone 4. `advanceStage` ("Zakończ: etap") przesuwa o jeden; koniec etapu 3 daje „Do odbioru” i etap 4.
+- `transitionOrder` jest punktem wejścia dla DnD (5.1). Upuszczenie w tej samej kolumnie nic nie zapisuje; równoległe zmiany kończą się `conflict` dla przegranej.
+- Każda zmiana zapisuje wpis `WorkOrderEvent` w tej samej transakcji (`listOrderHistory` → zakładka Historia).
+- Fakturować można tylko `completed` z `completedAt` (`canInvoice`, `assertInvoiceable`). Każda przyszła mutacja faktury z zlecenia wywołuje `assertInvoiceable`.
+- Numer `DF-####`: `allocateOrderNumber` w transakcji tworzenia zlecenia (atomowy licznik `OrderCounter` na studio, unikalność dodatkowo wymusza `@@unique([studioId, number])`).
