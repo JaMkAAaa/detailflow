@@ -4,7 +4,7 @@ import { AUTH_COOKIE_PREFIX } from "./lib/auth/cookie";
 import { LOGIN_PATH } from "./lib/auth/redirect";
 
 // Ścieżki bez sesji studia. Wszystko inne — panel (studio) i /admin — wymaga logowania.
-const PUBLIC_PATHS = [LOGIN_PATH, "/logout", "/forgot-password", "/reset-password", "/p/"];
+const PUBLIC_PATHS = [LOGIN_PATH, "/start", "/logout", "/forgot-password", "/reset-password", "/p/"];
 
 function isPublic(pathname: string) {
   return PUBLIC_PATHS.some((p) => (p.endsWith("/") ? pathname.startsWith(p) : pathname === p || pathname.startsWith(`${p}/`)));

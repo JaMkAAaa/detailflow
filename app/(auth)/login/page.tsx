@@ -7,6 +7,7 @@ import { getSession } from "@/lib/auth/session";
 export const metadata: Metadata = { title: "Logowanie — Detailflow" };
 
 const NOTICES: Record<string, string> = {
+  trial: "Studio jest gotowe. Zaloguj się, aby rozpocząć 14-dniowy okres próbny.",
   link: "Link do logowania wygasł albo został już użyty. Poproś o nowy.",
   haslo: "Hasło zmienione. Zaloguj się nowym hasłem.",
 };

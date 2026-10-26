@@ -56,4 +56,5 @@ Z hosta ustaw `DATABASE_URL=postgresql://detailflow:detailflow@localhost:5432/de
 - Produkcja: `prisma migrate deploy` z obrazu `--target migrate` przed startem web.
 - Zapytania studia tylko przez `studioDb(studioId)` z `lib/db/tenant.ts`. `platformDb` (bez filtra) — panel platformy, auth, webhooki, seed.
 - Logowanie (`/login`, Better Auth, sesje w Postgres): po seedzie `michal.kowalski@example.com` / `obsidian-demo-2026`. Magiczny link i reset hasła lądują w Mailpicie (bez `SMTP_URL` — w logu serwera). Wylogowanie: `/logout`.
+- Rejestracja (`/start`): imię i nazwisko, nazwa studia, e-mail i hasło (10–128 znaków). Atomowo tworzy konto, studio Solo z trialem na 14 dni i członkostwo owner, następnie loguje do pulpitu. Bez karty i bez tworzenia klienta Stripe. Ponowny signup tym samym e-mailem nie tworzy kolejnego studia.
 - Testy: `pnpm test` (Vitest, wymaga `DATABASE_URL`; resetuje studio demo).
