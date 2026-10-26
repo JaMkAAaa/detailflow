@@ -11,7 +11,7 @@ kolor pozycji menu. Brand korzysta z istniejącego `LogoMark` i fontu Space Grot
 
 Pięć tras zawiera na razie tylko nagłówki dla czytników ekranu, aby można było
 sprawdzić warianty nawigacji. Treść ekranów należy do kolejnych issue.
-Aktywność obejmuje też podstrony, np. `/zlecenia/DF-0248`.
+Aktywność obejmuje też podstrony, np. `/orders/DF-0248`.
 Usługi i cennik, Magazyn, Statystyki oraz Portfolio są natywnie disabled
 i mają widoczny badge „Wkrótce”. Nie generują nawigacji.
 

@@ -748,19 +748,19 @@ APP_URL=https://app.detailflow.pl
 | Ekran | Trasa |
 | --- | --- |
 | L-01/L-02 | `/` |
-| Cennik | `/#cennik` lub `/cennik` |
+| Cennik | `/#pricing` lub `/pricing` |
 | Trial | `/start` |
-| Logowanie | `/logowanie` |
+| Logowanie | `/login` |
 | D-01 | `/` (po sesji studia) |
-| D-02 | `/kalendarz` |
-| D-03 | `/zlecenia` |
-| D-04 | `/zlecenia/[number]` |
-| D-05 | `/klienci`, `/klienci/[id]` |
-| D-06 | `/wyceny/nowa` |
-| D-07–D-10 | `/faktury`, `/faktury/nowa`, `/faktury/[number]`, `/faktury/uwaga` |
+| D-02 | `/calendar` |
+| D-03 | `/orders` |
+| D-04 | `/orders/[number]` |
+| D-05 | `/customers`, `/customers/[id]` |
+| D-06 | `/quotes/new` |
+| D-07–D-10 | `/invoices`, `/invoices/new`, `/invoices/[number]`, `/invoices/attention` |
 | M-* | te same trasy, layout mobilny |
 | P-01/P-02 | `/p/[token]` |
-| A-01–A-08 | `/admin`, `/admin/studia`, `/admin/abonamenty`, … |
+| A-01–A-08 | `/admin`, `/admin/studios`, `/admin/subscriptions`, … |
 | A-09/A-10 | dialogi na karcie studia |
 
 ---

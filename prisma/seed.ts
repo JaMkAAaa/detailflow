@@ -13,7 +13,7 @@ import { hashPortalToken } from "../lib/portal/token";
 export const DEMO = {
   studioSlug: "obsidian-studio",
   ownerEmail: "michal.kowalski@example.com",
-  // Tylko lokalnie/demo: logowanie na /logowanie bez maila.
+  // Tylko lokalnie/demo: logowanie na /login bez maila.
   ownerPassword: "obsidian-demo-2026",
   // „Teraz” makiety: 24.10.2026, 11:30.
   now: waw("2026-10-24 11:30"),

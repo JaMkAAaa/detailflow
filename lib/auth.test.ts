@@ -97,8 +97,8 @@ describe("auth (Better Auth + Postgres)", () => {
 
   describe("password reset", () => {
     it("answers identically whether or not the e-mail exists, and mails only real accounts", async () => {
-      const known = await call("/request-password-reset", { email: DEMO.ownerEmail, redirectTo: "/nowe-haslo" });
-      const unknown = await call("/request-password-reset", { email: UNKNOWN, redirectTo: "/nowe-haslo" });
+      const known = await call("/request-password-reset", { email: DEMO.ownerEmail, redirectTo: "/reset-password" });
+      const unknown = await call("/request-password-reset", { email: UNKNOWN, redirectTo: "/reset-password" });
 
       expect(known.status).toBe(200);
       expect(unknown.status).toBe(known.status);
@@ -108,7 +108,7 @@ describe("auth (Better Auth + Postgres)", () => {
 
     it("sets a new password once, revokes existing sessions and invalidates the old password", async () => {
       await signIn();
-      await call("/request-password-reset", { email: DEMO.ownerEmail, redirectTo: "/nowe-haslo" });
+      await call("/request-password-reset", { email: DEMO.ownerEmail, redirectTo: "/reset-password" });
       const token = /reset-password\/([^?\s]+)/.exec(mails[0]!.text)?.[1];
       expect(token).toBeDefined();
 
@@ -137,14 +137,14 @@ describe("auth (Better Auth + Postgres)", () => {
     });
 
     it("logs in once via the link and stores only a hash of the token", async () => {
-      await call("/sign-in/magic-link", { email: DEMO.ownerEmail, callbackURL: "/zlecenia" });
+      await call("/sign-in/magic-link", { email: DEMO.ownerEmail, callbackURL: "/orders" });
       const url = new URL(/https?:\/\/\S+/.exec(mails[0]!.text)![0]);
       const token = url.searchParams.get("token")!;
       expect(await platformDb.verification.count({ where: { identifier: { contains: token } } })).toBe(0);
 
       const first = await call(`${url.pathname.replace("/api/auth", "")}${url.search}`);
       expect(first.status).toBe(302);
-      expect(first.headers.get("location")).toBe(`${APP}/zlecenia`);
+      expect(first.headers.get("location")).toBe(`${APP}/orders`);
       expect(sessionCookie(first)).toMatch(/HttpOnly/i);
 
       const second = await call(`${url.pathname.replace("/api/auth", "")}${url.search}`);
