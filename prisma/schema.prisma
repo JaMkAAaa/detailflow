@@ -114,6 +114,8 @@ model Studio {
   updatedAt            DateTime     @updatedAt
 
   coatingReminders CoatingReminder[]
+  orderCounter     OrderCounter?
+  orderEvents      WorkOrderEvent[]
   invitations      Invitation[]
   members          Membership[]
   clients          Client[]
@@ -148,6 +150,7 @@ model User {
   accounts        Account[]
   orderPhotos     OrderPhoto[]
   intakeProtocols IntakeProtocol[]
+  orderEvents     WorkOrderEvent[]
 }
 
 // Sesja studia w Postgres; cookie httpOnly niesie podpisany `token`.
@@ -316,6 +319,7 @@ model WorkOrder {
   portalLinks PortalLink[]
   photos      OrderPhoto[]
   intake      IntakeProtocol?
+  events      WorkOrderEvent[]
 
   @@unique([studioId, number])
   @@unique([id, studioId])
@@ -323,6 +327,33 @@ model WorkOrder {
   @@index([studioId, status])
   @@index([studioId, createdAt])
   @@index([studioId, scheduledFrom])
+}
+
+// Ostatni przydzielony numer DF-#### w studiu. Przydział = atomowy increment,
+// więc równoległe zlecenia nie dostają tego samego numeru (src/server/zlecenia/state.ts).
+model OrderCounter {
+  studioId String @id
+  last     Int    @default(0)
+  studio   Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+}
+
+// Historia zlecenia (zakładka Historia). Wpis powstaje razem ze zmianą statusu
+// lub etapu, w tej samej transakcji. `fromStatus = null` oznacza utworzenie.
+model WorkOrderEvent {
+  id          String       @id @default(cuid())
+  studioId    String
+  workOrderId String
+  fromStatus  OrderStatus?
+  toStatus    OrderStatus
+  fromStage   Int?
+  toStage     Int
+  actorId     String?
+  createdAt   DateTime     @default(now())
+  studio      Studio       @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  workOrder   WorkOrder    @relation(fields: [workOrderId, studioId], references: [id, studioId], onDelete: Cascade)
+  actor       User?        @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([workOrderId, studioId, createdAt])
 }
 
 model Quote {

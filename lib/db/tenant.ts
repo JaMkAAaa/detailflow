@@ -10,6 +10,8 @@ export const TENANT_MODELS = [
   "Vehicle",
   "Bay",
   "WorkOrder",
+  "WorkOrderEvent",
+  "OrderCounter",
   "Quote",
   "QuoteItem",
   "Invoice",

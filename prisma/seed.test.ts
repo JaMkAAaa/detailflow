@@ -6,6 +6,7 @@ import { Prisma } from "../lib/db/generated/client";
 import { studioDb, type StudioDb } from "../lib/db/tenant";
 import { hashPortalToken } from "../lib/portal/token";
 import { DEMO, seed } from "./seed";
+import { allocateOrderNumber, listOrderHistory } from "../src/server/zlecenia/state";
 import { getDashboardMetrics } from "../src/server/pulpit/metrics";
 
 const sum = (rows: { totalGross: Prisma.Decimal }[]) => rows.reduce((s, r) => s.plus(r.totalGross), new Prisma.Decimal(0));
@@ -26,6 +27,13 @@ describe("seed Obsidian Studio", () => {
     expect(studios[0]).toMatchObject({ name: "Obsidian Studio", city: "Warszawa", ksefEnv: "test" });
     expect(studios[0]!.members.map((m) => [m.user.name, m.role])).toEqual([["Michał Kowalski", "owner"]]);
     expect(await db.bay.findMany({ orderBy: { sort: "asc" }, select: { name: true } })).toEqual([{ name: "Boks 01" }, { name: "Boks 02" }]);
+  });
+
+  it("#DF-0248 has history ending at stage 2 and the order counter continues after the highest number", async () => {
+    const order = await db.workOrder.findFirstOrThrow({ where: { number: "DF-0248" } });
+    const history = await listOrderHistory(db, order.id);
+    expect(history.map((e) => [e.toStatus, e.toStage])).toEqual([["in_progress", 2], ["in_progress", 1], ["accepted", 1]]);
+    expect(await db.$transaction((tx) => allocateOrderNumber(tx, order.studioId))).toBe("DF-0253");
   });
 
   it("has 7 active orders: 3 in progress, 2 ready for pickup, 2 accepted", async () => {
