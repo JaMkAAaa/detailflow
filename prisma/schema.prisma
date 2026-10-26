@@ -128,6 +128,9 @@ model Studio {
   invoiceRows      InvoiceItem[]
   ksefEvents       KsefEvent[]
   portalLinks      PortalLink[]
+  orderPhotos      OrderPhoto[]
+  intakeProtocols  IntakeProtocol[]
+  intakeDamages    IntakeDamage[]
 
   @@index([status])
 }
@@ -135,17 +138,19 @@ model Studio {
 // Auth (Better Auth, lib/auth.ts). Hasło Argon2id leży w `Account.password`
 // (providerId = "credential"), nie w `User`.
 model User {
-  id            String       @id @default(cuid())
-  email         String       @unique
-  name          String
-  emailVerified Boolean      @default(false)
-  image         String?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  memberships   Membership[]
-  sessions      Session[]
-  accounts      Account[]
-  orderEvents   WorkOrderEvent[]
+  id              String           @id @default(cuid())
+  email           String           @unique
+  name            String
+  emailVerified   Boolean          @default(false)
+  image           String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  memberships     Membership[]
+  sessions        Session[]
+  accounts        Account[]
+  orderPhotos     OrderPhoto[]
+  intakeProtocols IntakeProtocol[]
+  orderEvents     WorkOrderEvent[]
 }
 
 // Sesja studia w Postgres; cookie httpOnly niesie podpisany `token`.
@@ -312,6 +317,8 @@ model WorkOrder {
 
   invoices    Invoice[]
   portalLinks PortalLink[]
+  photos      OrderPhoto[]
+  intake      IntakeProtocol?
   events      WorkOrderEvent[]
 
   @@unique([studioId, number])
@@ -509,4 +516,71 @@ model CoatingReminder {
   vehicle     Vehicle   @relation(fields: [vehicleId, studioId], references: [id, studioId], onDelete: Cascade)
 
   @@index([studioId, completedAt, dueAt])
+}
+
+// Zdjęcie zlecenia w prywatnym buckecie S3. Klucz: studios/<studioId>/orders/<workOrderId>/<id>.<ext>.
+// Wiersz powstaje przy wydaniu presigned URL (`uploadedAt` null) i staje się widoczny po potwierdzeniu uploadu.
+model OrderPhoto {
+  id           String    @id @default(cuid())
+  studioId     String
+  workOrderId  String
+  no           Int // numer zdjęcia w zleceniu (#12)
+  stage        Int // etap studia 1–4 w chwili dodania
+  key          String    @unique
+  contentType  String
+  sizeBytes    Int
+  caption      String?
+  uploadedById String?
+  createdAt    DateTime  @default(now())
+  uploadedAt   DateTime?
+  studio       Studio    @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  workOrder    WorkOrder @relation(fields: [workOrderId, studioId], references: [id, studioId], onDelete: Cascade)
+  uploadedBy   User?     @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  damages IntakeDamage[]
+
+  @@unique([id, studioId])
+  @@unique([workOrderId, no])
+  @@index([studioId, workOrderId, uploadedAt])
+}
+
+// Protokół przyjęcia: jeden na zlecenie. Po akceptacji klienta jest niezmienny.
+model IntakeProtocol {
+  id          String    @id @default(cuid())
+  studioId    String
+  workOrderId String
+  number      String // P-0248
+  createdById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  acceptedAt  DateTime? // akceptacja klienta; UI portalu później
+  studio      Studio    @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  workOrder   WorkOrder @relation(fields: [workOrderId, studioId], references: [id, studioId], onDelete: Cascade)
+  createdBy   User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  damages IntakeDamage[]
+
+  @@unique([workOrderId, studioId])
+  @@unique([studioId, number])
+  @@unique([id, studioId])
+}
+
+// Punkt uszkodzenia 1..n na schemacie auta; posX/posY to ułamki 0–1 szerokości/wysokości schematu.
+model IntakeDamage {
+  id         String         @id @default(cuid())
+  studioId   String
+  protocolId String
+  photoId    String?
+  no         Int
+  title      String
+  part       String
+  size       String?
+  posX       Float
+  posY       Float
+  studio     Studio         @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  protocol   IntakeProtocol @relation(fields: [protocolId, studioId], references: [id, studioId], onDelete: Cascade)
+  photo      OrderPhoto?    @relation(fields: [photoId, studioId], references: [id, studioId], onDelete: NoAction)
+
+  @@unique([protocolId, no])
+  @@index([studioId, protocolId])
 }

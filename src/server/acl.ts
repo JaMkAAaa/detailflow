@@ -3,6 +3,7 @@ import type { MembershipRole } from "../../lib/db/generated/client";
 
 export const permissions = {
   "studio:read": ["owner", "manager", "worker"],
+  "orders:write": ["owner", "manager", "worker"],
   "orders:update": ["owner", "manager", "worker"],
   "invoices:manage": ["owner", "manager"],
   "members:invite": ["owner", "manager"],

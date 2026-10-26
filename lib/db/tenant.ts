@@ -19,6 +19,9 @@ export const TENANT_MODELS = [
   "KsefEvent",
   "PortalLink",
   "CoatingReminder",
+  "OrderPhoto",
+  "IntakeProtocol",
+  "IntakeDamage",
 ] as const satisfies readonly Prisma.ModelName[];
 
 type TenantModel = (typeof TENANT_MODELS)[number];
