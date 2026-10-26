@@ -4,6 +4,7 @@
 // `pnpm db:seed` można uruchamiać wielokrotnie. Inne studia zostają nietknięte.
 
 import { pathToFileURL } from "node:url";
+import { hashPassword } from "../lib/auth/password";
 import { platformDb } from "../lib/db/client";
 import { Prisma, type KsefEventKind, type OrderStatus, type VehicleSize } from "../lib/db/generated/client";
 import { studioDb } from "../lib/db/tenant";
@@ -12,6 +13,8 @@ import { hashPortalToken } from "../lib/portal/token";
 export const DEMO = {
   studioSlug: "obsidian-studio",
   ownerEmail: "michal.kowalski@example.com",
+  // Tylko lokalnie/demo: logowanie na /logowanie bez maila.
+  ownerPassword: "obsidian-demo-2026",
   // „Teraz” makiety: 24.10.2026, 11:30.
   now: waw("2026-10-24 11:30"),
   // Stałe tokeny tylko dla danych demo, żeby dało się otworzyć portal lokalnie.
@@ -360,8 +363,15 @@ export async function seed() {
 
   const owner = await platformDb.user.upsert({
     where: { email: DEMO.ownerEmail },
-    update: { name: "Michał Kowalski" },
-    create: { email: DEMO.ownerEmail, name: "Michał Kowalski" },
+    update: { name: "Michał Kowalski", emailVerified: true },
+    create: { email: DEMO.ownerEmail, name: "Michał Kowalski", emailVerified: true },
+  });
+  // Konto hasłowe Better Auth: providerId "credential", accountId = userId.
+  const password = await hashPassword(DEMO.ownerPassword);
+  await platformDb.account.upsert({
+    where: { providerId_accountId: { providerId: "credential", accountId: owner.id } },
+    update: { password },
+    create: { userId: owner.id, providerId: "credential", accountId: owner.id, password },
   });
   await db.membership.create({ data: { studioId, userId: owner.id, role: "owner" } });
 
