@@ -473,6 +473,28 @@ export async function seed() {
     orderId.set(o.number, created.id);
   }
 
+  // Historia (zakładka Historia): utworzenie każdego zlecenia, a dla #DF-0248
+  // dodatkowo start pracy i przejście na etap 2.
+  const ownerId = owner.id;
+  await db.workOrderEvent.createMany({
+    data: ORDERS.map((o) => ({
+      studioId,
+      workOrderId: orderId.get(o.number)!,
+      toStatus: "accepted" as const,
+      toStage: 1,
+      actorId: ownerId,
+      createdAt: waw(o.from),
+    })),
+  });
+  await db.workOrderEvent.createMany({
+    data: [
+      { studioId, workOrderId: orderId.get("DF-0248")!, fromStatus: "accepted", toStatus: "in_progress", fromStage: 1, toStage: 1, actorId: ownerId, createdAt: waw("2026-10-24 08:05") },
+      { studioId, workOrderId: orderId.get("DF-0248")!, fromStatus: "in_progress", toStatus: "in_progress", fromStage: 1, toStage: 2, actorId: ownerId, createdAt: waw("2026-10-24 09:40") },
+    ],
+  });
+  // Licznik numerów DF-#### startuje od najwyższego numeru z makiety.
+  await db.orderCounter.create({ data: { studioId, last: Math.max(...ORDERS.map((o) => Number(o.number.slice(3)))) } });
+
   for (const inv of INVOICES) {
     const order = ORDERS.find((o) => o.number === inv.order)!;
     // Kontrakt: faktura tylko z zakończonego zlecenia.
