@@ -1,7 +1,11 @@
+import { Logo } from "@/components/brand/Logo";
+
 export default function Home() {
   return (
     <main className="flex min-h-dvh items-center justify-center">
-      <h1 className="text-2xl font-semibold">Detailflow</h1>
+      <h1>
+        <Logo size={32} />
+      </h1>
     </main>
   );
 }

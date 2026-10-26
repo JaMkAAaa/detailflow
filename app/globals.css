@@ -1,1 +1,108 @@
 @import "tailwindcss";
+
+/* Tokeny 1:1 z Figmy — dokumentacja §4.7. Nie dodawaj kolorów poza tą listą. */
+:root {
+  --df-bg: #101214;
+  --df-side: #17191c;
+  --df-panel: #1b1e21;
+  --df-raised: #24282c;
+  --df-line: #30353a;
+  --df-text: #f2f4f5;
+  --df-muted: #9ca5ac;
+  --df-lime: #d3f66a;
+  --df-lime-dark: #2b3521;
+  --df-blue: #a7c8ff;
+  --df-blue-dark: #243044;
+  --df-amber: #f0c589;
+  --df-amber-dark: #392f23;
+  --df-green: #8ed9b0;
+  --df-error: #ff6b6b;
+  --df-error-surface: #3d1a1a;
+  --df-success-surface: #1b3027;
+
+  /* Odstępy używane przez komponenty Figmy (sidebar, przyciski). */
+  --df-space-4: 4px;
+  --df-space-8: 8px;
+  --df-space-10: 10px;
+  --df-space-12: 12px;
+  --df-space-16: 16px;
+  --df-space-20: 20px;
+  --df-space-24: 24px;
+  --df-space-28: 28px;
+
+  color-scheme: dark;
+}
+
+/*
+ * Tailwind v4: `bg-df-side`, `text-df-lime`, `border-df-line`, `font-brand`,
+ * `text-df-body` itd. Kolory wskazują na zmienne, więc `:root` zostaje jedynym źródłem.
+ */
+@theme inline {
+  --color-df-bg: var(--df-bg);
+  --color-df-side: var(--df-side);
+  --color-df-panel: var(--df-panel);
+  --color-df-raised: var(--df-raised);
+  --color-df-line: var(--df-line);
+  --color-df-text: var(--df-text);
+  --color-df-muted: var(--df-muted);
+  --color-df-lime: var(--df-lime);
+  --color-df-lime-dark: var(--df-lime-dark);
+  --color-df-blue: var(--df-blue);
+  --color-df-blue-dark: var(--df-blue-dark);
+  --color-df-amber: var(--df-amber);
+  --color-df-amber-dark: var(--df-amber-dark);
+  --color-df-green: var(--df-green);
+  --color-df-error: var(--df-error);
+  --color-df-error-surface: var(--df-error-surface);
+  --color-df-success-surface: var(--df-success-surface);
+
+  --font-sans: var(--df-font-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-brand: var(--df-font-brand), var(--df-font-sans), ui-sans-serif, sans-serif;
+
+  /* Style tekstu z Figmy `Detailflow/*` (Inter, line-height 1.4). */
+  --text-df-label: 12px;
+  --text-df-label--line-height: 1.4;
+  --text-df-label--font-weight: 500;
+  --text-df-body: 13px;
+  --text-df-body--line-height: 1.4;
+  --text-df-body--font-weight: 400;
+  --text-df-strong: 14px;
+  --text-df-strong--line-height: 1.4;
+  --text-df-strong--font-weight: 600;
+  --text-df-section: 17px;
+  --text-df-section--line-height: 1.4;
+  --text-df-section--font-weight: 600;
+  --text-df-headline: 30px;
+  --text-df-headline--line-height: 1.4;
+  --text-df-headline--font-weight: 600;
+  --text-df-number: 30px;
+  --text-df-number--line-height: 1.4;
+  --text-df-number--font-weight: 500;
+  /* Brand / Wordmark: Space Grotesk Bold 20/28, -0.55 px. */
+  --text-df-wordmark: 20px;
+  --text-df-wordmark--line-height: 28px;
+  --text-df-wordmark--letter-spacing: -0.55px;
+  --text-df-wordmark--font-weight: 700;
+}
+
+html {
+  background: var(--df-bg);
+  color: var(--df-text);
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--df-lime);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--df-lime);
+  color: var(--df-bg);
+}
