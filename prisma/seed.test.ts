@@ -6,6 +6,7 @@ import { Prisma } from "../lib/db/generated/client";
 import { studioDb, type StudioDb } from "../lib/db/tenant";
 import { hashPortalToken } from "../lib/portal/token";
 import { DEMO, seed } from "./seed";
+import { getDashboardMetrics } from "../src/server/pulpit/metrics";
 
 const sum = (rows: { totalGross: Prisma.Decimal }[]) => rows.reduce((s, r) => s.plus(r.totalGross), new Prisma.Decimal(0));
 
@@ -99,6 +100,16 @@ describe("seed Obsidian Studio", () => {
     expect(await db.vehicle.count()).toBe(168);
     const nowak = await db.client.findFirstOrThrow({ where: { name: "Adam Nowak" }, include: { vehicles: true } });
     expect(nowak.vehicles.map((v) => v.plate).sort()).toEqual(["WA 492BM", "WA 911PC"]);
+  });
+
+  it("feeds live dashboard metrics and three coating clients from the demo seed", async () => {
+    const studio = await platformDb.studio.findUniqueOrThrow({ where: { slug: DEMO.studioSlug } });
+    const metrics = await getDashboardMetrics(studio.id, DEMO.now);
+    expect(metrics.active).toEqual({ total: 7, inProgress: 3, ready: 2, accepted: 2 });
+    expect(metrics.returning).toEqual({ percent: 64, regular: 79, total: 124 });
+    expect(metrics.featured).toMatchObject({ number: "DF-0248", stage: 2, vehicle: "Porsche Panamera" });
+    expect(metrics.alerts.coatingClients).toBe(3);
+    expect(metrics.alerts.rejected.map((i) => i.number)).toContain("FV/39/10/2026");
   });
 
   it("stores only the portal token hash", async () => {

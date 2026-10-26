@@ -113,18 +113,19 @@ model Studio {
   createdAt            DateTime     @default(now())
   updatedAt            DateTime     @updatedAt
 
-  invitations Invitation[]
-  members     Membership[]
-  clients     Client[]
-  vehicles    Vehicle[]
-  bays        Bay[]
-  orders      WorkOrder[]
-  quotes      Quote[]
-  quoteItems  QuoteItem[]
-  invoices    Invoice[]
-  invoiceRows InvoiceItem[]
-  ksefEvents  KsefEvent[]
-  portalLinks PortalLink[]
+  coatingReminders CoatingReminder[]
+  invitations      Invitation[]
+  members          Membership[]
+  clients          Client[]
+  vehicles         Vehicle[]
+  bays             Bay[]
+  orders           WorkOrder[]
+  quotes           Quote[]
+  quoteItems       QuoteItem[]
+  invoices         Invoice[]
+  invoiceRows      InvoiceItem[]
+  ksefEvents       KsefEvent[]
+  portalLinks      PortalLink[]
 
   @@index([status])
 }
@@ -261,8 +262,9 @@ model Vehicle {
   studio    Studio      @relation(fields: [studioId], references: [id], onDelete: Cascade)
   client    Client      @relation(fields: [clientId, studioId], references: [id, studioId], onDelete: NoAction)
 
-  orders WorkOrder[]
-  quotes Quote[]
+  orders           WorkOrder[]
+  quotes           Quote[]
+  coatingReminders CoatingReminder[]
 
   @@unique([id, studioId])
   @@index([studioId, createdAt])
@@ -463,4 +465,17 @@ model Invitation {
   studio     Studio         @relation(fields: [studioId], references: [id], onDelete: Cascade)
 
   @@index([studioId, email])
+}
+
+// Jawny termin konserwacji; bez zgadywania dat na podstawie nazwy usługi.
+model CoatingReminder {
+  id          String    @id @default(cuid())
+  studioId    String
+  vehicleId   String
+  dueAt       DateTime
+  completedAt DateTime?
+  studio      Studio    @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  vehicle     Vehicle   @relation(fields: [vehicleId, studioId], references: [id, studioId], onDelete: Cascade)
+
+  @@index([studioId, completedAt, dueAt])
 }
