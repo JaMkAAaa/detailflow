@@ -1,0 +1,35 @@
+name: Epic
+description: Duży kawałek produktu. Nie commituj kodu bezpośrednio do epika.
+title: "[Epic] "
+labels: ["type:epic"]
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Wynik
+      description: Co istnieje w produkcie, gdy epik jest zamknięty.
+    validations:
+      required: true
+  - type: textarea
+    id: figma
+    attributes:
+      label: Figma
+      description: Strona / ekrany / node-id.
+    validations:
+      required: true
+  - type: textarea
+    id: docs
+    attributes:
+      label: Dokumentacja
+      value: docs/dokumentacja-wdrozenia.md
+  - type: textarea
+    id: children
+    attributes:
+      label: Issue składowe
+      description: Zaznaczaj po utworzeniu. Nie implementuj całego epika w jednym PR.
+      value: |
+        - [ ] #
+  - type: textarea
+    id: out
+    attributes:
+      label: Poza zakresem

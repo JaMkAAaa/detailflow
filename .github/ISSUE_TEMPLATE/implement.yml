@@ -1,0 +1,49 @@
+name: Implementacja
+description: API, model, worker, integracja. UI może być cienkim podłączeniem istniejącego ekranu.
+title: "[Impl] "
+labels: ["type:implement"]
+body:
+  - type: textarea
+    id: context
+    attributes:
+      label: Kontekst
+    validations:
+      required: true
+  - type: textarea
+    id: docs
+    attributes:
+      label: Dokumentacja
+      value: docs/dokumentacja-wdrozenia.md
+  - type: textarea
+    id: scope
+    attributes:
+      label: Zakres
+    validations:
+      required: true
+  - type: textarea
+    id: ac
+    attributes:
+      label: Kryteria akceptacji
+    validations:
+      required: true
+  - type: textarea
+    id: rules
+    attributes:
+      label: Twarde reguły
+      value: |
+        - Każde zapytanie operacyjne filtruje `studioId`.
+        - Kwoty tylko `Decimal` / PLN. Nigdy `float`.
+        - Stripe = abonament platformy. KSeF = faktura klienta studia. Nie mieszać.
+        - KSeF TEST i PROD mają osobne sekrety i liczniki.
+  - type: textarea
+    id: deps
+    attributes:
+      label: Zależności
+      placeholder: Blocked by #n
+  - type: textarea
+    id: tests
+    attributes:
+      label: Testy
+      value: |
+        - [ ] Test izolacji tenantów
+        - [ ] Przypadek z dokumentacji (numery demo / wzór ceny / metryka MRR)

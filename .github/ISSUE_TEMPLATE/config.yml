@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Dokumentacja wdrożenia
+    url: https://github.com/mikolajjedrzejczak/detailflow/blob/main/docs/dokumentacja-wdrozenia.md
+    about: Specyfikacja produktu, stacku i zakresu v1
+  - name: Figma
+    url: https://www.figma.com/design/3pssHgZjGzo0UeyBC8yZ3S
+    about: Źródło prawdy UI

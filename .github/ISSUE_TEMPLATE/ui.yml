@@ -1,0 +1,49 @@
+name: UI
+description: Ekran lub komponent 1:1 z Figmy. Bez logiki biznesowej, albo z jawnym mockiem.
+title: "[UI] "
+labels: ["type:ui", "layer:ui"]
+body:
+  - type: textarea
+    id: context
+    attributes:
+      label: Kontekst
+    validations:
+      required: true
+  - type: input
+    id: figma
+    attributes:
+      label: Figma (node)
+      placeholder: https://www.figma.com/design/3pssHgZjGzo0UeyBC8yZ3S?node-id=1-3
+    validations:
+      required: true
+  - type: input
+    id: route
+    attributes:
+      label: Trasa
+      placeholder: /kalendarz
+  - type: textarea
+    id: scope
+    attributes:
+      label: Zakres
+      value: |
+        - [ ] Layout zgodny z Figmą (desktop i/lub mobile)
+        - [ ] Tokeny `--df-*`, Inter, stany hover/focus/disabled
+        - [ ] Puste / loading / błąd jeśli są na S-01
+  - type: textarea
+    id: ac
+    attributes:
+      label: Kryteria akceptacji
+      value: |
+        - [ ] Porównanie z Figmą na 1280 px (desktop) albo 390 px (mobile)
+        - [ ] Focus 2 px + offset 2 px
+        - [ ] `prefers-reduced-motion` wyłącza pulsację
+  - type: textarea
+    id: out
+    attributes:
+      label: Poza zakresem
+      value: Prawdziwe API — to osobne issue `type:implement`.
+  - type: textarea
+    id: files
+    attributes:
+      label: Docelowe pliki
+      placeholder: app/(studio)/kalendarz/page.tsx
