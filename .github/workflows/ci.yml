@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   check:
-    name: lint + typecheck + prisma validate + build
+    name: typecheck + build
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
