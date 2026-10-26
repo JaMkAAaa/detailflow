@@ -28,7 +28,11 @@ CMD ["pnpm", "prisma", "migrate", "deploy"]
 
 FROM deps AS builder
 COPY . .
-RUN SKIP_ENV_VALIDATION=1 pnpm build
+# Next importuje auth i inicjalizuje Prisma podczas zbierania danych tras.
+# Build nie łączy się z bazą; techniczny URL dotyczy tylko tego polecenia,
+# a uruchomiony kontener nadal wymaga własnego DATABASE_URL.
+RUN DATABASE_URL=postgresql://build:build@127.0.0.1:5432/detailflow_build \
+    SKIP_ENV_VALIDATION=1 pnpm build
 
 # Produkcja: web (domyślnie) albo worker (`node dist/worker.mjs`) z tego samego obrazu.
 FROM node:24-alpine AS runner

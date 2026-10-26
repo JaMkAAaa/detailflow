@@ -20,7 +20,7 @@ export const TENANT_MODELS = [
 type TenantModel = (typeof TENANT_MODELS)[number];
 
 // Delegaty modeli platformy są niedostępne z `studioDb` już na poziomie typów.
-type PlatformDelegate = "studio" | "user" | "stripeEvent" | "auditLog";
+type PlatformDelegate = "studio" | "user" | "session" | "account" | "verification" | "stripeEvent" | "auditLog";
 
 const tenantModels = new Set<string>(TENANT_MODELS);
 
@@ -133,7 +133,7 @@ export type StudioDb = Omit<ReturnType<typeof extend>, PlatformDelegate | "$quer
 export function studioDb(studioId: string, base: PlatformDb = platformDb): StudioDb {
   assertStudioId(studioId);
   const client = extend(base, studioId);
-  const blocked = new Set<PropertyKey>(["studio", "user", "stripeEvent", "auditLog", "$queryRaw", "$queryRawUnsafe", "$executeRaw", "$executeRawUnsafe"]);
+  const blocked = new Set<PropertyKey>(["studio", "user", "session", "account", "verification", "stripeEvent", "auditLog", "$queryRaw", "$queryRawUnsafe", "$executeRaw", "$executeRawUnsafe"]);
   return new Proxy(client, {
     get(target, prop, receiver) {
       if (blocked.has(prop)) {

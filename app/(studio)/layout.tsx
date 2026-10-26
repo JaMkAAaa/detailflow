@@ -1,8 +1,11 @@
 import type { ReactNode } from "react";
 import { Sidebar } from "@/components/studio/Sidebar";
 import { Topbar } from "@/components/studio/Topbar";
+import { requireSession } from "@/lib/auth/session";
 
-export default function StudioLayout({ children }: { children: ReactNode }) {
+export default async function StudioLayout({ children }: { children: ReactNode }) {
+  await requireSession();
+
   return (
     <div className="flex min-h-dvh min-w-[1024px] bg-df-bg">
       <a href="#studio-content" className="sr-only z-10 rounded bg-df-lime px-4 py-2 text-df-bg focus:not-sr-only focus:fixed focus:top-2 focus:left-2">Przejdź do treści</a>
