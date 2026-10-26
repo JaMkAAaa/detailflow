@@ -79,6 +79,7 @@ export function LoginForm({ next, notice }: { next: string; notice?: string }) {
         </button>
         {mode === "password" && <Link href="/forgot-password" className="text-df-muted hover:text-df-text">Nie pamiętasz hasła?</Link>}
       </div>
+      <Link href="/start" className="text-df-body text-df-muted hover:text-df-text">Wypróbuj za darmo przez 14 dni</Link>
     </form>
   );
 }
