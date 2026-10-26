@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* Tokeny 1:1 z Figmy — dokumentacja §4.7. Nie dodawaj kolorów poza tą listą. */
+/* Tokeny 1:1 z Figmy — dokumentacja §4.7 i komponenty Button / Status. */
 :root {
   --df-bg: #101214;
   --df-side: #17191c;
@@ -19,6 +19,11 @@
   --df-error: #ff6b6b;
   --df-error-surface: #3d1a1a;
   --df-success-surface: #1b3027;
+  /* Dodatkowe wartości z wariantów Hover, Przetwarzanie i Ponawiamy. */
+  --df-hover: #2c3136;
+  --df-processing-surface: #243045;
+  --df-retry-surface: #382b14;
+  --df-retry: #fabf5c;
 
   /* Odstępy używane przez komponenty Figmy (sidebar, przyciski). */
   --df-space-4: 4px;
@@ -55,6 +60,10 @@
   --color-df-error: var(--df-error);
   --color-df-error-surface: var(--df-error-surface);
   --color-df-success-surface: var(--df-success-surface);
+  --color-df-hover: var(--df-hover);
+  --color-df-processing-surface: var(--df-processing-surface);
+  --color-df-retry-surface: var(--df-retry-surface);
+  --color-df-retry: var(--df-retry);
 
   --font-sans: var(--df-font-sans), ui-sans-serif, system-ui, sans-serif;
   --font-brand: var(--df-font-brand), var(--df-font-sans), ui-sans-serif, sans-serif;
