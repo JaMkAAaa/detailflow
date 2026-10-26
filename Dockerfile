@@ -19,6 +19,13 @@ COPY . .
 EXPOSE 3000
 CMD ["pnpm", "dev"]
 
+# Migracje produkcyjne: `prisma migrate deploy` jako osobny krok przed startem web.
+# Nigdy `db push` na produkcji.
+FROM deps AS migrate
+COPY prisma ./prisma
+COPY prisma.config.ts ./
+CMD ["pnpm", "prisma", "migrate", "deploy"]
+
 FROM deps AS builder
 COPY . .
 RUN SKIP_ENV_VALIDATION=1 pnpm build
