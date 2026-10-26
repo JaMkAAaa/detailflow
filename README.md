@@ -28,3 +28,31 @@ Kamienie milowe = fazy v1 (fundament → operacje → pieniądz studia → SaaS 
 
 1. Studio → Detailflow: **Stripe Billing** (79 / 149 / 279 zł netto).
 2. Klient studia → studio: **faktura KSeF FA(3)**. Nie używamy Stripe do tej faktury w v1.
+
+## Uruchomienie lokalne
+
+```bash
+cp .env.example .env
+docker compose up
+```
+
+- Aplikacja: http://localhost:3000 (health: `/api/health`)
+- Mailpit: http://localhost:8025 · MinIO: http://localhost:9001
+- Zajęty port? Ustaw `WEB_PORT` / `POSTGRES_PORT` w `.env`.
+
+Bez Dockera: `corepack enable && pnpm install && pnpm dev` (w `.env` hosty serwisów zamień na `localhost`).
+
+## Baza danych
+
+Schemat: `prisma/schema.prisma` (§9 dokumentacji). Zmiany wyłącznie migracjami — `db push` nie jest procesem produkcyjnym.
+
+```bash
+docker compose exec web pnpm db:migrate   # nowa migracja (dev)
+docker compose exec web pnpm db:seed      # Obsidian Studio z makiety, czysty reset
+```
+
+Z hosta ustaw `DATABASE_URL=postgresql://detailflow:detailflow@localhost:5432/detailflow` (port z `POSTGRES_PORT`). Prisma 7 nie czyta `.env` sama.
+
+- Produkcja: `prisma migrate deploy` z obrazu `--target migrate` przed startem web.
+- Zapytania studia tylko przez `studioDb(studioId)` z `lib/db/tenant.ts`. `platformDb` (bez filtra) — panel platformy, auth, webhooki, seed.
+- Testy: `pnpm test` (Vitest, wymaga `DATABASE_URL`; resetuje studio demo).

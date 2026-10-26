@@ -16,3 +16,7 @@ coverage/
 pgdata/
 .minio/
 scripts/_tmp*
+next-env.d.ts
+
+# Prisma Client generowany z prisma/schema.prisma
+lib/db/generated/

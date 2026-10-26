@@ -1,0 +1,16 @@
+.git
+node_modules
+.next
+dist
+coverage
+.env
+.env.*
+!.env.example
+pgdata
+.minio
+audit
+branding
+docs
+scripts
+*.log
+lib/db/generated
