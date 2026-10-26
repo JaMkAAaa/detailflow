@@ -8,6 +8,7 @@ const badgeVariants = cva(
     variants: {
       variant: {
         "in-progress": "h-7 gap-1 rounded-md bg-df-lime-dark text-df-lime",
+        accepted: "h-7 gap-1 rounded-md bg-df-raised text-df-muted",
         scheduled: "h-7 gap-1 rounded-md bg-df-blue-dark text-df-blue",
         "ready-for-pickup": "h-7 gap-1 rounded-md bg-df-blue-dark text-df-blue",
         "accepted-test": "gap-1.5 rounded-[20px] bg-df-success-surface py-[5px] font-semibold leading-[normal] text-df-green",
@@ -28,6 +29,7 @@ const badgeVariants = cva(
 
 const badgeLabels = {
   "in-progress": "W trakcie",
+  accepted: "Przyjęte",
   scheduled: "Zaplanowane",
   "ready-for-pickup": "Do odbioru",
   "accepted-test": "Przyjęta (test)",

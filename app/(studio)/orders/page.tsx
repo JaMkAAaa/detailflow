@@ -1,3 +1,5 @@
+import { OrdersBoard } from "@/components/zlecenia/OrdersBoard";
+
 export default function OrdersPage() {
-  return <h1 className="sr-only">Zlecenia</h1>;
+  return <OrdersBoard />;
 }
