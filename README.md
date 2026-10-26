@@ -41,3 +41,18 @@ docker compose up
 - Zajęty port? Ustaw `WEB_PORT` / `POSTGRES_PORT` w `.env`.
 
 Bez Dockera: `corepack enable && pnpm install && pnpm dev` (w `.env` hosty serwisów zamień na `localhost`).
+
+## Baza danych
+
+Schemat: `prisma/schema.prisma` (§9 dokumentacji). Zmiany wyłącznie migracjami — `db push` nie jest procesem produkcyjnym.
+
+```bash
+docker compose exec web pnpm db:migrate   # nowa migracja (dev)
+docker compose exec web pnpm db:seed      # Obsidian Studio z makiety, czysty reset
+```
+
+Z hosta ustaw `DATABASE_URL=postgresql://detailflow:detailflow@localhost:5432/detailflow` (port z `POSTGRES_PORT`). Prisma 7 nie czyta `.env` sama.
+
+- Produkcja: `prisma migrate deploy` z obrazu `--target migrate` przed startem web.
+- Zapytania studia tylko przez `studioDb(studioId)` z `lib/db/tenant.ts`. `platformDb` (bez filtra) — panel platformy, auth, webhooki, seed.
+- Testy: `pnpm test` (Vitest, wymaga `DATABASE_URL`; resetuje studio demo).

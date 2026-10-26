@@ -1,0 +1,397 @@
+// Model danych v1 — docs/dokumentacja-wdrozenia.md §9.
+// Izolacja: każda tabela operacyjna ma `studioId`. Relacje między tabelami
+// operacyjnymi idą po (id, studioId), więc baza sama odrzuca powiązanie
+// zlecenia z klientem innego studia. Zapytania studia: `studioDb(studioId)`.
+// Kwoty: Decimal(12, 2), PLN. Zmiany schematu tylko migracjami.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/db/generated"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum StudioStatus {
+  trial
+  active
+  past_due
+  suspended
+  canceled
+}
+
+enum Plan {
+  solo
+  studio
+  pro
+}
+
+enum MembershipRole {
+  owner
+  manager
+  worker
+}
+
+enum VehicleSize {
+  small
+  medium
+  suv
+}
+
+enum OrderStatus {
+  accepted
+  in_progress
+  ready_for_pickup
+  completed
+  canceled
+}
+
+enum QuoteStatus {
+  draft
+  sent
+  accepted
+  rejected
+  expired
+}
+
+// Stan dokumentu. Płatność to `paidAt`, a obieg KSeF to `ksefStatus`.
+enum InvoiceStatus {
+  draft
+  issued
+  canceled
+}
+
+enum KsefStatus {
+  not_sent
+  queued
+  processing
+  accepted
+  rejected
+  retrying
+}
+
+// TEST i PROD nigdy nie dzielą numeracji ani liczników.
+enum KsefEnv {
+  test
+  production
+}
+
+enum KsefEventKind {
+  issued
+  validated
+  sent
+  timeout
+  processing
+  accepted
+  rejected
+  retry_scheduled
+}
+
+// ─── Platforma (bez studioId) ────────────────────────────────────────────────
+
+model Studio {
+  id                   String       @id @default(cuid())
+  publicCode           String       @unique // ST-00128
+  name                 String
+  slug                 String       @unique
+  ownerLegalName       String? // sprzedawca na FV, np. „Obsidian Studio Michał Kowalski”
+  nip                  String?
+  address              String?
+  postal               String?
+  city                 String?
+  district             String?
+  phone                String?
+  status               StudioStatus @default(trial)
+  plan                 Plan         @default(solo)
+  trialEndsAt          DateTime?
+  // Stripe = abonament Detailflow, nie faktury klientów studia.
+  stripeCustomerId     String?      @unique
+  stripeSubscriptionId String?      @unique
+  ksefEnv              KsefEnv      @default(test)
+  ksefTokenEnc         String? // szyfrowane at rest
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  members     Membership[]
+  clients     Client[]
+  vehicles    Vehicle[]
+  bays        Bay[]
+  orders      WorkOrder[]
+  quotes      Quote[]
+  quoteItems  QuoteItem[]
+  invoices    Invoice[]
+  invoiceRows InvoiceItem[]
+  ksefEvents  KsefEvent[]
+  portalLinks PortalLink[]
+
+  @@index([status])
+}
+
+model User {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  name         String
+  passwordHash String?
+  createdAt    DateTime     @default(now())
+  memberships  Membership[]
+}
+
+// Idempotencja webhooków Stripe po `event.id`.
+model StripeEvent {
+  id          String   @id // evt_...
+  type        String
+  processedAt DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  studioId  String?
+  action    String
+  meta      Json
+  createdAt DateTime @default(now())
+
+  @@index([studioId, createdAt])
+}
+
+// ─── Tenant (studioId obowiązkowy) ───────────────────────────────────────────
+
+model Membership {
+  id        String         @id @default(cuid())
+  studioId  String
+  userId    String
+  role      MembershipRole
+  createdAt DateTime       @default(now())
+  studio    Studio         @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([studioId, userId])
+  @@index([userId])
+}
+
+model Client {
+  id        String   @id @default(cuid())
+  studioId  String
+  name      String
+  email     String?
+  phone     String?
+  street    String?
+  postal    String?
+  city      String?
+  nip       String? // nabywca B2B
+  isRegular Boolean  @default(false)
+  createdAt DateTime @default(now())
+  studio    Studio   @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  vehicles Vehicle[]
+  orders   WorkOrder[]
+  quotes   Quote[]
+
+  @@unique([id, studioId])
+  @@index([studioId, createdAt])
+  @@index([studioId, name])
+}
+
+model Vehicle {
+  id        String      @id @default(cuid())
+  studioId  String
+  clientId  String
+  make      String
+  model     String
+  plate     String
+  year      Int?
+  color     String?
+  size      VehicleSize @default(medium)
+  createdAt DateTime    @default(now())
+  studio    Studio      @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  client    Client      @relation(fields: [clientId, studioId], references: [id, studioId], onDelete: NoAction)
+
+  orders WorkOrder[]
+  quotes Quote[]
+
+  @@unique([id, studioId])
+  @@index([studioId, createdAt])
+  @@index([plate])
+}
+
+model Bay {
+  id       String      @id @default(cuid())
+  studioId String
+  name     String // Boks 01
+  sort     Int
+  studio   Studio      @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  orders   WorkOrder[]
+
+  @@unique([id, studioId])
+  @@unique([studioId, sort])
+}
+
+model WorkOrder {
+  id            String      @id @default(cuid())
+  studioId      String
+  number        String // DF-0248
+  clientId      String
+  vehicleId     String
+  bayId         String?
+  quoteId       String?
+  status        OrderStatus
+  service       String // „Korekta + ceramika”
+  stage         Int         @default(1) // 1–4 po stronie studia; portal pokazuje 3
+  scheduledFrom DateTime
+  scheduledTo   DateTime
+  dueAt         DateTime? // planowany odbiór
+  completedAt   DateTime? // dopiero po tym można wystawić FV
+  totalGross    Decimal     @db.Decimal(12, 2)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  studio        Studio      @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  client        Client      @relation(fields: [clientId, studioId], references: [id, studioId], onDelete: NoAction)
+  vehicle       Vehicle     @relation(fields: [vehicleId, studioId], references: [id, studioId], onDelete: NoAction)
+  bay           Bay?        @relation(fields: [bayId, studioId], references: [id, studioId], onDelete: NoAction)
+  quote         Quote?      @relation(fields: [quoteId, studioId], references: [id, studioId], onDelete: NoAction)
+
+  invoices    Invoice[]
+  portalLinks PortalLink[]
+
+  @@unique([studioId, number])
+  @@unique([id, studioId])
+  @@unique([quoteId, studioId])
+  @@index([studioId, status])
+  @@index([studioId, createdAt])
+  @@index([studioId, scheduledFrom])
+}
+
+model Quote {
+  id         String      @id @default(cuid())
+  studioId   String
+  clientId   String
+  vehicleId  String
+  status     QuoteStatus
+  sizeMult   Decimal     @db.Decimal(4, 2)
+  paintMult  Decimal     @db.Decimal(4, 2)
+  totalGross Decimal     @db.Decimal(12, 2)
+  vatAmount  Decimal     @db.Decimal(12, 2) // brutto × 23/123
+  notes      String?
+  sentAt     DateTime?
+  decidedAt  DateTime?
+  createdAt  DateTime    @default(now())
+  studio     Studio      @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  client     Client      @relation(fields: [clientId, studioId], references: [id, studioId], onDelete: NoAction)
+  vehicle    Vehicle     @relation(fields: [vehicleId, studioId], references: [id, studioId], onDelete: NoAction)
+
+  items QuoteItem[]
+  order WorkOrder?
+
+  @@unique([id, studioId])
+  @@index([studioId, status])
+  @@index([studioId, createdAt])
+}
+
+model QuoteItem {
+  id          String  @id @default(cuid())
+  studioId    String
+  quoteId     String
+  name        String
+  basePrice   Decimal @db.Decimal(12, 2) // brutto przed mnożnikami
+  durationMin Int?
+  sort        Int
+  studio      Studio  @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  quote       Quote   @relation(fields: [quoteId, studioId], references: [id, studioId], onDelete: Cascade)
+
+  @@index([studioId, quoteId])
+}
+
+// Faktura klienta studia (KSeF FA(3)). To nie jest Stripe Invoice.
+model Invoice {
+  id             String        @id @default(cuid())
+  studioId       String
+  number         String // FV/41/10/2026
+  workOrderId    String
+  status         InvoiceStatus
+  ksefEnv        KsefEnv
+  ksefStatus     KsefStatus    @default(not_sent)
+  ksefNumber     String?
+  ksefAcceptedAt DateTime?
+  ksefUpoXml     String?
+  // Nabywca zapisany w chwili wystawienia; może różnić się od klienta zlecenia.
+  buyerName      String
+  buyerNip       String?
+  buyerStreet    String?
+  buyerPostal    String?
+  buyerCity      String?
+  issuedAt       DateTime?
+  saleAt         DateTime?
+  dueAt          DateTime?
+  paidAt         DateTime?
+  emailedAt      DateTime? // data wysyłki PDF; kolejna = „Wyślij ponownie”
+  totalNet       Decimal       @db.Decimal(12, 2)
+  totalVat       Decimal       @db.Decimal(12, 2)
+  totalGross     Decimal       @db.Decimal(12, 2)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  studio         Studio        @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  workOrder      WorkOrder     @relation(fields: [workOrderId, studioId], references: [id, studioId], onDelete: NoAction)
+
+  items  InvoiceItem[]
+  events KsefEvent[]
+
+  @@unique([studioId, ksefEnv, number])
+  @@unique([ksefEnv, ksefNumber])
+  @@unique([id, studioId])
+  @@index([studioId, status])
+  @@index([studioId, ksefStatus])
+  @@index([studioId, createdAt])
+  @@index([ksefNumber])
+}
+
+model InvoiceItem {
+  id        String  @id @default(cuid())
+  studioId  String
+  invoiceId String
+  lp        Int
+  name      String
+  quantity  Decimal @db.Decimal(10, 3)
+  unit      String // „usł.”
+  unitNet   Decimal @db.Decimal(12, 2)
+  vatRate   Int // 23
+  net       Decimal @db.Decimal(12, 2)
+  vat       Decimal @db.Decimal(12, 2)
+  gross     Decimal @db.Decimal(12, 2)
+  studio    Studio  @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  invoice   Invoice @relation(fields: [invoiceId, studioId], references: [id, studioId], onDelete: Cascade)
+
+  @@unique([invoiceId, lp])
+  @@index([studioId, invoiceId])
+}
+
+// Historia wysyłki do KSeF (D-09).
+model KsefEvent {
+  id        String        @id @default(cuid())
+  studioId  String
+  invoiceId String
+  kind      KsefEventKind
+  at        DateTime
+  attempt   Int?
+  ref       String? // referencja sesji KSeF
+  message   String
+  studio    Studio        @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  invoice   Invoice       @relation(fields: [invoiceId, studioId], references: [id, studioId], onDelete: Cascade)
+
+  @@index([studioId, invoiceId, at])
+}
+
+// Portal klienta: w bazie tylko hash, surowy token wyłącznie w URL.
+model PortalLink {
+  id          String    @id @default(cuid())
+  studioId    String
+  workOrderId String
+  tokenHash   String    @unique
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  studio      Studio    @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  workOrder   WorkOrder @relation(fields: [workOrderId, studioId], references: [id, studioId], onDelete: Cascade)
+
+  @@index([studioId, workOrderId])
+}

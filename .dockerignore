@@ -13,3 +13,4 @@ branding
 docs
 scripts
 *.log
+lib/db/generated
