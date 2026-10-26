@@ -3,6 +3,12 @@
 Referencje: [Sidebar](https://www.figma.com/design/3pssHgZjGzo0UeyBC8yZ3S?node-id=92-2384),
 [D-01](https://www.figma.com/design/3pssHgZjGzo0UeyBC8yZ3S?node-id=1-3).
 
+Sidebar jest przytwierdzony do lewej krawędzi (`fixed`, 220 px, `100dvh`).
+Menu i pomoc przewijają się niezależnie; profil i link „Wyloguj” pozostają
+przy dolnej krawędzi viewportu. „Wyloguj” prowadzi do istniejącego `/logout`
+z potwierdzeniem i wylogowaniem przez Server Action (POST). Workspace ma
+odstęp 220 px od lewej, aby treść nie wchodziła pod sidebar.
+
 Layout desktopowy ma sidebar 220 px, topbar 72 px + separator 1 px oraz
 workspace z paddingiem 28 px. Przy 1440×1100 workspace ma 1220 px szerokości.
 Aktywny link używa `--df-lime-dark` i `--df-lime`, zgodnie z kryteriami issue.
