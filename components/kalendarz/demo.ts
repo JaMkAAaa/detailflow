@@ -1,6 +1,6 @@
 /** D-02, UI-only scenario: 24 October 2026, 11:30. No operational queries. */
 export type Booking = {
-  id: string; bay: 1 | 2; employee: string; vehicle: string; service: string;
+  id: string; bay: number; from?: string; to?: string; employee: string; vehicle: string; service: string;
   customer: string; start: number; end: number; status: "in-progress" | "scheduled";
 };
 export const bookings: Booking[] = [
