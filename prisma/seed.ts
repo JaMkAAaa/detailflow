@@ -196,6 +196,12 @@ const ORDERS: OrderSeed[] = [
   { number: "DF-0230", client: "fleet", plate: "WY 2334FR", status: "completed", stage: 4, service: "Pakiet flotowy × 7", from: "2026-10-16 08:00", to: "2026-10-21 16:00", completed: "2026-10-21 16:30", gross: "8610.00" },
   { number: "DF-0228", client: "lis", plate: "WW 441TL", status: "completed", stage: 4, service: "Detailing wnętrza + ozon", from: "2026-10-09 09:00", to: "2026-10-09 16:00", completed: "2026-10-10 09:00", gross: "1200.00" },
   { number: "DF-0226", client: "mazur", plate: "WX 713EM", status: "completed", stage: 4, service: "Korekta jednoetapowa", from: "2026-10-07 08:00", to: "2026-10-08 15:00", completed: "2026-10-08 16:00", gross: "2250.00" },
+  // Wcześniejsze wizyty Adama Nowaka — karta klienta D-05: „Klient od marca 2025 · 6 wizyt”,
+  // łącznie 12 350 zł z DF-0248 i DF-0243. Daty i kwoty ostatnich wizyt z makiety (14.08, 12.04).
+  { number: "DF-0188", client: "nowak", plate: "WA 492BM", status: "completed", stage: 4, service: "Mycie premium", from: "2026-08-14 10:00", to: "2026-08-14 12:00", completed: "2026-08-14 12:30", gross: "450.00" },
+  { number: "DF-0142", client: "nowak", plate: "WA 911PC", status: "completed", stage: 4, service: "Mycie detailingowe", from: "2026-04-12 09:00", to: "2026-04-12 12:00", completed: "2026-04-12 12:30", gross: "600.00" },
+  { number: "DF-0097", client: "nowak", plate: "WA 911PC", status: "completed", stage: 4, service: "Odświeżenie powłoki", from: "2025-11-20 09:00", to: "2025-11-20 14:00", completed: "2025-11-20 14:30", gross: "1100.00" },
+  { number: "DF-0003", client: "nowak", plate: "WA 911PC", status: "completed", stage: 4, service: "Mycie detailingowe + wosk", from: "2025-03-14 13:00", to: "2025-03-14 15:00", completed: "2025-03-14 15:30", gross: "600.00" },
 ];
 
 // ─── Faktury (KSeF TEST) ─────────────────────────────────────────────────────
@@ -395,7 +401,9 @@ export async function seed() {
       city: c.city,
       nip: c.nip,
       isRegular: i < REGULAR_TOTAL,
-      createdAt: waw(i === 0 ? "2025-03-14 12:00" : "2025-06-01 12:00"),
+      // Nowak jest klientem od marca 2025; reszta ma kolejne sekundy, żeby kolejność listy
+      // (createdAt, id) była zawsze taka sama jak kolejność w tabeli D-05.
+      createdAt: i === 0 ? waw("2025-03-14 12:00") : new Date(waw("2025-06-01 12:00").getTime() + i * 1000),
     })),
   });
   // Mapowanie po nazwie, nie po kolejności RETURNING (nazwy w seedzie są unikalne).
@@ -403,9 +411,13 @@ export async function seed() {
   if (idByName.size !== allClients.length) throw new Error("Seed client names must be unique");
   const clientId = new Map(allClients.map((c) => [c.key, idByName.get(c.name)!]));
 
+  // Kolejne milisekundy w createdAt utrwalają kolejność aut klienta (pierwsze = główne w tabeli D-05).
+  const vehicleBase = waw("2025-06-01 12:00").getTime();
+  let vehicleIndex = 0;
   const createdVehicles = await db.vehicle.createManyAndReturn({
     data: allClients.flatMap((c) =>
       c.cars.map((car) => ({
+        createdAt: new Date(vehicleBase + vehicleIndex++),
         studioId,
         clientId: clientId.get(c.key)!,
         make: car.make,
