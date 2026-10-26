@@ -418,6 +418,13 @@ export async function seed() {
     ),
   });
   const vehicleId = new Map(createdVehicles.map((v) => [v.plate, v.id]));
+  await db.coatingReminder.createMany({
+    data: ["WA 911PC", "WE 482AX", "WZ 227LK"].map((plate) => ({
+      studioId,
+      vehicleId: vehicleId.get(plate)!,
+      dueAt: waw("2026-10-30 12:00"),
+    })),
+  });
 
   // Wycena #DF-0248 (D-04/D-06): 4 000 zł × 1,20 × 1,00 = 4 800 zł, VAT 897,56 zł.
   const porscheQuote = await db.quote.create({

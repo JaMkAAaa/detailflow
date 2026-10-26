@@ -63,3 +63,27 @@ it("navigates the plan and restores the demo day and current-time marker", async
   await user.click(screen.getByRole("button", { name: "Dzisiaj" }));
   expect(screen.getByRole("img")).toBeTruthy();
 });
+
+it("renders database metrics and empty states without demo alerts or cars", async () => {
+  const { Dashboard } = await import("./dashboard");
+  const data = {
+    dateLabel: "poniedziałek, 26 października 2026",
+    monthLabel: "październik",
+    revenuePln: "1234.56",
+    active: { total: 0, inProgress: 0, ready: 0, accepted: 0 },
+    occupancy: { percent: 0, occupiedHours: 0, capacityHours: 0 },
+    returning: { percent: 0, regular: 0, total: 0 },
+    todayOrders: [],
+    plan: { bays: [], bookings: [] },
+    featured: null,
+    alerts: { coatingClients: 0, rejected: [] },
+  };
+  render(<Dashboard data={data} name="Anna Testowa" />);
+  expect(screen.getByText("Dzień dobry, Anna.")).toBeTruthy();
+  expect(screen.getByText("1 234,56 zł")).toBeTruthy();
+  expect(screen.getByText("Brak alertów wymagających uwagi.")).toBeTruthy();
+  expect(
+    screen.getByText("Brak aut w trakcie pracy w boksach na dziś."),
+  ).toBeTruthy();
+  expect(screen.queryByText(/CarPro|Porsche|Faktura odrzucona/)).toBeNull();
+});

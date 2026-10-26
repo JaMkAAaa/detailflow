@@ -75,7 +75,7 @@ export function OrdersToday({
       ) : (
         <table className="mt-3 w-full table-fixed text-left">
           <caption className="sr-only">
-            Zlecenia na 24 października 2026 —{" "}
+            Zlecenia na dziś —{" "}
             {filters.find((item) => item.value === filter)?.label}
           </caption>
           <colgroup>
