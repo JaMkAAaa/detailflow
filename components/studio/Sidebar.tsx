@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { LogoMark } from "@/components/brand/Logo";
 import { cn } from "@/lib/utils";
@@ -23,7 +24,20 @@ function NavigationIcon({ name }: { name: string }) {
   );
 }
 
-export function Sidebar() {
+type Choice = { studioId: string; role: "owner" | "manager" | "worker"; studio: { name: string; city: string | null; district: string | null } };
+export function Sidebar({ choices, studioId, user }: { choices: Choice[]; studioId: string; user: { name: string } }) {
+  const [error, setError] = useState(false);
+  const [pending, setPending] = useState(false);
+  const current = choices.find((choice) => choice.studioId === studioId)!;
+  async function switchStudio(value: string) {
+    setPending(true);
+    setError(false);
+    try {
+      const response = await fetch("/api/studios/active", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ studioId: value }) });
+      if (!response.ok) throw new Error();
+      window.location.assign("/");
+    } catch { setError(true); setPending(false); }
+  }
   const active = activeStudioItem(usePathname());
 
   return (
@@ -33,20 +47,21 @@ export function Sidebar() {
         <span className="font-brand text-df-wordmark">detailflow</span>
       </Link>
 
-      {/* Dane demonstracyjne; wybór tenantów zostanie podłączony wraz z sesją. */}
       <div className="relative h-[60px] shrink-0 rounded-[10px] bg-df-raised text-df-label">
-        <select aria-label="Wybierz studio" defaultValue="obsidian" className="h-full w-full cursor-pointer appearance-none rounded-[10px] bg-transparent px-3 pt-3 pb-[30px] text-df-text">
-          <option value="obsidian">OBSIDIAN STUDIO</option>
+        <select aria-label="Wybierz studio" value={studioId} disabled={pending} onChange={(event) => void switchStudio(event.target.value)} className="h-full w-full cursor-pointer appearance-none rounded-[10px] bg-transparent px-3 pt-3 pb-[30px] text-df-text">
+          {choices.map((choice) => <option key={choice.studioId} value={choice.studioId}>{choice.studio.name}</option>)}
         </select>
         <span aria-hidden="true" className="pointer-events-none absolute right-3 bottom-3 left-3 flex justify-between text-df-muted">
-          <span>Warszawa, Mokotów</span><span>⌄</span>
+          <span>{[current.studio.city, current.studio.district].filter(Boolean).join(", ")}</span><span>⌄</span>
         </span>
       </div>
 
+      {error && <p role="alert">Nie udało się zmienić studia.</p>}
       <nav aria-label="Nawigacja studia" className="mt-4">
         <p className="mb-2 text-df-label tracking-[0.96px] text-df-muted/55">TWOJE STUDIO</p>
         <ul className="flex flex-col gap-2">
           {studioNavigation.map((item) => {
+            if (item.href === "/invoices" && current.role === "worker") return null;
             const selected = active?.href === item.href;
             return (
               <li key={item.href}>
@@ -74,13 +89,14 @@ export function Sidebar() {
       </nav>
 
       <div className="mt-auto pt-8">
+        {current.role !== "worker" && <Link href="/team" className="block p-3 text-df-label">Zaproś do studia</Link>}
         <div className="flex h-[70px] flex-col gap-1 p-3 text-df-label">
           <p>Potrzebujesz pomocy?</p>
           <span className="text-df-muted">Centrum wsparcia ↗</span>
         </div>
         <div className="mt-2 flex min-h-[50px] items-start gap-2.5 border-t border-df-line px-1 pt-3 text-df-label">
-          <span className="flex size-[30px] shrink-0 items-center justify-center rounded-full bg-df-raised">MK</span>
-          <div className="flex flex-col gap-0.5"><p>Michał Kowalski</p><p className="text-df-muted">Właściciel</p></div>
+          <span className="flex size-[30px] shrink-0 items-center justify-center rounded-full bg-df-raised">{user.name.slice(0, 2).toUpperCase()}</span>
+          <div className="flex flex-col gap-0.5"><p>{user.name}</p><p className="text-df-muted">{{ owner: "Właściciel", manager: "Manager", worker: "Pracownik" }[current.role]}</p></div>
         </div>
       </div>
     </aside>

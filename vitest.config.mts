@@ -2,6 +2,7 @@ import { defineConfig } from "vitest/config";
 
 // Testy bazodanowe wymagają DATABASE_URL (lokalnie: localhost:5433 z Compose, w CI: serwis postgres).
 export default defineConfig({
+  resolve: { alias: { "@": new URL(".", import.meta.url).pathname } },
   oxc: { jsx: { runtime: "automatic" } },
   test: {
     environment: "node",

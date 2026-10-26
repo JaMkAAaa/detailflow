@@ -5,6 +5,7 @@ import { Prisma } from "./generated/client";
 // inaczej `studioDb` odrzuci zapytanie (bezpieczniej niż przepuścić bez filtra).
 export const TENANT_MODELS = [
   "Membership",
+  "Invitation",
   "Client",
   "Vehicle",
   "Bay",
