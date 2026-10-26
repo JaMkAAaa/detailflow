@@ -55,5 +55,5 @@ Z hosta ustaw `DATABASE_URL=postgresql://detailflow:detailflow@localhost:5432/de
 
 - Produkcja: `prisma migrate deploy` z obrazu `--target migrate` przed startem web.
 - Zapytania studia tylko przez `studioDb(studioId)` z `lib/db/tenant.ts`. `platformDb` (bez filtra) — panel platformy, auth, webhooki, seed.
-- Logowanie (`/logowanie`, Better Auth, sesje w Postgres): po seedzie `michal.kowalski@example.com` / `obsidian-demo-2026`. Magiczny link i reset hasła lądują w Mailpicie (bez `SMTP_URL` — w logu serwera). Wylogowanie: `/wyloguj`.
+- Logowanie (`/login`, Better Auth, sesje w Postgres): po seedzie `michal.kowalski@example.com` / `obsidian-demo-2026`. Magiczny link i reset hasła lądują w Mailpicie (bez `SMTP_URL` — w logu serwera). Wylogowanie: `/logout`.
 - Testy: `pnpm test` (Vitest, wymaga `DATABASE_URL`; resetuje studio demo).

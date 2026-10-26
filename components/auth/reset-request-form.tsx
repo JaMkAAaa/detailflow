@@ -17,7 +17,7 @@ export function ResetRequestForm() {
     const email = String(new FormData(event.currentTarget).get("email") ?? "").trim();
     setPending(true);
     setError(undefined);
-    const { error } = await authClient.requestPasswordReset({ email, redirectTo: "/nowe-haslo" });
+    const { error } = await authClient.requestPasswordReset({ email, redirectTo: "/reset-password" });
     setPending(false);
     // Ten sam komunikat dla istniejącego i nieznanego e-maila.
     if (!error) setSent(true);

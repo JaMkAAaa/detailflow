@@ -77,7 +77,7 @@ export function LoginForm({ next, notice }: { next: string; notice?: string }) {
         >
           {mode === "password" ? "Zaloguj linkiem z e-maila" : "Zaloguj hasłem"}
         </button>
-        {mode === "password" && <Link href="/reset-hasla" className="text-df-muted hover:text-df-text">Nie pamiętasz hasła?</Link>}
+        {mode === "password" && <Link href="/forgot-password" className="text-df-muted hover:text-df-text">Nie pamiętasz hasła?</Link>}
       </div>
     </form>
   );

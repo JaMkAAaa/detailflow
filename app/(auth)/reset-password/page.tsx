@@ -15,7 +15,7 @@ export default async function NewPasswordPage({ searchParams }: Props) {
       <div className="flex flex-col gap-4">
         <h1 className="text-df-section text-df-text">Link nieważny</h1>
         <FormMessage>Link do resetu hasła wygasł albo został już użyty.</FormMessage>
-        <Link href="/reset-hasla" className="text-center text-df-body text-df-muted hover:text-df-text">Poproś o nowy link</Link>
+        <Link href="/forgot-password" className="text-center text-df-body text-df-muted hover:text-df-text">Poproś o nowy link</Link>
       </div>
     );
   }
