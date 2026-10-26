@@ -16,3 +16,4 @@ coverage/
 pgdata/
 .minio/
 scripts/_tmp*
+next-env.d.ts

@@ -28,3 +28,16 @@ Kamienie milowe = fazy v1 (fundament → operacje → pieniądz studia → SaaS 
 
 1. Studio → Detailflow: **Stripe Billing** (79 / 149 / 279 zł netto).
 2. Klient studia → studio: **faktura KSeF FA(3)**. Nie używamy Stripe do tej faktury w v1.
+
+## Uruchomienie lokalne
+
+```bash
+cp .env.example .env
+docker compose up
+```
+
+- Aplikacja: http://localhost:3000 (health: `/api/health`)
+- Mailpit: http://localhost:8025 · MinIO: http://localhost:9001
+- Zajęty port? Ustaw `WEB_PORT` / `POSTGRES_PORT` w `.env`.
+
+Bez Dockera: `corepack enable && pnpm install && pnpm dev` (w `.env` hosty serwisów zamień na `localhost`).
