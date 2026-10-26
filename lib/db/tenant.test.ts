@@ -17,9 +17,9 @@ describe("studioDb — guard", () => {
     const db = studioDb("studio-a");
     // @ts-expect-error — model platformy niedostępny na poziomie typów.
     expect(() => db.user).toThrow(TenantScopeError);
-    // @ts-expect-error
+    // @ts-expect-error — model studia niedostępny na poziomie typów.
     expect(() => db.studio).toThrow(TenantScopeError);
-    // @ts-expect-error
+    // @ts-expect-error — surowy SQL niedostępny na poziomie typów.
     expect(() => db.$queryRawUnsafe).toThrow(TenantScopeError);
   });
 

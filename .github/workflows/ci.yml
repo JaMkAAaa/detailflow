@@ -17,6 +17,8 @@ jobs:
     name: typecheck + build
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/detailflow_ci
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -25,6 +27,8 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm prisma validate
+      - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm build
         env:
