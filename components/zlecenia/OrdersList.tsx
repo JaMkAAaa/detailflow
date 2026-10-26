@@ -1,6 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { formatPln } from "@/components/pulpit/demo";
-import { columns, type BoardOrder } from "./demo";
+import { columns, type BoardOrder } from "./board-demo";
 
 const badge = {
   accepted: "accepted",

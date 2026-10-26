@@ -1,5 +1,5 @@
 import { formatPln } from "@/components/pulpit/demo";
-import type { BoardOrder } from "./demo";
+import type { BoardOrder } from "./board-demo";
 
 /** Karta zlecenia z D-03 (Figma 6:617 / 6:640). Zawartość statyczna; klikalność i DnD dodaje rodzic. */
 export function OrderCardBody({ order }: { order: BoardOrder }) {

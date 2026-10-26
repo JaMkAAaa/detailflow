@@ -25,7 +25,7 @@ import {
   ordersLabel,
   type BoardOrder,
   type OrderStatus,
-} from "./demo";
+} from "./board-demo";
 
 const fieldClass = "h-10 rounded-lg bg-df-raised px-4 text-df-label text-df-text";
 

@@ -3,7 +3,7 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, expect, it, vi } from "vitest";
 import { OrdersBoard } from "./OrdersBoard";
-import { boardOrders, columns, filterOrders, ordersLabel } from "./demo";
+import { boardOrders, columns, filterOrders, ordersLabel } from "./board-demo";
 
 afterEach(cleanup);
 beforeAll(() => {
