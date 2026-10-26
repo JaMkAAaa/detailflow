@@ -113,6 +113,7 @@ model Studio {
   createdAt            DateTime     @default(now())
   updatedAt            DateTime     @updatedAt
 
+  invitations Invitation[]
   members     Membership[]
   clients     Client[]
   vehicles    Vehicle[]
@@ -447,4 +448,19 @@ model PortalLink {
   workOrder   WorkOrder @relation(fields: [workOrderId, studioId], references: [id, studioId], onDelete: Cascade)
 
   @@index([studioId, workOrderId])
+}
+
+// Zaproszenie jednorazowe; surowy token trafia tylko do e-maila.
+model Invitation {
+  id         String         @id @default(cuid())
+  studioId   String
+  email      String
+  role       MembershipRole
+  tokenHash  String         @unique
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  createdAt  DateTime       @default(now())
+  studio     Studio         @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@index([studioId, email])
 }
