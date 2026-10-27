@@ -1,6 +1,6 @@
 # Klienci i auta (#35)
 
-CRUD i import CSV. Każde zapytanie idzie przez `studioDb(studioId)`.
+CRUD i import CSV. Lista D-05 (`directory.ts`) i mutacje (`clients.ts`) idą przez `studioDb(studioId)`.
 Mutacje API wymagają sesji, membershipu (owner/manager/worker) i zgodnego Origin.
 
 ## Tablica — ostrzeżenie, nie twardy fail
