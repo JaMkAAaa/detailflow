@@ -1,7 +1,13 @@
+import { existsSync } from "node:fs";
 import { defineConfig } from "prisma/config";
 
-// Prisma 7 nie czyta `.env` sam. W kontenerze `web` DATABASE_URL jest już
-// w środowisku; na hoście ustaw go ręcznie (localhost zamiast `postgres`).
+// Prisma 7 nie czyta `.env` sam. Ładujemy go, żeby `pnpm db:migrate` i
+// `pnpm db:seed` działały z hosta bez ręcznego exportu. W kontenerze `web`
+// DATABASE_URL jest już w środowisku, a `.env` zwykle nie trafia do obrazu.
+if (!process.env.DATABASE_URL && existsSync(".env")) {
+  process.loadEnvFile(".env");
+}
+
 export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
