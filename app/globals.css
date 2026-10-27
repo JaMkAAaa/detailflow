@@ -115,3 +115,25 @@ body {
   background: var(--df-lime);
   color: var(--df-bg);
 }
+
+/* Dolny sheet mobilny (tab bar). Animacja tylko bez `prefers-reduced-motion`. */
+@media (prefers-reduced-motion: no-preference) {
+  .df-sheet[open] {
+    animation: df-sheet-up 200ms ease-out;
+  }
+  .df-sheet[open]::backdrop {
+    animation: df-fade-in 200ms ease-out;
+  }
+}
+
+@keyframes df-sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes df-fade-in {
+  from {
+    opacity: 0;
+  }
+}

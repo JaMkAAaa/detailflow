@@ -229,6 +229,10 @@ describe("dashboard metrics (Postgres)", () => {
       vehicle: "Porsche Panamera",
     });
     expect(data.todayOrders).toHaveLength(4);
+    // Mobilny pulpit (M-01): boks i terminy do etykiet „do 12:00” / „13:00”.
+    const inBay = data.todayOrders.find((o) => o.number === "TEST-1");
+    expect(inBay?.bay).toBe("Boks 01");
+    expect(new Date(inBay!.scheduledFrom).getTime()).toBeLessThan(new Date(inBay!.scheduledTo).getTime());
     expect(data.alerts.coatingClients).toBe(1); // distinct clients, not reminders
     expect(data.alerts.rejected).toHaveLength(1);
     expect(data.alerts.rejected[0]?.ksefEnv).toBe("test");

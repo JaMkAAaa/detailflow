@@ -8,7 +8,7 @@ export function Topbar() {
   const active = activeStudioItem(usePathname());
 
   return (
-    <header className="flex h-[73px] shrink-0 items-center gap-4 border-b border-df-line px-7 text-df-body text-df-muted">
+    <header className="hidden h-[73px] shrink-0 items-center gap-4 border-b border-df-line px-7 text-df-body text-df-muted lg:flex">
       <nav aria-label="Okruszki" className="min-w-0 flex-1">
         <ol className="flex items-center gap-2">
           <li><Link href="/" className="hover:text-df-text">Studio</Link></li>
