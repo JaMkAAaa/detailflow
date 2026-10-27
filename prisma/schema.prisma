@@ -262,7 +262,7 @@ model Vehicle {
   clientId  String
   make      String
   model     String
-  plate     String
+  plate     String // unikalność w studiu: ostrzeżenie (src/server/klienci), bez @@unique — duplikaty historyczne z CSV
   year      Int?
   color     String?
   size      VehicleSize @default(medium)

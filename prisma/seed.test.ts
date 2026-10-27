@@ -8,6 +8,7 @@ import { hashPortalToken } from "../lib/portal/token";
 import { DEMO, seed } from "./seed";
 import { allocateOrderNumber, listOrderHistory } from "../src/server/zlecenia/state";
 import { getDashboardMetrics } from "../src/server/pulpit/metrics";
+import { listClients } from "../src/server/klienci/clients";
 
 const sum = (rows: { totalGross: Prisma.Decimal }[]) => rows.reduce((s, r) => s.plus(r.totalGross), new Prisma.Decimal(0));
 
@@ -108,6 +109,11 @@ describe("seed Obsidian Studio", () => {
     expect(await db.vehicle.count()).toBe(168);
     const nowak = await db.client.findFirstOrThrow({ where: { name: "Adam Nowak" }, include: { vehicles: true } });
     expect(nowak.vehicles.map((v) => v.plate).sort()).toEqual(["WA 492BM", "WA 911PC"]);
+    const studio = await platformDb.studio.findUniqueOrThrow({ where: { slug: DEMO.studioSlug } });
+    const page1 = await listClients(studio.id, { page: 1 });
+    expect(page1).toMatchObject({ pageSize: 20, total: 124, vehicleTotal: 168 });
+    expect(page1.items).toHaveLength(20);
+    expect(page1.items[0]!.name).toBe("Adam Nowak");
   });
 
   it("feeds live dashboard metrics and three coating clients from the demo seed", async () => {

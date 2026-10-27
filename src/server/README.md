@@ -1,3 +1,10 @@
+# Klienci i auta (#35)
+
+`src/server/klienci`. Lista 20/stronę w SQL, CRUD klienta i auta, import CSV.
+Tablica w studiu jest ostrzeżeniem (`duplicate_plate`), nie `@@unique` — duplikaty
+historyczne z Excela i zmiana właściciela auta mają przejść. Import i odczyty
+używają `studioDb(studioId)` i nie mieszają tenantów. Szczegóły w `klienci/README.md`.
+
 # Dostęp do studia (#25)
 
 - `authorizeStudio(userId, studioId, permission)` sprawdza membership przy każdym wywołaniu i zwraca `studioDb(studioId)`.
