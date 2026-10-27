@@ -26,11 +26,18 @@ surowy token wyłącznie w URL wiadomości, nigdy w jobie ani logach. Korzystamy
 z istniejącego E8 `/p/:token`, bez stubu. Link z ponownej wysyłki nie unieważnia
 poprzednich linków (ich cofanie zapewnia API E8).
 
+## Katalog usług
+
 Katalog startowy jest seedem w `src/domain/service-catalog.ts` (4 usługi D-06).
-Prosta edycja nazwy i ceny w kreatorze zapisuje snapshot `QuoteItem` dla danej
-wyceny. Nie zmienia katalogu innych wycen/studiów. To zakres v1 z dokumentacji
-§7: seed + edycja w wycenie, bez pełnego CMS i osobnego ekranu usług.
-Czasy katalogu D-06 są dla auta średniego; zapis przelicza je na bazowe minuty.
+`seedServices` inicjalizuje go w seedzie demo i przy pierwszym wejściu do wycen
+danego studia; ponowne seedowanie nie nadpisuje edycji. Prosta edycja nazwy,
+ceny i czasu w katalogu wizarda zapisuje `Service` dla studia, a każda wycena
+zachowuje snapshot `QuoteItem` z chwili zapisu. Menu „Usługi i cennik” pozostaje
+poza zakresem tej implementacji.
+
+Strona `/quotes/new` ładuje klientów z pojazdami, katalog usług i najnowszy
+szkic autora przez `studioDb`. Kreator zapisuje ten sam szkic ponownie po tym
+samym ID i pokazuje wysłaną wycenę po powrocie na stronę.
 
 Uruchomienie lokalne: `pnpm db:deploy`, `pnpm dev`, `pnpm worker` z
 `SMTP_URL=smtp://localhost:1025` i `APP_URL=http://localhost:3000`

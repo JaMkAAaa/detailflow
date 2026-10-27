@@ -14,6 +14,7 @@ export const TENANT_MODELS = [
   "OrderCounter",
   "Quote",
   "QuoteItem",
+  "Service",
   "Invoice",
   "InvoiceItem",
   "InvoiceCounter",

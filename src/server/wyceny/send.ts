@@ -9,6 +9,9 @@ export const quoteInput = z.object({
   clientId: z.string().min(1), vehicleId: z.string().min(1),
   size: z.enum(["small", "medium", "suv"]),
   paintMult: z.enum(["1.00", "1.20", "1.40"]),
+  interior: z.enum(["Lekkie", "Umiarkowane", "Silne"]).optional(),
+  slotId: z.enum(["oct24", "oct26", "oct28"]).nullable().optional(),
+  step: z.number().int().min(1).max(3).optional(),
   notes: z.string().max(2000),
   items: z.array(z.object({
     name: z.string().trim().min(1).max(120), basePrice: money,
@@ -17,7 +20,7 @@ export const quoteInput = z.object({
 }).strict();
 
 // ID tworzy klient przed pierwszym zapisem: retry PUT nie tworzy drugiej wyceny.
-export async function saveQuote(studioId: string, id: string, input: unknown) {
+export async function saveQuote(studioId: string, id: string, input: unknown, authorId?: string) {
   z.uuid().parse(id);
   const data = quoteInput.parse(input);
   const items = data.items.map((item, sort) => ({ ...item, basePrice: new Prisma.Decimal(item.basePrice), studioId, sort }));
@@ -29,15 +32,16 @@ export async function saveQuote(studioId: string, id: string, input: unknown) {
     if (!vehicle) throw new AccessError(404, "Nie znaleziono klienta lub samochodu.");
     const existing = await tx.quote.findFirst({ where: { id } });
     const values = { clientId: data.clientId, vehicleId: data.vehicleId, notes: data.notes,
-      sizeMult: { small: "1.00", medium: "1.20", suv: "1.35" }[data.size], paintMult: data.paintMult,
+      size: data.size, sizeMult: { small: "1.00", medium: "1.20", suv: "1.35" }[data.size], paintMult: data.paintMult,
+      interior: data.interior ?? "Umiarkowane", slotId: data.slotId ?? null, wizardStep: data.step ?? 1,
       totalGross: totals.totalGross, vatAmount: totals.vatAmount };
     if (existing) {
       // Blokada serializuje zapis pozycji z wysyłką/decyzją portalu.
-      const locked = await tx.quote.updateMany({ where: { id, status: "draft" }, data: values });
+      const locked = await tx.quote.updateMany({ where: { id, status: "draft" }, data: { ...values, revision: { increment: 1 } } });
       if (!locked.count) throw new AccessError(403, "Wysłanej wyceny nie można edytować.");
       await tx.quoteItem.deleteMany({ where: { quoteId: id } });
     } else {
-      await tx.quote.create({ data: { id, studioId, status: "draft", ...values } });
+      await tx.quote.create({ data: { id, studioId, authorId, status: "draft", revision: 1, ...values } });
     }
     await tx.quoteItem.createMany({ data: items.map((item) => ({ ...item, quoteId: id })) });
     return tx.quote.findFirstOrThrow({ where: { id }, include: { items: { orderBy: { sort: "asc" } } } });

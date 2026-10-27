@@ -2,7 +2,7 @@ import Decimal from "decimal.js";
 import { z } from "zod";
 import { serviceCatalog } from "@/src/domain/service-catalog";
 
-/** D-06: wyłącznie dane demonstracyjne, bez zapytań operacyjnych. */
+/** Fixtures D-06 dla testów. Produkcyjny formularz otrzymuje dane studia z serwera. */
 export const clients = [
   { id: "adam", name: "Adam Nowak", email: "adam.nowak@example.com", vehicles: [
     { id: "porsche", label: "Porsche Panamera · WA 911PC" },
@@ -13,7 +13,16 @@ export const clients = [
   ] },
 ] as const;
 
-export const services = serviceCatalog;
+export type WizardService = {
+  id: string;
+  code?: string;
+  name: string;
+  description: string;
+  price: string;
+  hours: string;
+  durationMin?: number;
+};
+export const services: readonly WizardService[] = serviceCatalog;
 export const sizes = [
   { id: "small", label: "Małe · ×1,0", multiplier: "1.00" },
   { id: "medium", label: "Średnie · ×1,2", multiplier: "1.20" },
@@ -24,11 +33,7 @@ export const paints = [
   { id: "worn", label: "Wymaga korekty · ×1,2", multiplier: "1.20" },
   { id: "heavy", label: "Mocno zniszczony · ×1,4", multiplier: "1.40" },
 ] as const;
-export const slots = [
-  { id: "oct24", label: "24–25 października 2026", day: 24, bay: "Boks 01 · Michał Kowalski", pickup: "25.10, 16:00", start: "24.10, 08:00", hours: 20 },
-  { id: "oct26", label: "26–27 października 2026", day: 26, bay: "Boks 02 · Kamil", pickup: "27.10, 16:00", start: "26.10, 08:00", hours: 20 },
-  { id: "oct28", label: "28–30 października 2026", day: 28, bay: "Boks 01 · Michał Kowalski", pickup: "30.10, 16:00", start: "28.10, 08:00", hours: 30 },
-] as const;
+export { quoteSlots as slots } from "@/src/domain/quote-options";
 
 export const draftSchema = z.object({
   version: z.literal(1), step: z.union([z.literal(1), z.literal(2), z.literal(3)]),
@@ -37,7 +42,7 @@ export const draftSchema = z.object({
   edits: z.record(z.string(), z.object({ name: z.string().max(120), price: z.string().regex(/^\d{1,8}(\.\d{0,2})?$/) })).optional(),
   size: z.enum(["small", "medium", "suv"]), paint: z.enum(["standard", "worn", "heavy"]),
   interior: z.enum(["Lekkie", "Umiarkowane", "Silne"]),
-  serviceIds: z.array(z.enum(["correction", "ceramic", "interior", "wash"])).max(4),
+  serviceIds: z.array(z.string().min(1)).max(50),
   notes: z.string().max(2000), slotId: z.enum(["oct24", "oct26", "oct28"]).nullable(),
 });
 export type Draft = z.infer<typeof draftSchema>;
@@ -49,8 +54,8 @@ export const initialDraft: Draft = {
 
 // Podgląd UI; zapis serwerowy niezależnie weryfikuje kwoty silnikiem domenowym.
 // Kwoty pozostają Decimal aż do formatowania; zaokrąglenie HALF_UP do grosza.
-export function preview(draft: Draft) {
-  const selected = services.filter((service) => draft.serviceIds.includes(service.id)).map((service) => ({ ...service, ...draft.edits?.[service.id] }));
+export function preview(draft: Draft, catalog: readonly WizardService[] = services) {
+  const selected = catalog.filter((service) => draft.serviceIds.includes(service.id)).map((service) => ({ ...service, ...draft.edits?.[service.id] }));
   const size = sizes.find((size) => size.id === draft.size)!;
   const paint = paints.find((paint) => paint.id === draft.paint)!;
   const multiplier = new Decimal(size.multiplier).times(paint.multiplier);

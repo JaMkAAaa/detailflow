@@ -8,7 +8,7 @@ import { Sheet } from "@/components/studio/Sheet";
 import { useMobile } from "@/components/studio/useMobile";
 import { MobileQuoteStep } from "./MobileQuoteStep";
 import { cn } from "@/lib/utils";
-import { clients as demoClients, services, sizes, paints, slots, initialDraft, draftKey, draftSchema, preview, pln, type Draft } from "./demo";
+import { clients as demoClients, services as demoServices, sizes, paints, slots, initialDraft, draftKey, draftSchema, preview, pln, type Draft, type WizardService } from "./demo";
 
 const control = "h-[43px] w-full min-w-0 rounded-lg bg-df-raised px-3 text-df-body text-df-text";
 function Panel({ children, className }: { children: ReactNode; className?: string }) {
@@ -19,37 +19,73 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 }
 
 type ClientChoice = { id: string; name: string; email: string | null; vehicles: readonly { id: string; label: string }[] };
-export function QuoteWizard({ studioId, userId, clientChoices }: { studioId: string; userId: string; clientChoices?: readonly ClientChoice[] }) {
+type InitialQuote = {
+  id: string;
+  revision: number;
+  status: string;
+  pending: boolean;
+  items: readonly { serviceId: string | null; name: string; basePrice: string; durationMin: number | null }[];
+  draft: Draft;
+};
+
+export function QuoteWizard({ studioId, userId, clientChoices, serviceChoices, initialQuote }: {
+  studioId: string;
+  userId: string;
+  clientChoices?: readonly ClientChoice[];
+  serviceChoices?: readonly WizardService[];
+  initialQuote?: InitialQuote | null;
+}) {
   const mobile = useMobile();
   const [options, setOptions] = useState(false);
   const clients = clientChoices ?? demoClients;
   const operational = clientChoices !== undefined;
-  const start: Draft = operational ? { ...initialDraft, clientId: clients[0]?.id ?? "", vehicleId: clients[0]?.vehicles[0]?.id ?? "" } : initialDraft;
+  const availableServices = serviceChoices ?? demoServices;
+  const defaultServiceIds = operational
+    ? availableServices.filter((service) => ["correction", "ceramic"].includes(service.code ?? service.id)).map((service) => service.id)
+    : initialDraft.serviceIds;
+  const blankStart: Draft = operational ? { ...initialDraft, clientId: clients[0]?.id ?? "", vehicleId: clients[0]?.vehicles[0]?.id ?? "", serviceIds: defaultServiceIds } : initialDraft;
+  const start = initialQuote?.draft ?? blankStart;
   const [draft, setDraft] = useState<Draft>(start);
+  const [services, setServices] = useState<WizardService[]>(() => {
+    const base = serviceChoices ?? demoServices;
+    if (!initialQuote) return [...base];
+    return base.map((service) => {
+      const snapshot = initialQuote.items.find((item) => item.serviceId === service.id);
+      if (!snapshot) return service;
+      return {
+        ...service,
+        name: snapshot.name,
+        price: snapshot.basePrice,
+        hours: snapshot.durationMin !== null ? new Decimal(snapshot.durationMin).times("1.2").div(60).toString() : service.hours,
+      };
+    });
+  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [priceInputs, setPriceInputs] = useState<Record<string, string>>({});
-  const [serverStatus, setServerStatus] = useState("draft");
+  const [serverStatus, setServerStatus] = useState(initialQuote?.status ?? "draft");
   const [ready, setReady] = useState(false);
-  const [saved, setSaved] = useState("Odczytywanie szkicu…");
+  const [saved, setSaved] = useState(initialQuote ? (initialQuote.pending ? "Wiadomość oczekuje na wysyłkę" : initialQuote.status === "sent" ? "✓ Wysłano wycenę" : "✓ Zapisano szkic w studiu") : "Odczytywanie szkicu…");
   const [catalog, setCatalog] = useState(false);
+  const [editingServiceId, setEditingServiceId] = useState(services[0]?.id ?? "");
   const [confirmed, setConfirmed] = useState(false);
-  const [complete, setComplete] = useState(false);
+  const [complete, setComplete] = useState(!!initialQuote && initialQuote.status !== "draft");
   const [restoreError, setRestoreError] = useState("");
   const title = useRef<HTMLHeadingElement>(null);
   const key = draftKey(studioId, userId);
-  const price = preview(draft);
+  const price = preview(draft, services);
   const client = clients.find((client) => client.id === draft.clientId);
   const vehicle = client?.vehicles.find((vehicle) => vehicle.id === draft.vehicleId);
   const slot = slots.find((slot) => slot.id === draft.slotId);
   const validSlot = slot && price.hours.lte(slot.hours);
+  const editingService = services.find((service) => service.id === editingServiceId) ?? services[0];
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem(key);
-      if (raw) {
+      if (raw && !initialQuote) {
         const result = draftSchema.safeParse(JSON.parse(raw));
-        if (result.success && clients.some((client) => client.id === result.data.clientId && client.vehicles.some((vehicle) => vehicle.id === result.data.vehicleId))) {
+        if (result.success && clients.some((client) => client.id === result.data.clientId && client.vehicles.some((vehicle) => vehicle.id === result.data.vehicleId)) && result.data.serviceIds.every((id) => services.some((service) => service.id === id))) {
           const restored = result.data;
           if (restored.step === 3 && restored.serviceIds.length === 0) restored.step = 2;
           setDraft(restored);
@@ -68,19 +104,23 @@ export function QuoteWizard({ studioId, userId, clientChoices }: { studioId: str
       setRestoreError("Nie udało się odczytać szkicu z tej przeglądarki.");
     }
     setReady(true);
-  }, [key, clients, operational, studioId]);
+    // Odtworzenie dotyczy wyłącznie aktywnego studia/użytkownika; późniejsze
+    // zmiany katalogu nie mogą nadpisać bieżącego szkicu.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
 
   useEffect(() => {
     if (!ready) return;
     try {
       localStorage.setItem(key, JSON.stringify(draft));
-      setSaved(`✓ Zapisano lokalnie · ${new Intl.DateTimeFormat("pl-PL", { hour: "2-digit", minute: "2-digit" }).format(new Date())}`);
+      if (!complete) setSaved(`✓ Zapisano lokalnie · ${new Intl.DateTimeFormat("pl-PL", { hour: "2-digit", minute: "2-digit" }).format(new Date())}`);
     } catch {
       setSaved("Nie zapisano szkicu — pamięć przeglądarki jest niedostępna.");
     }
-  }, [draft, key, ready]);
+  }, [draft, key, ready, complete]);
 
   function update(patch: Partial<Draft>) {
+    setError("");
     setDraft((current) => ({ ...current, ...patch }));
     setConfirmed(false);
   }
@@ -114,7 +154,7 @@ export function QuoteWizard({ studioId, userId, clientChoices }: { studioId: str
       }
       if (serverStatus === "draft") {
         await request(base, "PUT", { clientId: draft.clientId, vehicleId: draft.vehicleId, size: draft.size,
-          paintMult: price.paint.multiplier, notes: draft.notes,
+          paintMult: price.paint.multiplier, interior: draft.interior, slotId: draft.slotId, step: draft.step, notes: draft.notes,
           items: price.selected.map((service) => ({ name: service.name, basePrice: service.price,
             durationMin: new Decimal(service.hours).times(60).div("1.20").toNumber() })) });
         setSaved("✓ Zapisano szkic na serwerze");
@@ -122,9 +162,39 @@ export function QuoteWizard({ studioId, userId, clientChoices }: { studioId: str
       if (send) {
         await request(`${base}/send`, "POST");
         setServerStatus("sent"); setComplete(true);
+        setSaved("✓ Wysłano wycenę");
       }
     } catch (error) { setError(error instanceof Error ? error.message : "Nie udało się zapisać wyceny."); }
     finally { setBusy(false); }
+  }
+
+  async function saveService(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!operational) return;
+    const form = event.currentTarget;
+    const fields = new FormData(form);
+    const id = String(fields.get("serviceId"));
+    const edit = { name: String(fields.get("name")), basePrice: String(fields.get("basePrice")).replace(",", "."), durationMin: Number(fields.get("durationMin")) };
+    setBusy(true); setError("");
+    try {
+      const { updateServiceAction } = await import("@/app/(studio)/quotes/new/actions");
+      const result = await updateServiceAction(studioId, id, edit);
+      if (!result.ok) throw new Error(result.error);
+      setServices((current) => current.map((service) => service.id === id ? { ...service, name: edit.name, price: edit.basePrice, durationMin: edit.durationMin, hours: new Decimal(edit.durationMin).times("1.2").div(60).toString() } : service));
+      form.reset();
+    } catch (error) { setError(error instanceof Error ? error.message : "Nie udało się zapisać usługi."); }
+    finally { setBusy(false); }
+  }
+
+  function newQuote() {
+    setDraft(blankStart);
+    setServices([...(serviceChoices ?? demoServices)]);
+    setPriceInputs({});
+    setServerStatus("draft");
+    setComplete(false);
+    setConfirmed(false);
+    setError("");
+    setSaved("✓ Nowy szkic");
   }
 
   if (!ready) return <p role="status" className="text-df-muted">Odczytywanie szkicu wyceny…</p>;
@@ -158,7 +228,7 @@ export function QuoteWizard({ studioId, userId, clientChoices }: { studioId: str
       <h2 className="text-df-section">{operational ? "Wycena zapisana i przekazana do wysyłki" : "Wycena gotowa do wysłania"}</h2>
       <p>{client.name} · {vehicle.label} · {pln(price.gross)}</p>
       <p className="text-df-muted">{operational ? "Worker wyśle e-mail z linkiem do portalu klienta. Termin nie został zarezerwowany." : "To demonstracja interfejsu. Wiadomość nie została wysłana, a termin nie został zarezerwowany. Szkic jest zapisany lokalnie w tej przeglądarce."}</p>
-      {operational ? <><Button disabled={busy || serverStatus !== "sent"} onClick={() => void persist(true)}>Wyślij ponownie</Button><Button variant="secondary" onClick={() => { setDraft(start); setPriceInputs({}); setServerStatus("draft"); setComplete(false); setConfirmed(false); setError(""); }}>Nowa wycena</Button></> : <Button variant="secondary" onClick={() => { setComplete(false); setConfirmed(false); }}>Wróć do wyceny</Button>}
+      {operational ? <><Button disabled={busy || serverStatus !== "sent"} onClick={() => void persist(true)}>Wyślij ponownie</Button><Button variant="secondary" onClick={newQuote}>Nowa wycena</Button></> : <Button variant="secondary" onClick={() => { setComplete(false); setConfirmed(false); }}>Wróć do wyceny</Button>}
     </Panel> : <>
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,2.016fr)_minmax(300px,1fr)]">
         <div className="flex min-w-0 flex-col gap-4">
@@ -168,7 +238,7 @@ export function QuoteWizard({ studioId, userId, clientChoices }: { studioId: str
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Klient"><select className={control} value={draft.clientId} onChange={(event) => {
                 const next = clients.find((client) => client.id === event.target.value)!;
-                update({ clientId: next.id, vehicleId: next.vehicles[0].id });
+                update({ clientId: next.id, vehicleId: next.vehicles[0]!.id });
               }}>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select></Field>
               <Field label="Samochód"><select className={control} value={draft.vehicleId} onChange={(event) => update({ vehicleId: event.target.value as Draft["vehicleId"] })}>{client.vehicles.map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{vehicle.label}</option>)}</select></Field>
             </div>
@@ -245,7 +315,7 @@ export function QuoteWizard({ studioId, userId, clientChoices }: { studioId: str
         </aside>
       </div>
       <footer className="flex flex-wrap items-center gap-3 rounded-[14px] bg-df-raised px-5 py-3.5">
-        <p className="min-w-[180px] flex-1 text-df-muted">Krok {draft.step} z 3 · zmiany zapisują się automatycznie</p>
+        <p className="min-w-[180px] flex-1 text-df-muted">Krok {draft.step} z 3 · szkic zapisujesz na serwerze</p>
         {operational && <Button variant="secondary" disabled={busy || !price.selected.length} onClick={() => void persist()}>Zapisz szkic</Button>}
         <Button variant="secondary" disabled={draft.step === 1 || busy} onClick={() => go((draft.step - 1) as Draft["step"])} className="h-10 text-df-label">← Wstecz</Button>
         {draft.step < 3 ? <Button className="h-10 text-df-label" disabled={draft.step === 2 && !price.selected.length} onClick={() => go((draft.step + 1) as Draft["step"])}>{draft.step === 1 ? "Dalej: wybierz usługi →" : "Dalej: wybierz termin →"}</Button> : <Button className="h-10 text-df-label" disabled={busy || !confirmed || !validSlot || !price.selected.length} onClick={() => { if (operational) void persist(true); else { setComplete(true); title.current?.focus(); } }}>{operational ? "Wyślij wycenę" : "Potwierdź wysyłkę (demo)"}</Button>}
@@ -258,7 +328,15 @@ export function QuoteWizard({ studioId, userId, clientChoices }: { studioId: str
     <Sheet open={catalog} onClose={() => setCatalog(false)} title="Katalog usług">
       <p className="text-df-muted">Zaznacz usługi, które chcesz uwzględnić w wycenie.</p>
       {services.map((service) => <label key={service.id} className="flex cursor-pointer items-center gap-3 rounded-lg bg-df-raised p-4"><input type="checkbox" className="accent-df-lime" checked={draft.serviceIds.includes(service.id)} onChange={() => toggleService(service.id)} /><span className="flex-1"><span className="block text-df-strong">{service.name}</span><span className="block text-df-label text-df-muted">{service.description}</span></span><span>{pln(service.price)}</span></label>)}
-      <Button onClick={() => setCatalog(false)}>Gotowe</Button>
+      {operational && <form className="flex flex-col gap-3" onSubmit={saveService}>
+        <h3 className="text-df-strong">Edytuj usługę katalogu</h3>
+        <Field label="Usługa do edycji"><select required name="serviceId" value={editingService?.id ?? ""} onChange={(event) => setEditingServiceId(event.target.value)} className={control}>{services.map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}</select></Field>
+        <Field label="Nazwa usługi"><input required name="name" defaultValue={editingService?.name} key={`name-${editingService?.id}`} maxLength={120} className={control} /></Field>
+        <Field label="Cena bazowa brutto PLN"><input required name="basePrice" defaultValue={editingService?.price} key={`price-${editingService?.id}`} inputMode="decimal" pattern="[0-9]+([.,][0-9]{1,2})?" className={control} /></Field>
+        <Field label="Czas bazowy (min)"><input required name="durationMin" defaultValue={editingService?.durationMin ?? 0} key={`duration-${editingService?.id}`} type="number" min={0} max={60000} className={control} /></Field>
+        <Button type="submit" variant="secondary" disabled={busy}>Zapisz usługę</Button>
+      </form>}
+      <Button onClick={() => setCatalog(false)} disabled={busy}>Gotowe</Button>
     </Sheet>
   </fieldset>;
 }

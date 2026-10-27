@@ -131,6 +131,7 @@ model Studio {
   orders             WorkOrder[]
   quotes             Quote[]
   quoteItems         QuoteItem[]
+  services           Service[]
   invoices           Invoice[]
   invoiceRows        InvoiceItem[]
   invoiceCounters    InvoiceCounter[]
@@ -385,6 +386,12 @@ model Quote {
   client     Client      @relation(fields: [clientId, studioId], references: [id, studioId], onDelete: NoAction)
   vehicle    Vehicle     @relation(fields: [vehicleId, studioId], references: [id, studioId], onDelete: NoAction)
 
+  authorId     String?
+  size         VehicleSize @default(medium)
+  interior     String      @default("Umiarkowane")
+  slotId       String?
+  wizardStep   Int         @default(1)
+  revision     Int         @default(0)
   items        QuoteItem[]
   order        WorkOrder?
   portalLinks  PortalLink[]
@@ -400,6 +407,7 @@ model QuoteItem {
   id          String  @id @default(cuid())
   studioId    String
   quoteId     String
+  serviceId   String?
   name        String
   basePrice   Decimal @db.Decimal(12, 2) // brutto przed mnożnikami
   durationMin Int?
@@ -655,6 +663,22 @@ model IntakeDamage {
 
   @@unique([protocolId, no])
   @@index([studioId, protocolId])
+}
+
+// Mały katalog używany w wycenie; nie samodzielny CMS.
+model Service {
+  id          String  @id @default(cuid())
+  studioId    String
+  code        String
+  name        String
+  description String
+  basePrice   Decimal @db.Decimal(12, 2)
+  durationMin Int
+  sort        Int
+  studio      Studio  @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@unique([studioId, code])
+  @@unique([id, studioId])
 }
 
 // Trwały job wysyłki. Token powstaje dopiero w workerze i nigdy nie trafia do outboxa.
