@@ -2,6 +2,7 @@ import { studioDb } from "../../lib/db/tenant";
 import type { MembershipRole } from "../../lib/db/generated/client";
 
 export const permissions = {
+  "billing:manage": ["owner"],
   "studio:read": ["owner", "manager", "worker"],
   "orders:write": ["owner", "manager", "worker"],
   "orders:update": ["owner", "manager", "worker"],

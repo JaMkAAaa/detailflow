@@ -7,6 +7,7 @@
     "node": ">=22"
   },
   "scripts": {
+    "billing:setup": "tsx src/server/billing/provision.ts",
     "dev": "prisma generate && next dev --hostname 0.0.0.0",
     "build": "prisma generate && next build && pnpm build:worker",
     "build:worker": "esbuild worker/index.ts --bundle --platform=node --target=node22 --format=esm --outfile=dist/worker.mjs --banner:js='import { createRequire } from \"node:module\"; const require = createRequire(import.meta.url);'",
@@ -40,6 +41,7 @@
     "pg": "^8.23.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "stripe": "^23.0.1",
     "tailwind-merge": "^3.7.0",
     "xmlbuilder2": "^4.0.3",
     "zod": "^4.6.7"

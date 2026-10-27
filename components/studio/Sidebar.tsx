@@ -158,6 +158,7 @@ export function Sidebar({
           ))}
         </ul>
         <div className="pt-4">
+          {current.role === "owner" && <Link href="/billing" className="block p-3 text-df-label">Abonament Detailflow</Link>}
           {current.role !== "worker" && (
             <Link href="/team" className="block p-3 text-df-label">
               Zaproś do studia

@@ -4,7 +4,7 @@ import { AUTH_COOKIE_PREFIX } from "./lib/auth/cookie";
 import { LOGIN_PATH } from "./lib/auth/redirect";
 
 // Ścieżki bez sesji studia. Wszystko inne — panel (studio) i /admin — wymaga logowania.
-const PUBLIC_PATHS = [LOGIN_PATH, "/start", "/logout", "/forgot-password", "/reset-password", "/invite", "/p/"];
+const PUBLIC_PATHS = [LOGIN_PATH, "/landing", "/start", "/logout", "/forgot-password", "/reset-password", "/invite", "/p/"];
 
 function isPublic(pathname: string) {
   return PUBLIC_PATHS.some((p) => (p.endsWith("/") ? pathname.startsWith(p) : pathname === p || pathname.startsWith(`${p}/`)));
@@ -24,9 +24,16 @@ export function middleware(request: NextRequest) {
   if (isPublic(pathname)) return NextResponse.next();
   if (getSessionCookie(request, { cookiePrefix: AUTH_COOKIE_PREFIX })) return NextResponse.next();
 
+  // `/` to pulpit studia dla zalogowanych, a landing (app/(marketing)/landing) dla gości.
+  if (pathname === "/") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/landing";
+    return NextResponse.rewrite(url);
+  }
+
   const url = request.nextUrl.clone();
   url.pathname = LOGIN_PATH;
-  url.search = pathname === "/" ? "" : `?next=${encodeURIComponent(pathname + search)}`;
+  url.search = `?next=${encodeURIComponent(pathname + search)}`;
   return NextResponse.redirect(url);
 }
 
