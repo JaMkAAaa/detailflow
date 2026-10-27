@@ -51,7 +51,7 @@ function RouteTab({ label, href, icon, active }: { label: string; href: string; 
   );
 }
 
-export function TabBar({ role }: { role: Role }) {
+export function TabBar({ role, attentionCount = 0 }: { role: Role; attentionCount?: number }) {
   const pathname = usePathname();
   const [panel, setPanel] = useState<Panel>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -146,6 +146,7 @@ export function TabBar({ role }: { role: Role }) {
                 className="flex h-12 items-center rounded-[14px] bg-df-raised px-4 text-df-strong"
               >
                 {item.label}
+                {item.href === "/invoices" && attentionCount > 0 && <span aria-label={`Wymagają uwagi: ${attentionCount}`} className="ml-auto rounded-full bg-df-error-surface px-2 py-1 text-df-label text-df-error">{attentionCount} do uwagi</span>}
               </Link>
             </li>
           ))}

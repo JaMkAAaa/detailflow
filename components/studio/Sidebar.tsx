@@ -33,10 +33,12 @@ export function Sidebar({
   choices,
   studioId,
   user,
+  attentionCount = 0,
 }: {
   choices: Choice[];
   studioId: string;
   user: { name: string };
+  attentionCount?: number;
 }) {
   const [error, setError] = useState(false);
   const [pending, setPending] = useState(false);
@@ -127,12 +129,12 @@ export function Sidebar({
                 >
                   <NavigationIcon name={item.icon} />
                   <span className="flex-1">{item.label}</span>
-                  {item.icon === "faktury" && (
+                  {item.icon === "faktury" && attentionCount > 0 && (
                     <span
-                      aria-label="2 faktury wymagają uwagi"
+                      aria-label={`Wymagają uwagi: ${attentionCount}`}
                       className="flex h-6 w-[30px] items-center justify-center rounded-xl bg-df-error-surface text-xs text-df-error"
                     >
-                      2
+                      {attentionCount}
                     </span>
                   )}
                 </Link>

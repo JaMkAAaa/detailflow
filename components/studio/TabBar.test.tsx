@@ -44,6 +44,17 @@ it("highlights Więcej for routes that live under it", () => {
   expect(screen.getByRole("button", { name: "Więcej" }).getAttribute("aria-current")).toBe("page");
 });
 
+it("shows the supplied invoice attention count to managers and hides invoices for workers", async () => {
+  const user = userEvent.setup();
+  const view = render(<TabBar role="manager" attentionCount={2} />);
+  await user.click(screen.getByRole("button", { name: "Więcej" }));
+  expect(screen.getByRole("link", { name: /Faktury/ }).textContent).toContain("2 do uwagi");
+  view.unmount();
+  render(<TabBar role="worker" attentionCount={2} />);
+  await user.click(screen.getByRole("button", { name: "Więcej" }));
+  expect(screen.queryByRole("link", { name: /Faktury/ })).toBeNull();
+});
+
 it("opens a sheet with new order and quote from the + button", async () => {
   const user = userEvent.setup();
   render(<TabBar role="owner" />);

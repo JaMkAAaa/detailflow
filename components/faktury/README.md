@@ -1,4 +1,32 @@
-# Faktury — #42
+# Faktury — #41 i #42
+
+## Lista i wymagające uwagi — #41
+
+[D-07](https://www.figma.com/design/3pssHgZjGzo0UeyBC8yZ3S?node-id=22-258)
+i [D-10](https://www.figma.com/design/3pssHgZjGzo0UeyBC8yZ3S?node-id=22-831):
+`/invoices` oraz `/invoices/attention`, z aliasami `/faktury` i `/faktury/uwaga`.
+Oba widoki wymagają `invoices:manage`. Czytnik listy i licznik nawigacji używają
+`studioDb(studioId)` oraz środowiska skonfigurowanego w aktywnym studiu.
+Licznik uwagi obejmuje wystawione dokumenty `rejected` i `retrying` (2 w seedzie).
+Pracownik nie odczytuje licznika i nie widzi linku do faktur.
+
+Lista ma wyszukiwanie po numerze, nabywcy, NIP (także bez separatorów) i zleceniu,
+filtry statusów oraz nieopłaconych i zaległych, paginację po 7 dokumentów,
+pełny numer KSeF w tooltipie i kopiowanie ze zgłoszeniem błędu schowka.
+Przyjęte, nieopłacone dokumenty są bursztynowe; odrzucenie KSeF jest czerwone.
+Zaległość liczymy od dnia po terminie w strefie Europe/Warsaw.
+
+Karty podsumowań pokazują rzeczywiste dane dostępne w danym środowisku,
+bez fikcyjnych 41 dokumentów / 52 380 zł z Figmy. Kwoty sumujemy przez Decimal.
+Karta brutto/VAT obejmuje przyjęte faktury, bez szkiców i odrzuceń.
+Daty i próby na D-10 pochodzą z historii; komunikaty archiwalne są datowane.
+Panel połączenia nie udaje pomiarów MF ani ważności tokenu. Ponowienie i poprawa
+NIP są jawną demonstracją bez zapisu, wysyłki do MF i usuwania błędów z kolejki.
+Eksport JPK pokazuje informację o niedostępności, offline pozostaje wyłączony.
+Zaległe płatności mają osobną sekcję. Używamy istniejących lokalnych assetów
+badge 6 × 6 oraz wspólnego sidebara, fontów i tokenów.
+
+## Kreator i szczegóły — #42
 
 [D-08](https://www.figma.com/design/3pssHgZjGzo0UeyBC8yZ3S?node-id=22-449)
 i [D-09](https://www.figma.com/design/3pssHgZjGzo0UeyBC8yZ3S?node-id=22-640).

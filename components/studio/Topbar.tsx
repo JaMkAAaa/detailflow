@@ -15,7 +15,7 @@ export function Topbar() {
         <ol className="flex items-center gap-2">
           <li><Link href="/" className="hover:text-df-text">Studio</Link></li>
           <li aria-hidden="true">/</li>
-          <li aria-current="page">{pathname === "/quotes/new" ? "Nowa wycena" : pathname === "/invoices/new" ? "Faktury / Wystaw fakturę" : invoiceNumber ? `Faktury / ${invoiceNumber}` : active?.label ?? "Studio"}</li>
+          <li aria-current="page">{pathname === "/quotes/new" ? "Nowa wycena" : pathname === "/invoices/attention" ? "Faktury / Wymagają uwagi" : pathname === "/invoices/new" ? "Faktury / Wystaw fakturę" : invoiceNumber ? `Faktury / ${invoiceNumber}` : active?.label ?? "Studio"}</li>
         </ol>
       </nav>
       <button type="button" disabled title="Wyszukiwanie — wkrótce" aria-label="Szukaj klienta, auta, zlecenia — wkrótce" className="flex w-[354px] shrink-0 cursor-not-allowed items-center gap-3 text-left">

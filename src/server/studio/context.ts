@@ -12,7 +12,7 @@ export async function studioChoices(userId: string) {
   return platformDb.user.findUniqueOrThrow({
     where: { id: userId },
     select: { memberships: { orderBy: { createdAt: "asc" }, select: {
-      studioId: true, role: true, studio: { select: { name: true, city: true, district: true } },
+      studioId: true, role: true, studio: { select: { name: true, city: true, district: true, ksefEnv: true } },
     } } },
   }).then((user) => user.memberships);
 }
