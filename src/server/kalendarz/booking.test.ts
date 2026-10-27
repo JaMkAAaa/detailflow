@@ -45,7 +45,7 @@ describe("bookings and tenant isolation (Postgres)", () => {
   beforeAll(async () => {
     userId = (await platformDb.user.create({ data: { name: tag, email: `${tag}@example.com` } })).id;
     for (const suffix of ["a", "b"]) {
-      const studioId = (await platformDb.studio.create({ data: { name: tag, publicCode: `${tag}-${suffix}`, slug: `${tag}-${suffix}` } })).id;
+      const studioId = (await platformDb.studio.create({ data: { status: "active", name: tag, publicCode: `${tag}-${suffix}`, slug: `${tag}-${suffix}` } })).id;
       studios.push(studioId);
       const db = studioDb(studioId);
       await db.membership.create({ data: { studioId, userId, role: "worker" } });

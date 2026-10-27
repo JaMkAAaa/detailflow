@@ -31,7 +31,7 @@ async function fixture(index = 0, email: string | null = "client@example.test") 
   return { db, studioId, input, id };
 }
 beforeAll(async () => {
-  for (const suffix of ["a", "b"]) studios.push((await platformDb.studio.create({ data: { publicCode: `${tag}-${suffix}`, slug: `${tag}-${suffix}`, name: `Studio ${suffix}` } })).id);
+  for (const suffix of ["a", "b"]) studios.push((await platformDb.studio.create({ data: { status: "active", publicCode: `${tag}-${suffix}`, slug: `${tag}-${suffix}`, name: `Studio ${suffix}` } })).id);
   userId = (await platformDb.user.create({ data: { email: `${tag}@example.test`, name: "Owner" } })).id;
   workerId = (await platformDb.user.create({ data: { email: `${tag}-worker@example.test`, name: "Worker" } })).id;
   for (const [id, role] of [[userId, "owner"], [workerId, "worker"]] as const) {

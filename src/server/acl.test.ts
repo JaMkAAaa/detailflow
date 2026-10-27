@@ -27,7 +27,7 @@ beforeAll(async () => {
     users[role] = await platformDb.user.create({ data: { email: `${tag}-${role}@example.com`, name: role } });
   }
   for (const suffix of ["a", "b"]) {
-    const studio = await platformDb.studio.create({ data: { name: tag, slug: `${tag}-${suffix}`, publicCode: `${tag}-${suffix}` } });
+    const studio = await platformDb.studio.create({ data: { status: "active", name: tag, slug: `${tag}-${suffix}`, publicCode: `${tag}-${suffix}` } });
     studios.push(studio.id);
     const db = studioDb(studio.id);
     for (const role of ["owner", "manager", "worker"] as const) {

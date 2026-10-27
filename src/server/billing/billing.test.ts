@@ -8,6 +8,7 @@ import { processStripeEvent, subscriptionStatus } from "./webhook";
 import { POST as webhook } from "@/app/api/stripe/webhook/route";
 import { POST as checkoutRoute } from "@/app/api/studios/[studioId]/billing/checkout/route";
 import { pricePlan } from "./plans";
+import { authorizeStudio } from "../acl";
 import { getStripe } from "./stripe";
 
 const mocks = vi.hoisted(() => {
@@ -93,6 +94,8 @@ describe("billing with Postgres and mocked Stripe transport", () => {
   it("uses current subscription rather than a stale active snapshot", async () => {
     await processStripeEvent(event("customer.subscription.updated", subscription()), asStripe(client(subscription({ status: "canceled" }))));
     expect(await platformDb.studio.findUnique({ where: { id: studioId } })).toMatchObject({ status: "canceled" });
+    expect((await authorizeStudio(ownerId, studioId)).restriction).toContain("anulowany");
+    await expect(authorizeStudio(ownerId, studioId, "invoices:manage", true)).rejects.toMatchObject({ status: 403 });
     expect(subscriptionStatus("paused")).toBe("suspended");
     expect(subscriptionStatus("unpaid")).toBe("suspended");
   });
