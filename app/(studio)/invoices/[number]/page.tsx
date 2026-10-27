@@ -12,5 +12,5 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
   if (!decodedNumber) notFound();
   const invoice = await invoiceDetail(studioId, decodedNumber, search.env === "test" || search.env === "production" ? search.env : seller.env);
   if (!invoice) notFound();
-  return <InvoiceDetails key={`${studioId}:${invoice.id}`} invoice={invoice} seller={seller} />;
+  return <InvoiceDetails key={`${studioId}:${invoice.id}`} studioId={studioId} invoice={invoice} seller={seller} />;
 }

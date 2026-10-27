@@ -48,12 +48,12 @@ it("does not let an invalid buyer bypass step one and handles a corrupt draft", 
   expect((screen.getByRole("button", { name: /Dalej: pozycje/ }) as HTMLButtonElement).disabled).toBe(false);
 });
 it("labels PROD explicitly, exposes document controls, and confirms demo payment", async () => {
-  const user = userEvent.setup(); const print = vi.spyOn(window, "print").mockImplementation(() => {});
-  render(<InvoiceDetails invoice={{ ...invoice, env: "production" }} seller={seller} />);
+  const user = userEvent.setup(); const download = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ error: "Brak dokumentu" }), { status: 409, headers: { "Content-Type": "application/json" } }));
+  render(<InvoiceDetails studioId="studio-test" invoice={{ ...invoice, env: "production" }} seller={seller} />);
   expect(screen.getByText("PROD")).toBeTruthy(); expect(screen.queryByText("Przyjęta (test)")).toBeNull();
   expect(screen.getByText("60 s")).toBeTruthy();
   await user.click(screen.getByRole("button", { name: /UPO/ })); expect(screen.getByRole("status").textContent).toContain("nie jest dostępne");
-  await user.click(screen.getByRole("button", { name: "Pobierz PDF" })); expect(print).toHaveBeenCalledOnce();
+  await user.click(screen.getByRole("button", { name: "Pobierz PDF" })); expect(download).toHaveBeenCalledWith(`/api/studios/studio-test/invoices/${invoice.id}/pdf?env=production`);
   await user.click(screen.getByRole("button", { name: "Oznacz jako opłaconą" }));
   await user.click(screen.getByRole("button", { name: "Potwierdź (demo)" }));
   expect(screen.getByText("Opłacona (demo)")).toBeTruthy(); expect(screen.getByRole("status").textContent).toContain("Nie zapisano danych");
