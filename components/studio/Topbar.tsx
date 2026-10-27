@@ -7,6 +7,7 @@ import { activeStudioItem } from "./navigation";
 export function Topbar() {
   const pathname = usePathname();
   const active = activeStudioItem(pathname);
+  const invoiceNumber = pathname.startsWith("/invoices/") && pathname !== "/invoices/new" ? decodeURIComponent(pathname.slice("/invoices/".length)) : null;
 
   return (
     <header className="hidden h-[73px] shrink-0 items-center gap-4 border-b border-df-line px-7 text-df-body text-df-muted lg:flex">
@@ -14,7 +15,7 @@ export function Topbar() {
         <ol className="flex items-center gap-2">
           <li><Link href="/" className="hover:text-df-text">Studio</Link></li>
           <li aria-hidden="true">/</li>
-          <li aria-current="page">{pathname === "/quotes/new" ? "Nowa wycena" : active?.label ?? "Studio"}</li>
+          <li aria-current="page">{pathname === "/quotes/new" ? "Nowa wycena" : pathname === "/invoices/new" ? "Faktury / Wystaw fakturę" : invoiceNumber ? `Faktury / ${invoiceNumber}` : active?.label ?? "Studio"}</li>
         </ol>
       </nav>
       <button type="button" disabled title="Wyszukiwanie — wkrótce" aria-label="Szukaj klienta, auta, zlecenia — wkrótce" className="flex w-[354px] shrink-0 cursor-not-allowed items-center gap-3 text-left">
