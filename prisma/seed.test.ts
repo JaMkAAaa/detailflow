@@ -14,6 +14,10 @@ import { Prisma } from "../lib/db/generated/client";
 import { studioDb, type StudioDb } from "../lib/db/tenant";
 import { hashPortalToken } from "../lib/portal/token";
 import { DEMO, seed } from "./seed";
+import { PLATFORM_DEMO } from "./seed-platform";
+import { calculateMrr } from "../src/server/billing/mrr";
+import { getPlatformOverview } from "../src/server/admin/overview";
+import { trialConversion } from "../src/server/admin/metrics";
 import { allocateOrderNumber, listOrderHistory } from "../src/server/zlecenia/state";
 import { getDashboardMetrics } from "../src/server/pulpit/metrics";
 import { listClients } from "../src/server/klienci/clients";
@@ -132,6 +136,30 @@ describe("seed Obsidian Studio", () => {
     expect(metrics.featured).toMatchObject({ number: "DF-0248", stage: 2, vehicle: "Porsche Panamera" });
     expect(metrics.alerts.coatingClients).toBe(3);
     expect(metrics.alerts.rejected.map((i) => i.number)).toContain("FV/39/10/2026");
+  });
+
+  it("platform seed matches A-01 MRR, excludes trials, and converts from completed trials", async () => {
+    const studios = await platformDb.studio.findMany({
+      where: { OR: [{ slug: DEMO.studioSlug }, { slug: { startsWith: PLATFORM_DEMO.slugPrefix } }] },
+      select: { status: true, plan: true, trialEndsAt: true },
+    });
+    const paying = studios.filter((s) => s.status === "active");
+    expect(paying).toHaveLength(128);
+    expect(paying.filter((s) => s.plan === "solo")).toHaveLength(64);
+    expect(paying.filter((s) => s.plan === "studio")).toHaveLength(48);
+    expect(paying.filter((s) => s.plan === "pro")).toHaveLength(16);
+    expect(studios.filter((s) => s.status === "trial")).toHaveLength(24);
+    expect(studios.filter((s) => s.status === "past_due")).toHaveLength(6);
+    expect(studios.filter((s) => s.status === "suspended")).toHaveLength(8);
+    expect(calculateMrr(studios).toFixed(2)).toBe("16672.00");
+    expect(trialConversion(studios, PLATFORM_DEMO.now)).toEqual({ paid: 9, completed: 30, rate: 0.3 });
+    const overview = await getPlatformOverview(PLATFORM_DEMO.now);
+    expect(Number(overview.mrr)).toBeGreaterThanOrEqual(16672);
+    expect(overview.conversion.completed).toBeGreaterThanOrEqual(30);
+    expect(overview.conversion.paid).toBeGreaterThanOrEqual(9);
+    const operator = await platformDb.user.findUnique({ where: { email: PLATFORM_DEMO.email }, include: { platformOperator: true } });
+    expect(operator?.platformOperator?.role).toBe("owner");
+    expect(await platformDb.platformOperator.findFirst({ where: { user: { email: DEMO.ownerEmail } } })).toBeNull();
   });
 
   it("stores only the portal token hash", async () => {

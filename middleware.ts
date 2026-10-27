@@ -1,17 +1,28 @@
 import { getSessionCookie } from "better-auth/cookies";
 import { NextResponse, type NextRequest } from "next/server";
-import { AUTH_COOKIE_PREFIX } from "./lib/auth/cookie";
-import { LOGIN_PATH } from "./lib/auth/redirect";
+import { AUTH_COOKIE_PREFIX, PLATFORM_COOKIE_PREFIX } from "./lib/auth/cookie";
+import { LOGIN_PATH, PLATFORM_LOGIN_PATH } from "./lib/auth/redirect";
 
-// Ścieżki bez sesji studia. Wszystko inne — panel (studio) i /admin — wymaga logowania.
-const PUBLIC_PATHS = [LOGIN_PATH, "/landing", "/start", "/logout", "/forgot-password", "/reset-password", "/invite", "/p/"];
+// Ścieżki bez sesji studia. /admin wymaga osobnego cookie operatora.
+const PUBLIC_PATHS = [LOGIN_PATH, PLATFORM_LOGIN_PATH, "/landing", "/start", "/logout", "/forgot-password", "/reset-password", "/invite", "/p/"];
 
 function isPublic(pathname: string) {
   return PUBLIC_PATHS.some((p) => (p.endsWith("/") ? pathname.startsWith(p) : pathname === p || pathname.startsWith(`${p}/`)));
 }
 
+function isAdminPath(pathname: string) {
+  return pathname === "/admin" || pathname.startsWith("/admin/");
+}
+
+function redirectTo(request: NextRequest, loginPath: string, pathname: string, search: string) {
+  const url = request.nextUrl.clone();
+  url.pathname = loginPath;
+  url.search = `?next=${encodeURIComponent(pathname + search)}`;
+  return NextResponse.redirect(url);
+}
+
 // Szybki filtr na edge: tylko obecność cookie. Ważność sesji w bazie sprawdza
-// layout (`requireSession`), bo wygasłe/odwołane cookie też tu przejdzie.
+// layout (`requireSession` / `requirePlatform`), bo wygasłe cookie też tu przejdzie.
 export function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   if (pathname.startsWith("/p/")) {
@@ -22,6 +33,12 @@ export function middleware(request: NextRequest) {
     return response;
   }
   if (isPublic(pathname)) return NextResponse.next();
+
+  if (isAdminPath(pathname)) {
+    if (getSessionCookie(request, { cookiePrefix: PLATFORM_COOKIE_PREFIX })) return NextResponse.next();
+    return redirectTo(request, PLATFORM_LOGIN_PATH, pathname, search);
+  }
+
   if (getSessionCookie(request, { cookiePrefix: AUTH_COOKIE_PREFIX })) return NextResponse.next();
 
   // `/` to pulpit studia dla zalogowanych, a landing (app/(marketing)/landing) dla gości.
@@ -31,10 +48,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.rewrite(url);
   }
 
-  const url = request.nextUrl.clone();
-  url.pathname = LOGIN_PATH;
-  url.search = `?next=${encodeURIComponent(pathname + search)}`;
-  return NextResponse.redirect(url);
+  return redirectTo(request, LOGIN_PATH, pathname, search);
 }
 
 export const config = {

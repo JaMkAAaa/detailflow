@@ -1,3 +1,7 @@
+# Panel platformy (#52)
+
+A-01 i shell `/admin`: `admin/README.md`. Osobna sesja operatora, nie membership.
+
 # Klienci i auta (#35)
 
 `src/server/klienci`. Lista D-05 (`directory.ts`, 20/stronę w SQL) i CRUD + import CSV (`clients.ts`).
