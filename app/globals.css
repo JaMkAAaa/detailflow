@@ -137,3 +137,10 @@ body {
     opacity: 0;
   }
 }
+
+@media print {
+  body:has(.df-invoice-screen) * { visibility: hidden; }
+  body:has(.df-invoice-screen) .df-invoice-paper,
+  body:has(.df-invoice-screen) .df-invoice-paper * { visibility: visible; }
+  .df-invoice-screen .df-invoice-paper { position: absolute; inset: 0 auto auto 0; width: 100%; min-width: 0; box-shadow: none; }
+}
