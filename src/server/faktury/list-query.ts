@@ -14,7 +14,7 @@ export const invoiceList = cache(async (studioId: string, env: Environment): Pro
     where: { studioId, ksefEnv: env },
     orderBy: [{ issuedAt: { sort: "desc", nulls: "last" } }, { number: "desc" }],
     select: {
-      id: true, number: true, status: true, ksefEnv: true, ksefStatus: true,
+      id: true, number: true, kind: true, status: true, ksefEnv: true, ksefStatus: true,
       buyerName: true, buyerNip: true, issuedAt: true, dueAt: true, paidAt: true,
       totalGross: true, totalVat: true, ksefNumber: true,
       workOrder: { select: { number: true, client: { select: { phone: true } } } },
@@ -22,7 +22,7 @@ export const invoiceList = cache(async (studioId: string, env: Environment): Pro
     },
   });
   return rows.map(row => ({
-    id: row.id, number: row.number, env: row.ksefEnv, status: row.status, ksefStatus: row.ksefStatus,
+    id: row.id, number: row.number, kind: row.kind, env: row.ksefEnv, status: row.status, ksefStatus: row.ksefStatus,
     buyerName: row.buyerName, buyerNip: row.buyerNip, orderNumber: row.workOrder.number, phone: row.workOrder.client.phone,
     issuedAt: row.issuedAt?.toISOString() ?? null, dueAt: row.dueAt?.toISOString() ?? null, paidAt: row.paidAt?.toISOString() ?? null,
     totalGross: row.totalGross.toString(), totalVat: row.totalVat.toString(), ksefNumber: row.ksefNumber,

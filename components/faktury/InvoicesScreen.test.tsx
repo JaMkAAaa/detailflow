@@ -4,10 +4,10 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, expect, it } from "vitest";
 import { InvoicesScreen } from "./InvoicesScreen";
 import { InvoiceAttention } from "./InvoiceAttention";
-import { isOverdue, sumInvoices, type InvoiceRow } from "./list-model";
+import { isOverdue, isUnpaid, sumInvoices, type InvoiceRow } from "./list-model";
 
 const now = "2026-10-24T10:00:00Z";
-const base: InvoiceRow = { id: "a", number: "FV/41/10/2026", env: "test", status: "issued", ksefStatus: "accepted", buyerName: "Adam Nowak", buyerNip: null, orderNumber: "DF-0243", phone: null, issuedAt: now, dueAt: "2026-10-23T21:59:59Z", paidAt: null, totalGross: "4800.10", totalVat: "897.58", ksefNumber: "full-ksef-number", events: [] };
+const base: InvoiceRow = { id: "a", number: "FV/41/10/2026", kind: "invoice", env: "test", status: "issued", ksefStatus: "accepted", buyerName: "Adam Nowak", buyerNip: null, orderNumber: "DF-0243", phone: null, issuedAt: now, dueAt: "2026-10-23T21:59:59Z", paidAt: null, totalGross: "4800.10", totalVat: "897.58", ksefNumber: "full-ksef-number", events: [] };
 const rows: InvoiceRow[] = [base, { ...base, id: "b", number: "FV/39/10/2026", buyerName: "Auto Serwis Kowal", buyerNip: "123-456-78-0", phone: "+48123456789", ksefStatus: "rejected", ksefNumber: null, events: [{ kind: "rejected", message: "Nieprawidłowy NIP nabywcy", ref: "ref-test", attempt: 1, at: now }] }, { ...base, id: "c", number: "FV/38/10/2026", buyerName: "Anna Wiśniewska", ksefStatus: "retrying", ksefNumber: null, events: [{ kind: "retry_scheduled", message: "Ponawiamy · próba 3 z 8", ref: null, attempt: 3, at: now }] }];
 beforeAll(() => { HTMLDialogElement.prototype.showModal = function () { this.setAttribute("open", ""); }; HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); }; });
 afterEach(cleanup);
@@ -59,4 +59,8 @@ it("shows rejection details, overdue payments and a demo-only retry confirmation
   await user.click(screen.getByRole("button", { name: "Potwierdź (demo)" }));
   expect(screen.getByRole("status").textContent).toContain("Nie zapisano zmian ani nie wysłano dokumentu do MF");
   expect(screen.getByRole("article", { name: /FV\/38/ })).toBeTruthy();
+});
+it("never counts a correction as an unpaid invoice", () => {
+  const correction: InvoiceRow = { ...base, id: "k", number: "KFV/1/10/2026", kind: "correction", totalGross: "-1170.00" };
+  expect(isUnpaid(base)).toBe(true); expect(isUnpaid(correction)).toBe(false); expect(isOverdue(correction, "2026-11-30T10:00:00Z")).toBe(false);
 });

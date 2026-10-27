@@ -7,10 +7,14 @@ import { InvoiceDetails } from "./InvoiceDetails";
 import type { InvoiceRow } from "./list-model";
 import type { InvoiceView, Seller } from "./model";
 
+const router = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => router }));
+const reply = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 const now = "2026-10-24T08:12:08Z";
 const base: InvoiceRow = {
   id: "a",
   number: "FV/41/10/2026",
+  kind: "invoice",
   env: "test",
   status: "issued",
   ksefStatus: "accepted",
@@ -37,6 +41,10 @@ const seller: Seller = {
 const invoice: InvoiceView = {
   ...base,
   events: [],
+  correctsNumber: null,
+  correctionReason: null,
+  corrections: [],
+  current: [],
   acceptedAt: "2026-10-24T08:13:08Z",
   saleAt: now,
   emailedAt: now,
@@ -120,9 +128,9 @@ it("filters and searches compact cards, preserving the KSeF environment", async 
     ),
   ).toHaveLength(2);
 });
-it("uses shared PDF, UPO and demo payment actions from mobile details", async () => {
+it("uses shared PDF, UPO and payment actions from mobile details", async () => {
   const user = userEvent.setup();
-  const download = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ error: "Brak dokumentu" }), { status: 409, headers: { "Content-Type": "application/json" } }));
+  const download = vi.spyOn(globalThis, "fetch").mockImplementation(async (url) => String(url).endsWith("/paid") ? reply({ paid: true, paidAt: now }) : reply({ error: "Brak dokumentu" }, 409));
   render(<InvoiceDetails studioId="studio-test" invoice={invoice} seller={seller} />);
   await user.click(screen.getByRole("button", { name: "PDF" }));
   expect(download).toHaveBeenCalledWith(`/api/studios/studio-test/invoices/${invoice.id}/pdf?env=test`);
@@ -131,17 +139,15 @@ it("uses shared PDF, UPO and demo payment actions from mobile details", async ()
   await user.click(
     screen.getByRole("button", { name: "Oznacz jako opłaconą" }),
   );
-  await user.click(screen.getByRole("button", { name: "Potwierdź (demo)" }));
-  expect(
+  await user.click(screen.getByRole("button", { name: "Potwierdź płatność" }));
+  await vi.waitFor(() => expect(
     (
       screen.getByRole("button", {
-        name: "Opłacona (demo)",
+        name: "Opłacona",
       }) as HTMLButtonElement
     ).disabled,
-  ).toBe(true);
-  expect(screen.getByRole("status").textContent).toContain(
-    "Nie zapisano danych",
-  );
+  ).toBe(true));
+  expect(screen.getByRole("status").textContent).toContain("jako opłaconą");
   await user.click(
     screen.getByRole("button", { name: "Więcej akcji faktury" }),
   );

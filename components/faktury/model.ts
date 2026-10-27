@@ -9,6 +9,7 @@ export type InvoiceView = {
   id: string; number: string; env: Environment; status: string; ksefStatus: string; ksefNumber: string | null;
   acceptedAt: string | null; issuedAt: string | null; saleAt: string | null; dueAt: string | null;
   paidAt: string | null; emailedAt: string | null; upoXml: string | null;
+  kind: "invoice" | "correction"; correctsNumber: string | null; correctionReason: string | null; corrections: { number: string }[]; current: { lp: number; name: string; quantity: string; unitNet: string }[];
   orderNumber: string; buyer: Buyer; items: Item[];
   totalNet: string; totalVat: string; totalGross: string;
   events: { id: string; kind: string; at: string; message: string; ref: string | null }[];
@@ -34,10 +35,13 @@ export function validItems(items: Item[]) {
   return items.length > 0 && items.every(item => /^\d{1,7}(\.\d{1,3})?$/.test(item.quantity) && new Decimal(item.quantity).gt(0)
     && /^\d{1,9}(\.\d{1,2})?$/.test(item.unitNet) && /^\d{1,3}(\.\d{1,2})?$/.test(item.discount) && new Decimal(item.discount).lte(100));
 }
-export function validBuyer(buyer: Buyer, company: boolean) {
-  const nip = buyer.nip.replace(/[ -]/g, "");
+export function validNip(value: string) {
+  const nip = value.replace(/[ -]/g, "");
   const digits = [...nip].map(Number);
   const checksum = digits.slice(0, 9).reduce((sum, n, i) => sum + n * [6,5,7,2,3,4,5,6,7][i]!, 0) % 11;
+  return /^\d{10}$/.test(nip) && checksum === digits[9];
+}
+export function validBuyer(buyer: Buyer, company: boolean) {
   return !!buyer.name.trim() && !!buyer.street.trim() && /^\d{2}-\d{3}$/.test(buyer.postal) && !!buyer.city.trim()
-    && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(buyer.email) && (!company || (/^\d{10}$/.test(nip) && checksum === digits[9]));
+    && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(buyer.email) && (!company || validNip(buyer.nip));
 }
