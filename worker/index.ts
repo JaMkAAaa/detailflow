@@ -1,13 +1,22 @@
-// Szkielet workera BullMQ. Kolejki (KSeF, e-mail, Stripe) dochodzą w osobnych issue.
+import { platformDb } from "../lib/db/client";
+import { deliverQuoteDecisionMails } from "../src/server/portal/mail";
+
 console.log("[worker] started");
-
-const keepAlive = setInterval(() => {}, 1 << 30);
-
-function shutdown(signal: string) {
+let current: Promise<void> | undefined;
+function tick() {
+  if (current) return;
+  current = deliverQuoteDecisionMails()
+    .catch(() => console.error("[worker] portal outbox failed"))
+    .finally(() => { current = undefined; });
+}
+tick();
+const timer = setInterval(tick, 15_000);
+async function shutdown(signal: string) {
   console.log(`[worker] ${signal}, stopping`);
-  clearInterval(keepAlive);
+  clearInterval(timer);
+  await current;
+  await platformDb.$disconnect();
   process.exit(0);
 }
-
-process.on("SIGTERM", () => shutdown("SIGTERM"));
-process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGTERM", () => void shutdown("SIGTERM"));
+process.on("SIGINT", () => void shutdown("SIGINT"));

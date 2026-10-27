@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
-import PortalPage from "../../app/p/[token]/page";
+import { PortalExpired, PortalStatus } from "./PortalScreen";
 
 afterEach(cleanup);
 
 it("opens the public demo with exactly three stages and the studio phone", async () => {
-  render(await PortalPage({ params: Promise.resolve({ token: "obsidian-df-0248-demo" }) }));
+  render(<PortalStatus />);
   expect(screen.getByRole("heading", { name: "Cześć, Adam." })).toBeTruthy();
   const stages = within(screen.getByRole("list", { name: "Etapy zlecenia" })).getAllByRole("listitem");
   expect(stages).toHaveLength(3);
@@ -18,14 +18,14 @@ it("opens the public demo with exactly three stages and the studio phone", async
 });
 
 it("renders the expired demo as a calm state with working contact links", async () => {
-  render(await PortalPage({ params: Promise.resolve({ token: "obsidian-df-0244-expired" }) }));
+  render(<PortalExpired knownStudio />);
   expect(screen.getByRole("heading", { name: "Ten link już wygasł" })).toBeTruthy();
   expect(screen.getAllByRole("link", { name: "Poproś o nowy link" }).every((link) => link.getAttribute("href")?.startsWith("mailto:obsidian@example.com?subject="))).toBe(true);
   expect(screen.queryByText(/Porsche|WA 911PC|DF-0248/)).toBeNull();
 });
 
-it.each(["unknown-token", "", "obsidian-df-0248-demo-extra"])("handles unknown token %s without revealing demo data", async (token) => {
-  render(await PortalPage({ params: Promise.resolve({ token }) }));
+it("renders an unavailable link without revealing demo data", () => {
+  render(<PortalExpired knownStudio={false} />);
   expect(screen.getByRole("heading", { name: "Ten link już wygasł" })).toBeTruthy();
   expect(screen.getByText(/Skontaktuj się ze studiem/)).toBeTruthy();
   expect(screen.queryByText(/OBSIDIAN|Porsche|Adam|4 800/)).toBeNull();

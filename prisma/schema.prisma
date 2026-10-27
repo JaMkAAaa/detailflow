@@ -128,6 +128,7 @@ model Studio {
   invoiceRows      InvoiceItem[]
   ksefEvents       KsefEvent[]
   portalLinks      PortalLink[]
+  quoteDecisionMails QuoteDecisionMail[]
   orderPhotos      OrderPhoto[]
   intakeProtocols  IntakeProtocol[]
   intakeDamages    IntakeDamage[]
@@ -376,6 +377,8 @@ model Quote {
 
   items QuoteItem[]
   order WorkOrder?
+  portalLinks PortalLink[]
+  decisionMail QuoteDecisionMail?
 
   @@unique([id, studioId])
   @@index([studioId, status])
@@ -479,15 +482,32 @@ model KsefEvent {
 model PortalLink {
   id          String    @id @default(cuid())
   studioId    String
-  workOrderId String
+  workOrderId String?
+  quoteId     String?
   tokenHash   String    @unique
   expiresAt   DateTime
   revokedAt   DateTime?
   createdAt   DateTime  @default(now())
   studio      Studio    @relation(fields: [studioId], references: [id], onDelete: Cascade)
-  workOrder   WorkOrder @relation(fields: [workOrderId, studioId], references: [id, studioId], onDelete: Cascade)
+  workOrder   WorkOrder? @relation(fields: [workOrderId, studioId], references: [id, studioId], onDelete: Cascade)
+  quote       Quote? @relation(fields: [quoteId, studioId], references: [id, studioId], onDelete: Cascade)
 
   @@index([studioId, workOrderId])
+  @@index([studioId, quoteId])
+}
+
+// Outbox zapisany atomowo z decyzją. Bez tokenu i URL portalu.
+model QuoteDecisionMail {
+  id        String @id @default(cuid())
+  studioId  String
+  quoteId   String @unique
+  sentAt    DateTime?
+  createdAt DateTime @default(now())
+  studio    Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  quote     Quote @relation(fields: [quoteId, studioId], references: [id, studioId], onDelete: Cascade)
+
+  @@unique([quoteId, studioId])
+  @@index([studioId, sentAt])
 }
 
 // Zaproszenie jednorazowe; surowy token trafia tylko do e-maila.

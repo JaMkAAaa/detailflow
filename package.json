@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "prisma generate && next dev --hostname 0.0.0.0",
     "build": "prisma generate && next build && pnpm build:worker",
-    "build:worker": "esbuild worker/index.ts --bundle --platform=node --target=node22 --format=esm --outfile=dist/worker.mjs",
+    "build:worker": "esbuild worker/index.ts --bundle --platform=node --target=node22 --format=esm --outfile=dist/worker.mjs --banner:js='import { createRequire } from \"node:module\"; const require = createRequire(import.meta.url);'",
     "start": "next start",
     "worker": "prisma generate && tsx watch worker/index.ts",
     "worker:start": "node dist/worker.mjs",

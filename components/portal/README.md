@@ -3,18 +3,19 @@
 Źródła: [P-01](https://www.figma.com/design/3pssHgZjGzo0UeyBC8yZ3S?node-id=5-15)
 i [P-02 / S-01](https://www.figma.com/design/3pssHgZjGzo0UeyBC8yZ3S?node-id=17-413).
 
-Trasa `/p/[token]` jest publiczna, poza layoutem studia. Lokalne scenariusze:
+Trasa `/p/[token]` jest publiczna, poza layoutem studia. Wszystkie tokeny
+przechodzą odczyt PortalLink po hashu oraz kontrolę TTL i odwołania.
 
-- `/p/obsidian-df-0248-demo` — P-01, #DF-0248, 3 etapy, 4 800 zł brutto.
-- `/p/obsidian-df-0244-expired` — P-02 z kontaktem demonstracyjnego studia.
-- Dowolny inny token — P-02 bez danych studia i zlecenia.
+- Ważny link demo `/p/obsidian-df-0248-demo` z zaakceptowaną wyceną pokazuje
+  statyczny P-01: #DF-0248, 3 etapy, 4 800 zł brutto.
+- Wygasły, odwołany i nieznany link pokazuje ten sam P-02 bez danych studia.
+- Pozostałe ważne linki pokazują wycenę z formularzem decyzji lub potwierdzeniem.
 
-To statyczne dane UI, bez zapytań operacyjnych, odczytu PortalLink ani wysyłki
-wiadomości. Resolver porównuje hashe tych samych tokenów demo co seed. Zegar
-makiety jest zamrożony na 24.10.2026, 11:30; ważność rzeczywistych linków i TTL
-wymagają osobnej implementacji. Kwota pozostaje dziesiętnym stringiem PLN.
-Przy podłączeniu danych należy rozwiązać token po hashu, sprawdzić ważność
-i pobierać dane operacyjne przez `studioDb(studioId)`.
+P-01 pozostaje makietą z zegarem zamrożonym na 24.10.2026, 11:30;
+nie służy do prezentowania innych zleceń. Kwota jest dziesiętnym stringiem PLN.
+`PortalExpired knownStudio` pozostaje wariantem prezentacyjnym z kontaktem demo;
+trasa nie ujawnia kontaktu po wygaśnięciu tokenu. Testy komponentów nie wymagają bazy;
+testy trasy i autoryzacji są w `src/server/portal/links.test.tsx`.
 
 Telefon `+48 500 100 200` oraz adres `obsidian@example.com` są kontaktami demo
 (Figma i seed nie określają telefonu studia). „Poproś o nowy link” otwiera
