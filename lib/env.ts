@@ -25,9 +25,9 @@ export const env = createEnv({
     STRIPE_WEBHOOK_SECRET: z.string().startsWith("whsec_").optional(),
 
     // TEST i PROD KSeF są rozdzielone; domyślnie zawsze test.
-    KSEF_ENV: z.enum(["test", "prod"]).default("test"),
+    KSEF_ENV: z.literal("test").default("test"),
     KSEF_API_URL: z.url().default("https://api-test.ksef.mf.gov.pl"),
-    KSEF_TOKEN_ENCRYPTION_KEY: z.string().min(32).optional(),
+    KSEF_TOKEN_ENCRYPTION_KEY: z.string().regex(/^[A-Za-z0-9+/]{43}=$/).optional(),
 
     SMTP_URL: z.url().optional(),
     RESEND_API_KEY: z.string().min(1).optional(),

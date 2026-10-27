@@ -17,6 +17,7 @@ export const TENANT_MODELS = [
   "Invoice",
   "InvoiceItem",
   "KsefEvent",
+  "KsefSubmission",
   "PortalLink",
   "QuoteDecisionMail",
   "QuoteSendMail",

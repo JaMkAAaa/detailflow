@@ -127,6 +127,7 @@ model Studio {
   invoices         Invoice[]
   invoiceRows      InvoiceItem[]
   ksefEvents       KsefEvent[]
+  ksefSubmissions  KsefSubmission[]
   portalLinks      PortalLink[]
   quoteDecisionMails QuoteDecisionMail[]
   quoteSendMails QuoteSendMail[]
@@ -434,6 +435,7 @@ model Invoice {
 
   items  InvoiceItem[]
   events KsefEvent[]
+  submission KsefSubmission?
 
   @@unique([studioId, ksefEnv, number])
   @@unique([ksefEnv, ksefNumber])
@@ -478,6 +480,25 @@ model KsefEvent {
   invoice   Invoice       @relation(fields: [invoiceId, studioId], references: [id, studioId], onDelete: Cascade)
 
   @@index([studioId, invoiceId, at])
+}
+
+// Immutable XML prepared and XSD-validated by the invoice generator (#43).
+// Redis contains only IDs. References survive retries and worker restarts.
+model KsefSubmission {
+  id               String   @id @default(cuid())
+  studioId         String
+  invoiceId        String   @unique
+  xml              String
+  xmlHash          String
+  sessionReference String?
+  invoiceReference String?
+  sendStartedAt    DateTime?
+  createdAt        DateTime @default(now())
+  studio           Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  invoice          Invoice @relation(fields: [invoiceId, studioId], references: [id, studioId], onDelete: Cascade)
+
+  @@unique([invoiceId, studioId])
+  @@index([studioId, invoiceId])
 }
 
 // Portal klienta: w bazie tylko hash, surowy token wyłącznie w URL.
