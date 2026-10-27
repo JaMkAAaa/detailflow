@@ -1,3 +1,4 @@
+import { startBillingWorker } from "../src/worker/billing";
 import { platformDb } from "../lib/db/client";
 import { deliverQuoteDecisionMails } from "../src/server/portal/mail";
 import { deliverQuoteMails } from "../src/server/wyceny/mail";
@@ -5,6 +6,7 @@ import { recoverKsefOutbox, startKsefWorker } from "../src/worker/ksef";
 import { ksefQueue } from "../src/ksef/queue";
 
 const ksefWorker = startKsefWorker();
+const billingWorker = await startBillingWorker();
 
 console.log("[worker] started");
 let current: Promise<void> | undefined;
@@ -20,6 +22,7 @@ async function shutdown(signal: string) {
   console.log(`[worker] ${signal}, stopping`);
   clearInterval(timer);
   await current;
+  await billingWorker.close();
   await ksefWorker.close();
   await ksefQueue().close();
   await platformDb.$disconnect();

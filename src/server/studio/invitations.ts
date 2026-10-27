@@ -11,7 +11,7 @@ const schema = z.object({ email: z.string().trim().toLowerCase().email().max(254
 const tokenHash = (token: string) => createHash("sha256").update(token).digest("hex");
 
 export async function inviteMember(userId: string, studioId: string, input: unknown) {
-  const { db } = await authorizeStudio(userId, studioId, "members:invite");
+  const { db } = await authorizeStudio(userId, studioId, "members:invite", true);
   const { email, role } = schema.parse(input);
   // Konto bez hasła: zaproszony loguje się istniejącym flow magic link.
   // Nie zmieniamy danych ani roli istniejącego konta.

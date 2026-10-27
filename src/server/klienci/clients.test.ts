@@ -41,7 +41,7 @@ describe("clients CRUD, pagination and tenant isolation (Postgres)", () => {
     userId = (await platformDb.user.create({ data: { name: tag, email: `${tag}@example.com` } })).id;
     outsiderId = (await platformDb.user.create({ data: { name: "obcy", email: `${tag}-o@example.com` } })).id;
     for (const suffix of ["a", "b"]) {
-      const studioId = (await platformDb.studio.create({ data: { name: tag, publicCode: `${tag}-${suffix}`, slug: `${tag}-${suffix}` } })).id;
+      const studioId = (await platformDb.studio.create({ data: { status: "active", name: tag, publicCode: `${tag}-${suffix}`, slug: `${tag}-${suffix}` } })).id;
       studios.push(studioId);
       await studioDb(studioId).membership.create({ data: { studioId, userId, role: "worker" } });
     }

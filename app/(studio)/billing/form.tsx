@@ -31,3 +31,23 @@ export function CheckoutForm({ studioId }: { studioId: string }) {
     {error && <p role="alert" className="text-df-error">{error}</p>}
   </form>;
 }
+
+export function BillingPortalButton({ studioId }: { studioId: string }) {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+  return <div className="flex flex-col gap-3">
+    <button disabled={pending} className="rounded-lg bg-df-lime p-3 text-df-bg disabled:opacity-50" onClick={async () => {
+      setPending(true); setError("");
+      try {
+        const response = await fetch(`/api/studios/${studioId}/billing/portal`, { method: "POST" });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Nie udało się otworzyć portalu Stripe.");
+        window.location.assign(result.url);
+      } catch (error) {
+        setError(error instanceof Error ? error.message : "Nie udało się otworzyć portalu Stripe.");
+        setPending(false);
+      }
+    }}>{pending ? "Otwieranie…" : "Zarządzaj abonamentem w Stripe"}</button>
+    {error && <p role="alert" className="text-df-error">{error}</p>}
+  </div>;
+}

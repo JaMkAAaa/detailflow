@@ -41,7 +41,7 @@ const decisionRequest = (token: string, decision = "accepted", origin = "http://
   }), { params: Promise.resolve({ token }) });
 
 beforeAll(async () => {
-  for (const suffix of ["a", "b"]) studios.push((await platformDb.studio.create({ data: { publicCode: `${tag}-${suffix}`, slug: `${tag}-${suffix}`, name: `Studio ${suffix}` } })).id);
+  for (const suffix of ["a", "b"]) studios.push((await platformDb.studio.create({ data: { status: "active", publicCode: `${tag}-${suffix}`, slug: `${tag}-${suffix}`, name: `Studio ${suffix}` } })).id);
   userId = (await platformDb.user.create({ data: { email: `${tag}@example.test`, name: "Owner" } })).id;
   await studioDb(studios[0]!).membership.create({ data: { studioId: studios[0]!, userId, role: "owner" } });
 });
