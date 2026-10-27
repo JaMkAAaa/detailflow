@@ -346,7 +346,11 @@ const INVOICES: InvoiceSeed[] = [
 // ─── Seed ────────────────────────────────────────────────────────────────────
 
 export async function seed() {
-  // Czysty reset: kaskada z Studio usuwa wszystkie dane operacyjne demo.
+  // Czysty reset: kaskada z Studio usuwa dane operacyjne demo. Kohorta A-02
+  // (df-demo-*) jest odtwarzana przez seedPlatform; inne studia zostają nietknięte.
+  // Sprzątamy też kohortę ze starszej wersji seeda (platform-demo-*).
+  await platformDb.studio.deleteMany({ where: { slug: { startsWith: "platform-demo-" } } });
+  await platformDb.user.deleteMany({ where: { email: { endsWith: "@platform-demo.detailflow.test" } } });
   await platformDb.studio.deleteMany({ where: { slug: DEMO.studioSlug } });
 
   const studio = await platformDb.studio.create({
@@ -360,8 +364,11 @@ export async function seed() {
       postal: "02-675",
       city: "Warszawa",
       district: "Mokotów",
+      phone: "+48 600 100 128",
       status: "active",
       plan: "studio",
+      stripeCustomerId: "cus_seed_ST00128",
+      stripeSubscriptionId: "sub_seed_ST00128",
       ksefEnv: "test",
       createdAt: waw("2025-03-03 10:00"),
       activatedAt: waw("2025-03-03 10:00"),
@@ -579,6 +586,13 @@ export async function seed() {
   });
 
   await seedPlatform();
+  await platformDb.auditLog.createMany({
+    data: [
+      { studioId, actorId: owner.id, action: "studio.created", meta: {}, createdAt: waw("2025-03-03 10:00") },
+      { studioId, actorId: owner.id, action: "billing.subscription_active", meta: { plan: "studio" }, createdAt: waw("2025-03-17 10:00") },
+    ],
+  });
+
   return { studioId };
 }
 

@@ -13,6 +13,7 @@ import { platformDb } from "../lib/db/client";
 import { Prisma } from "../lib/db/generated/client";
 import { studioDb, type StudioDb } from "../lib/db/tenant";
 import { hashPortalToken } from "../lib/portal/token";
+import { partitionByStatus } from "../src/server/admin/accounts";
 import { DEMO, seed } from "./seed";
 import { PLATFORM_DEMO } from "./seed-platform";
 import { calculateMrr } from "../src/server/billing/mrr";
@@ -32,7 +33,7 @@ describe("seed Obsidian Studio", () => {
     await seed();
     const { studioId } = await seed();
     db = studioDb(studioId);
-  });
+  }, 120_000);
 
   it("is a single demo studio owned by Michał Kowalski", async () => {
     const studios = await platformDb.studio.findMany({ where: { slug: DEMO.studioSlug }, include: { members: { include: { user: true } } } });
@@ -151,6 +152,8 @@ describe("seed Obsidian Studio", () => {
     expect(studios.filter((s) => s.status === "trial")).toHaveLength(24);
     expect(studios.filter((s) => s.status === "past_due")).toHaveLength(6);
     expect(studios.filter((s) => s.status === "suspended")).toHaveLength(8);
+    // 166 kont z makiety + 26 anulowanych z kohorty churnu (#101); anulowane wpadają w „Wstrzymane”.
+    expect(partitionByStatus(studios)).toEqual({ all: 192, active: 128, trial: 24, past_due: 6, suspended: 34 });
     expect(calculateMrr(studios).toFixed(2)).toBe("16672.00");
     expect(trialConversion(studios, PLATFORM_DEMO.now)).toEqual({ paid: 9, completed: 30, rate: 0.3 });
     const overview = await getPlatformOverview(PLATFORM_DEMO.now);
