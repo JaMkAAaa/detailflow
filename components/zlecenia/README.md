@@ -59,3 +59,30 @@ demo (`board-demo.ts`, scenariusz 24.10.2026, 11:30) — bez zapytań operacyjny
   liczniki i przełącznik widoku. Wiersz terminu zostaje 11 px, jak w Figmie.
 - Karta ma min. 186 px jak w Figmie; karta ze zdjęciem wychodzi ok. 9 px wyższa niż
   268 px z makiety (tam treść wchodzi w dolny padding).
+
+---
+
+# M-03 / M-04 — lista i szczegóły zlecenia na telefonie (#47)
+
+Referencje: [M-03](https://www.figma.com/design/3pssHgZjGzo0UeyBC8yZ3S?node-id=19-531),
+[M-04](https://www.figma.com/design/3pssHgZjGzo0UeyBC8yZ3S?node-id=20-254).
+
+`/orders` i `/orders/[number]` renderują `MobileOrders` / `MobileOrderDetails` poniżej `lg`
+i wersję desktopową powyżej (CSS). Dane te same co D-03/D-04 (`boardOrders`, `order`), więc
+nadal UI-only na scenariuszu 24.10.2026, 11:30, bez zapytań operacyjnych.
+
+- **M-03** pokazuje **wszystkie 7 aktywnych** w jednej przewijanej treści strony (bez
+  wysokości na „fold”, bez wirtualizacji); zakończone #DF-0244 nie wchodzi. Grupy: W trakcie 3,
+  Do odbioru 2, Przyjęte 2. Chipy statusu i szukajka (auto, klient, numer, rejestracja —
+  `BoardOrder.plate` z seeda; dotyczy też wyszukiwania na tablicy) działają razem; brak wyników
+  → `NoResultsState`. Karta #DF-0248 linkuje do M-04; pozostałe otwierają sheet „wkrótce”, bo
+  karta zlecenia istnieje tylko dla #DF-0248.
+- **M-04**: zdjęcie (ostatnie z `photos`), numer/status, „Zadzwoń” (`tel:`), Link i Zdjęcie
+  (sheet „wkrótce”), postęp **4 etapów studia** (portal ma 3), wycena w PLN z `formatPln`.
+  Dolny pasek „Zakończ: …” zastępuje tab bar (`TabBar` chowa się na `/orders/:numer`).
+  Zmiana etapu nie jest zapisywana — jak na desktopie, czeka na `type:implement`.
+
+Odstępstwa od Figmy: etapy, notatki i linia pojazdu pochodzą z danych D-04 („Aplikacja
+ceramiki”, „WA 911PC · Boks 01” — model nie ma koloru i roku); „⋯” jest nieaktywne; pole
+szukania ma 16 px, żeby iOS nie przybliżał strony po fokusie.
+Ikony z Figmy: `public/mobile/*.svg` przez `MaskIcon` (kolor z `currentColor`).

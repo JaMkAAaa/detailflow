@@ -1,6 +1,6 @@
 /** D-02, UI-only scenario: 24 October 2026, 11:30. No operational queries. */
 export type Booking = {
-  id: string; bay: number; from?: string; to?: string; employee: string; vehicle: string; service: string;
+  id: string; number?: string; bay: number; from?: string; to?: string; employee: string; vehicle: string; service: string;
   customer: string; start: number; end: number; status: "in-progress" | "scheduled";
 };
 export const bookings: Booking[] = [
@@ -34,3 +34,45 @@ export function layoutBookings(items: Booking[]) {
   flush();
   return result;
 }
+
+/** Trasa karty zlecenia: numer (`DF-0248`), gdy znany; w scenariuszu demo `id` jest numerem. */
+export const bookingHref = (booking: Booking) => `/orders/${booking.number ?? booking.id}`;
+
+/**
+ * Rezerwacje widoczne danego dnia (`YYYY-MM-DD`) z minutami przycięte do osi 08:00–18:00.
+ * Tryb demo ma jeden dzień ze stałymi minutami; tryb live liczy je z `from`/`to` (czas Warszawy).
+ */
+export function bookingsOnDay(events: Booking[], key: string, { live, today }: { live: boolean; today: string }) {
+  if (!live) return key === today ? events : [];
+  return events
+    .filter((event) => event.from!.slice(0, 10) <= key && event.to!.slice(0, 10) >= key)
+    .map((event) => ({
+      ...event,
+      start: event.from!.slice(0, 10) < key ? 480 : Math.max(480, Number(event.from!.slice(11, 13)) * 60 + Number(event.from!.slice(14, 16))),
+      end: event.to!.slice(0, 10) > key ? 1080 : Math.min(1080, Number(event.to!.slice(11, 13)) * 60 + Number(event.to!.slice(14, 16))),
+    }))
+    .filter((event) => event.start < event.end);
+}
+
+export const MIN_FREE_MINUTES = 60;
+
+/**
+ * Wolne okna jednego boksu *między* rezerwacjami (nie przed pierwszą ani po ostatniej), dłuższe
+ * niż `MIN_FREE_MINUTES`. Dla dzisiejszego dnia pomija okna, które już się skończyły (`nowMinutes`).
+ */
+export function freeWindows(dayBookings: Booking[], bay: number, nowMinutes?: number) {
+  const sorted = dayBookings.filter((booking) => booking.bay === bay).sort((a, b) => a.start - b.start);
+  const windows: { start: number; end: number }[] = [];
+  let busyUntil = sorted[0]?.end ?? 0;
+  for (const booking of sorted.slice(1)) {
+    if (booking.start - busyUntil >= MIN_FREE_MINUTES && (nowMinutes === undefined || booking.start > nowMinutes)) {
+      windows.push({ start: busyUntil, end: booking.start });
+    }
+    busyUntil = Math.max(busyUntil, booking.end);
+  }
+  return windows;
+}
+
+/** 90 → „1,5 h”, 120 → „2 h”. */
+export const formatDuration = (minutes: number) =>
+  `${new Intl.NumberFormat("pl-PL", { maximumFractionDigits: 1 }).format(minutes / 60)} h`;

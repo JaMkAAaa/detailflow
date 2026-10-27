@@ -20,6 +20,9 @@ const tabs = {
 /** Trasy bez własnej zakładki — podświetlają „Więcej”. */
 const moreRoutes = ["/invoices", "/customers", "/team"];
 
+/** Szczegóły zlecenia (M-04) mają własny dolny pasek akcji zamiast tab bara. */
+const isOrderDetails = (pathname: string) => /^\/orders\/[^/]+/.test(pathname);
+
 const isUnder = (pathname: string, href: string) =>
   href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
 
@@ -62,7 +65,10 @@ export function TabBar({ role }: { role: Role }) {
     <>
       <nav
         aria-label="Nawigacja mobilna"
-        className="fixed inset-x-0 bottom-0 z-20 flex items-center justify-between border-t border-df-line bg-df-side px-3 pt-2.5 pb-[max(1.75rem,env(safe-area-inset-bottom))] lg:hidden"
+        className={cn(
+          "fixed inset-x-0 bottom-0 z-20 flex items-center justify-between border-t border-df-line bg-df-side px-3 pt-2.5 pb-[max(1.75rem,env(safe-area-inset-bottom))] lg:hidden",
+          isOrderDetails(pathname) && "max-lg:hidden",
+        )}
       >
         {tabs.left.map((tab) => (
           <RouteTab key={tab.href} {...tab} active={isUnder(pathname, tab.href)} />

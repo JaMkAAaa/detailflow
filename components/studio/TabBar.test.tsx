@@ -63,3 +63,13 @@ it("hides owner-only links from workers in Więcej", async () => {
   expect(within(sheet).queryByRole("link", { name: "Faktury" })).toBeNull();
   expect(within(sheet).queryByRole("link", { name: "Zaproś do studia" })).toBeNull();
 });
+
+it("gives way to the order action bar on order details (M-04) but not on the list", () => {
+  pathname.current = "/orders/DF-0248";
+  const { unmount } = render(<TabBar role="owner" />);
+  expect(screen.getByRole("navigation", { name: "Nawigacja mobilna" }).className).toContain("max-lg:hidden");
+  unmount();
+  pathname.current = "/orders";
+  render(<TabBar role="owner" />);
+  expect(screen.getByRole("navigation", { name: "Nawigacja mobilna" }).className).not.toContain("max-lg:hidden");
+});
