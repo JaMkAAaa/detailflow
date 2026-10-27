@@ -6,7 +6,6 @@ import { cn } from "@/lib/utils";
 import { CLIENTS_PER_PAGE, clientsHref, type ClientFilter } from "@/src/server/klienci/query";
 import type { ClientsPage } from "@/src/server/klienci/directory";
 import { ClientProfileCard } from "./ClientProfileCard";
-import { SoonButton } from "./SoonButton";
 import { clientsLabel, formatDate, pageItems, vehiclesLabel } from "./format";
 
 const filters: { value: ClientFilter; label: string }[] = [
@@ -208,13 +207,9 @@ export function ClientsScreen({ data }: { data: ClientsPage }) {
           <h1 className="text-df-headline">Klienci i auta</h1>
           <p className="mt-1 text-df-body text-df-muted">Relacje, które wracają. Pełna historia każdego samochodu.</p>
         </div>
-        <SoonButton
-          className="h-10 w-[190px] text-df-label"
-          title="Dodaj klienta — wkrótce"
-          description="Dodawanie klientów z poziomu panelu będzie dostępne w kolejnym etapie."
-        >
+        <Link href="/customers/new" className={cn(buttonVariants(), "h-10 w-[190px] text-df-label")}>
           ＋ Dodaj klienta
-        </SoonButton>
+        </Link>
       </div>
       <Filters data={data} />
       <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_378px]">

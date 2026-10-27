@@ -56,14 +56,12 @@ function Vehicles({ profile }: { profile: ClientProfile }) {
     <section aria-labelledby="profile-vehicles" className={panel}>
       <div className="flex h-7 items-center gap-2">
         <h2 id="profile-vehicles" className="min-w-0 flex-1 text-df-section">Samochody</h2>
-        <SoonButton
-          variant="secondary"
-          className="h-7 bg-transparent px-0 text-df-label text-df-muted hover:bg-transparent hover:text-df-text"
-          title="Dodaj samochód — wkrótce"
-          description="Dodawanie samochodów do klienta będzie dostępne w kolejnym etapie."
+        <Link
+          href={`/customers/${profile.id}`}
+          className="h-7 px-0 text-df-label text-df-muted hover:text-df-text"
         >
           ＋ Dodaj
-        </SoonButton>
+        </Link>
       </div>
       {profile.vehicles.length === 0 ? (
         <p className="mt-3 text-df-body text-df-muted">Klient nie ma jeszcze zapisanych samochodów.</p>

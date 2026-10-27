@@ -34,6 +34,6 @@ Filtry, wiersze i paginacja to zwykłe linki, wyszukiwarka to formularz GET — 
   nie cudza fotografia.
 - **Wizyty Nowaka**: karta pokazuje trzy najnowsze prawdziwe zlecenia, więc obok 24.10 i 14.08 jest
   DF-0243 (23.10, źródło FV/41), którego w makiecie brakuje.
-- „＋ Dodaj klienta”, „＋ Dodaj”, „Cała historia ↗” otwierają dialog „wkrótce”. Plakietka „Zlecenie w trakcie”
-  prowadzi do D-04, który ma na razie dane demo tylko dla #DF-0248 — pozostałe numery dadzą 404 do czasu
-  podłączenia danych D-04.
+- „＋ Dodaj klienta” prowadzi do `/customers/new` (CRUD + import CSV z #35). „＋ Dodaj” na karcie
+  otwiera edycję klienta (`/customers/:id`). „Cała historia ↗” zostaje dialogiem „wkrótce”.
+  Plakietka „Zlecenie w trakcie” prowadzi do D-04.

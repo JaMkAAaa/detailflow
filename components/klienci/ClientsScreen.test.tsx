@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, expect, it } from "vitest";
 import type { ClientProfile, ClientRow, ClientsPage } from "@/src/server/klienci/directory";
 import { CLIENTS_PER_PAGE } from "@/src/server/klienci/query";
@@ -131,11 +130,9 @@ it("shows a no-results state with a link that clears filters, and an empty card"
   expect(screen.getByText(/Wybierz klienta z listy/)).toBeTruthy();
 });
 
-it("add actions open the coming-soon dialog instead of writing anything", async () => {
+it("add client goes to the create form", () => {
   render(<ClientsScreen data={page()} />);
-  await userEvent.click(screen.getByRole("button", { name: "＋ Dodaj klienta" }));
-  const dialog = screen.getByRole("dialog", { name: "Dodaj klienta — wkrótce", hidden: true });
-  expect(dialog.hasAttribute("open")).toBe(true);
+  expect(screen.getByRole("link", { name: "＋ Dodaj klienta" }).getAttribute("href")).toBe("/customers/new");
 });
 
 it("formats Polish plurals, genitive month and page windows", () => {
