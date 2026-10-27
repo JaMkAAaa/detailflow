@@ -3,6 +3,7 @@ import { afterAll, beforeAll, expect, it } from "vitest";
 import { platformDb } from "@/lib/db/client";
 import { studioDb } from "@/lib/db/tenant";
 import { invoiceDetail, invoiceOrders, invoiceRecord } from "./query";
+import { invoiceAttentionCount, invoiceList } from "./list-query";
 
 const tag = randomUUID();
 let a: string;
@@ -40,4 +41,17 @@ it("isolates invoice numbers, IDs, lines, events and completed work orders by st
 it("keeps identically numbered TEST and PROD invoices separate", async () => {
   expect((await invoiceDetail(b, "FV/41/10/2026", "test"))?.buyer.name).toBe("test");
   expect((await invoiceDetail(b, "FV/41/10/2026", "production"))?.buyer.name).toBe("production");
+});
+it("isolates list rows, events and attention counts by studio and environment", async () => {
+  expect(await invoiceList(a, "test")).toEqual([]);
+  expect(await invoiceAttentionCount(a, "test")).toBe(0);
+  const testRows = await invoiceList(b, "test");
+  const prodRows = await invoiceList(b, "production");
+  expect(testRows.map(row => row.buyerName)).toEqual(["test"]);
+  expect(prodRows.map(row => row.buyerName)).toEqual(["production"]);
+  expect(testRows[0]?.events).toHaveLength(1);
+  await studioDb(b).invoice.update({ where: { id: invoiceId }, data: { ksefStatus: "rejected" } });
+  expect(await invoiceAttentionCount(b, "test")).toBe(1);
+  expect(await invoiceAttentionCount(b, "production")).toBe(0);
+  expect(await invoiceAttentionCount(a, "test")).toBe(0);
 });
