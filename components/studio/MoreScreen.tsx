@@ -71,6 +71,7 @@ export function MoreScreen({
     {
       title: "KONTO",
       items: [
+        ...(role === "owner" ? [{ label: "Abonament Detailflow", icon: "settings", href: "/billing" }] : []),
         ...(role === "worker"
           ? []
           : [
