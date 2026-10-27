@@ -4,10 +4,14 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet } from "@/components/studio/Sheet";
+import { useMobile } from "@/components/studio/useMobile";
+import { MobileInvoiceDetails } from "./MobileInvoiceDetails";
 import { date, envLabel, type InvoiceView, type Seller } from "./model";
 import { control, EnvironmentBanner, InvoicePreview, Panel } from "./shared";
 
 export function InvoiceDetails({ invoice, seller }: { invoice: InvoiceView; seller: Seller }) {
+  const mobile = useMobile();
+  const [more, setMore] = useState(false);
   const [action, setAction] = useState<"paid" | "resend" | "correction" | null>(null);
   const [reason, setReason] = useState("");
   const [message, setMessage] = useState("");
@@ -32,10 +36,14 @@ export function InvoiceDetails({ invoice, seller }: { invoice: InvoiceView; sell
     setMessage(`${text}. Zmiana dotyczy tylko tego podglądu. Nie zapisano danych, nie wysłano wiadomości ani dokumentów do MF.`);
     setAction(null); setReason("");
   }
+  const feedback = <p role="status" className="text-df-label text-df-amber print:hidden">{message || "Podgląd UI · akcje zmieniają wyłącznie demonstrację, bez zapisu i wysyłki do MF."}</p>;
   return <div className="df-invoice-screen space-y-6">
+    {mobile && <MobileInvoiceDetails invoice={invoice} label={label} paidDemo={paidDemo} seconds={acceptanceSeconds} copy={() => void copy()} upo={downloadUpo} xml={() => setMessage("XML FA(3) nie jest dostępny w tym podglądzie.")} pdf={() => window.print()} paid={() => setAction("paid")} correction={() => setAction("correction")} resend={() => setAction("resend")} more={() => setMore(true)} />}
+    <div hidden={mobile} className={mobile ? "hidden print:block" : "space-y-6"}>
     <div className="print:hidden"><EnvironmentBanner env={invoice.env} /></div>
     <header className="flex flex-wrap items-start justify-between gap-4 print:hidden"><div><div className="flex flex-wrap items-center gap-3"><h1 className="text-df-headline">{invoice.number}</h1><Badge variant={accepted ? "accepted-test" : invoice.ksefStatus === "rejected" ? "rejected" : "processing"}>{label}</Badge></div><p className="mt-2 text-df-muted">{invoice.buyer.name} · #{invoice.orderNumber} · wystawiona {date(invoice.issuedAt, true)}</p></div><div className="flex flex-wrap gap-3"><Button variant="secondary" onClick={() => setAction("correction")}>Wystaw korektę</Button><Button variant="secondary" onClick={() => setAction("resend")}>{invoice.emailedAt ? "Wyślij ponownie" : "Wyślij PDF"}</Button><Button disabled={!!invoice.paidAt || paidDemo} onClick={() => setAction("paid")}>Oznacz jako opłaconą</Button></div></header>
-    <p role="status" className="text-df-label text-df-amber print:hidden">{message || "Podgląd UI · akcje zmieniają wyłącznie demonstrację, bez zapisu i wysyłki do MF."}</p>
+
+    {!mobile && feedback}
     <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_380px] print:block">
       <div className="df-invoice-wrapper overflow-x-auto rounded-2xl bg-df-panel p-7 print:overflow-visible print:bg-white print:p-0"><InvoicePreview invoice={invoice} seller={seller} /></div>
       <aside className="space-y-5 print:hidden"><Panel><div className="mb-4 flex justify-between"><h2 className="text-df-section">Status w KSeF</h2><strong className="text-df-label text-df-amber">{envLabel(invoice.env)}</strong></div>
@@ -53,6 +61,9 @@ export function InvoiceDetails({ invoice, seller }: { invoice: InvoiceView; sell
       })}</ol>{!invoice.events.length && <p className="text-df-muted">Brak zdarzeń wysyłki.</p>}</Panel>
       <Panel><div className="flex justify-between gap-3"><h2 className="text-df-section">Płatność</h2><Badge variant={invoice.paidAt || paidDemo ? "completed" : "overdue"}>{paidDemo ? "Opłacona (demo)" : invoice.paidAt ? "Opłacona" : "Nieopłacona"}</Badge></div><p className="mt-3 break-words text-[11px] text-df-muted">Wysłano: {date(invoice.emailedAt, true)} · {invoice.buyer.email || "brak e-maila"}</p><dl className="my-4 flex justify-between gap-3"><dt className="text-df-muted">Termin</dt><dd>{date(invoice.dueAt)}</dd></dl><Button variant="secondary" className="w-full" onClick={() => window.print()}>Pobierz PDF</Button><p className="mt-2 text-[11px] text-df-muted">W oknie drukowania wybierz „Zapisz jako PDF”.</p></Panel></aside>
     </div>
+    </div>
+    {mobile && feedback}
+    <Sheet open={more} onClose={() => setMore(false)} title="Akcje faktury"><Button variant="secondary" onClick={() => { setMore(false); window.print(); }}>Pobierz PDF</Button><Button variant="secondary" onClick={() => { setMore(false); setAction("resend"); }}>{invoice.emailedAt ? "Wyślij ponownie" : "Wyślij PDF"}</Button><Button variant="secondary" onClick={() => { setMore(false); setAction("correction"); }}>Wystaw korektę</Button><h2 className="text-df-section">Historia wysyłki</h2><ol className="space-y-3">{[...extraEvents, ...invoice.events].map(event => <li key={event.id}><p>{event.message}</p><time className="text-df-label text-df-muted">{date(event.at, true)}</time></li>)}</ol></Sheet>
     <Sheet open={action !== null} onClose={() => setAction(null)} title={action === "paid" ? "Oznacz jako opłaconą" : action === "correction" ? "Wystaw korektę" : "Wyślij ponownie"}><p>{invoice.number} · KSeF {envLabel(invoice.env)}</p><p className="text-df-muted">Tryb demonstracyjny. Potwierdzenie nie zapisuje zmian ani nie wysyła dokumentów lub e-maili.</p>{action === "correction" && <><p>Korekta jest osobnym dokumentem powiązanym z {invoice.number}.</p><label className="space-y-2">Powód korekty<textarea className={`${control} h-24 py-2`} maxLength={1000} value={reason} onChange={event => setReason(event.target.value)} /></label></>}{action === "resend" && <p className="break-all">Odbiorca PDF: {invoice.buyer.email || "brak adresu e-mail"}</p>}<div className="flex gap-3"><Button variant="secondary" onClick={() => setAction(null)}>Anuluj</Button><Button disabled={action === "correction" ? !reason.trim() : action === "resend" ? !invoice.buyer.email : false} onClick={confirm}>Potwierdź (demo)</Button></div></Sheet>
   </div>;
 }

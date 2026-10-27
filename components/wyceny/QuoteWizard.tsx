@@ -5,6 +5,8 @@ import Decimal from "decimal.js";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet } from "@/components/studio/Sheet";
+import { useMobile } from "@/components/studio/useMobile";
+import { MobileQuoteStep } from "./MobileQuoteStep";
 import { cn } from "@/lib/utils";
 import { clients as demoClients, services, sizes, paints, slots, initialDraft, draftKey, draftSchema, preview, pln, type Draft } from "./demo";
 
@@ -18,6 +20,8 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 
 type ClientChoice = { id: string; name: string; email: string | null; vehicles: readonly { id: string; label: string }[] };
 export function QuoteWizard({ studioId, userId, clientChoices }: { studioId: string; userId: string; clientChoices?: readonly ClientChoice[] }) {
+  const mobile = useMobile();
+  const [options, setOptions] = useState(false);
   const clients = clientChoices ?? demoClients;
   const operational = clientChoices !== undefined;
   const start: Draft = operational ? { ...initialDraft, clientId: clients[0]?.id ?? "", vehicleId: clients[0]?.vehicles[0]?.id ?? "" } : initialDraft;
@@ -128,6 +132,7 @@ export function QuoteWizard({ studioId, userId, clientChoices }: { studioId: str
   if (!client || !vehicle) return <p role="status">Dodaj klienta z samochodem w zakładce Klienci, aby przygotować wycenę.</p>;
 
   return <fieldset disabled={busy} aria-busy={busy} className="flex min-w-0 flex-col gap-6 border-0 p-0">
+    {mobile && draft.step === 2 && !complete ? <MobileQuoteStep draft={draft} client={client.name} vehicle={vehicle.label} update={update} toggle={toggleService} catalog={() => setCatalog(true)} changeClient={() => go(1)} next={() => go(3)} options={() => setOptions(true)} /> : <>
     <header className="flex min-h-[70px] flex-wrap items-start justify-between gap-3">
       <div><h1 ref={title} tabIndex={-1} className="text-df-headline">Nowa wycena</h1>
         <p className="mt-1 text-df-muted">Od potrzeb klienta do konkretnej ceny. Bez liczenia w Excelu.</p></div>
@@ -246,6 +251,10 @@ export function QuoteWizard({ studioId, userId, clientChoices }: { studioId: str
         {draft.step < 3 ? <Button className="h-10 text-df-label" disabled={draft.step === 2 && !price.selected.length} onClick={() => go((draft.step + 1) as Draft["step"])}>{draft.step === 1 ? "Dalej: wybierz usługi →" : "Dalej: wybierz termin →"}</Button> : <Button className="h-10 text-df-label" disabled={busy || !confirmed || !validSlot || !price.selected.length} onClick={() => { if (operational) void persist(true); else { setComplete(true); title.current?.focus(); } }}>{operational ? "Wyślij wycenę" : "Potwierdź wysyłkę (demo)"}</Button>}
       </footer>
     </>}
+    </>}
+    {mobile && draft.step === 2 && restoreError && <p role="alert" className="text-df-amber">{restoreError}</p>}
+    {mobile && draft.step === 2 && error && <p role="alert" className="text-df-amber">{error}</p>}
+    <Sheet open={options} onClose={() => setOptions(false)} title="Rozszerzone opcje · v1.1"><p className="text-df-muted">Dodatkowe opcje lakieru i wnętrza na telefonie będą dostępne w wersji 1.1. Możesz teraz kontynuować wycenę.</p><Button onClick={() => setOptions(false)}>Wróć do wyceny</Button></Sheet>
     <Sheet open={catalog} onClose={() => setCatalog(false)} title="Katalog usług">
       <p className="text-df-muted">Zaznacz usługi, które chcesz uwzględnić w wycenie.</p>
       {services.map((service) => <label key={service.id} className="flex cursor-pointer items-center gap-3 rounded-lg bg-df-raised p-4"><input type="checkbox" className="accent-df-lime" checked={draft.serviceIds.includes(service.id)} onChange={() => toggleService(service.id)} /><span className="flex-1"><span className="block text-df-strong">{service.name}</span><span className="block text-df-label text-df-muted">{service.description}</span></span><span>{pln(service.price)}</span></label>)}

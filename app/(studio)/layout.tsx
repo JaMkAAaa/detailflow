@@ -35,7 +35,7 @@ export default async function StudioLayout({
           {children}
         </main>
       </div>
-      <TabBar role={role} attentionCount={attentionCount} />
+      <TabBar />
     </div>
   );
 }

@@ -9,7 +9,8 @@ export function Panel({ children, className }: { children: ReactNode; className?
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return <label className="flex min-w-0 flex-col gap-2 text-df-label text-df-muted">{label}{children}</label>;
 }
-export function EnvironmentBanner({ env }: { env: Environment }) {
+export function EnvironmentBanner({ env, compact = false }: { env: Environment; compact?: boolean }) {
+  if (compact) return <p className="rounded-lg bg-df-amber-dark px-3 py-2.5 text-[12px] leading-[1.4] text-df-amber">KSeF {envLabel(env)}{env === "test" ? " · Dokumenty nie są fakturami produkcyjnymi." : " · Środowisko produkcyjne."}</p>;
   return <p className="rounded-lg bg-df-amber-dark px-3 py-2.5 text-df-body text-df-amber">KSeF — {envLabel(env)}{env === "test" ? " · TRYB TESTOWY · Te dokumenty nie są fakturami produkcyjnymi." : " · Środowisko produkcyjne."}</p>;
 }
 export function InvoicePreview({ invoice, seller }: { invoice: InvoiceView; seller: Seller }) {

@@ -26,3 +26,15 @@ zleca mail z linkiem portalu; „Wyślij ponownie” używa tego samego ID.
 Nazwa i cena pozycji są edytowalne. Szczegóły: `src/server/wyceny/README.md`.
 Opis demonstracji wyżej dotyczy izolowanego wariantu komponentu bez
 `clientChoices`, używanego przez testy UI. Terminy w obu wariantach są demo.
+
+## Mobile M-05 (#48)
+
+Krok 2 poniżej 1024 px ma kompaktowy wybór rozmiaru i usług, katalog oraz stałe
+podsumowanie z przejściem do terminu. Używa stanu, szkicu, silnika Decimal i API
+`QuoteWizard`; wybór klienta oraz krok 3 pozostają wspólne. „Więcej opcji: lakier
+i wnętrze” wyświetla informację o v1.1 i nie blokuje kontynuacji. Zachowane
+wcześniej mnożniki nadal wchodzą do podsumowania i zapisu.
+
+Ceny usług pochodzą ze wspólnego katalogu v1 (np. wnętrze 650 zł bazowo), więc
+różnice katalogu względem statycznej makiety nie są nadpisywane na mobile.
+Referencja: [M-05](https://www.figma.com/design/3pssHgZjGzo0UeyBC8yZ3S?node-id=20-364).

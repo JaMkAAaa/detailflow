@@ -66,3 +66,17 @@ o braku generatora w tym zakresie. Brak integracji MF i żadnych zmian Stripe.
 Testy obejmują obliczenia, blokady kroków, autosave, potwierdzenie płatności demo,
 PROD bez badge testowego oraz rzeczywistą izolację odczytów między dwoma studiami
 i pomiędzy identycznymi numerami faktur TEST/PROD w Postgresie.
+
+## Mobile M-07 / M-08 (#48)
+
+- `/invoices` poniżej 1024 px używa kart M-07, tych samych rekordów, filtrów,
+  wyszukiwania, paginacji i środowiska co desktop. Link do FV zachowuje `env`.
+- `/invoices/[number]` pokazuje kwotę, status, KSeF, pozycje i stały pasek akcji
+  M-08. Kopiowanie, UPO, drukowanie PDF i potwierdzenia korzystają ze wspólnej
+  obsługi `InvoiceDetails`. Historia i pozostałe akcje są pod przyciskiem „Więcej”.
+- Płatność, korekta i wysyłka PDF nadal są demonstracją UI (jak D-09).
+  Generator PDF/XML i operacyjne akcje należą do osobnych issue #43–#45.
+- TEST i PROD pozostają rozdzielone przez istniejące zapytania i parametr `env`.
+  Nie dodano mobilnego API ani zapytań do danych faktur.
+- Źródła: [M-07](https://www.figma.com/design/3pssHgZjGzo0UeyBC8yZ3S?node-id=32-671),
+  [M-08](https://www.figma.com/design/3pssHgZjGzo0UeyBC8yZ3S?node-id=32-784).
