@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet } from "@/components/studio/Sheet";
 import { cn } from "@/lib/utils";
-import { clients, services, sizes, paints, slots, initialDraft, draftKey, draftSchema, preview, pln, type Draft } from "./demo";
+import { clients as demoClients, services, sizes, paints, slots, initialDraft, draftKey, draftSchema, preview, pln, type Draft } from "./demo";
 
 const control = "h-[43px] w-full min-w-0 rounded-lg bg-df-raised px-3 text-df-body text-df-text";
 function Panel({ children, className }: { children: ReactNode; className?: string }) {
@@ -16,8 +16,16 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   return <label className="flex min-w-0 flex-col gap-2 text-df-label text-df-muted">{label}{children}</label>;
 }
 
-export function QuoteWizard({ studioId, userId }: { studioId: string; userId: string }) {
-  const [draft, setDraft] = useState<Draft>(initialDraft);
+type ClientChoice = { id: string; name: string; email: string | null; vehicles: readonly { id: string; label: string }[] };
+export function QuoteWizard({ studioId, userId, clientChoices }: { studioId: string; userId: string; clientChoices?: readonly ClientChoice[] }) {
+  const clients = clientChoices ?? demoClients;
+  const operational = clientChoices !== undefined;
+  const start: Draft = operational ? { ...initialDraft, clientId: clients[0]?.id ?? "", vehicleId: clients[0]?.vehicles[0]?.id ?? "" } : initialDraft;
+  const [draft, setDraft] = useState<Draft>(start);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [priceInputs, setPriceInputs] = useState<Record<string, string>>({});
+  const [serverStatus, setServerStatus] = useState("draft");
   const [ready, setReady] = useState(false);
   const [saved, setSaved] = useState("Odczytywanie szkicu…");
   const [catalog, setCatalog] = useState(false);
@@ -27,8 +35,8 @@ export function QuoteWizard({ studioId, userId }: { studioId: string; userId: st
   const title = useRef<HTMLHeadingElement>(null);
   const key = draftKey(studioId, userId);
   const price = preview(draft);
-  const client = clients.find((client) => client.id === draft.clientId)!;
-  const vehicle = client.vehicles.find((vehicle) => vehicle.id === draft.vehicleId)!;
+  const client = clients.find((client) => client.id === draft.clientId);
+  const vehicle = client?.vehicles.find((vehicle) => vehicle.id === draft.vehicleId);
   const slot = slots.find((slot) => slot.id === draft.slotId);
   const validSlot = slot && price.hours.lte(slot.hours);
 
@@ -37,17 +45,26 @@ export function QuoteWizard({ studioId, userId }: { studioId: string; userId: st
       const raw = localStorage.getItem(key);
       if (raw) {
         const result = draftSchema.safeParse(JSON.parse(raw));
-        if (result.success) {
+        if (result.success && clients.some((client) => client.id === result.data.clientId && client.vehicles.some((vehicle) => vehicle.id === result.data.vehicleId))) {
           const restored = result.data;
           if (restored.step === 3 && restored.serviceIds.length === 0) restored.step = 2;
           setDraft(restored);
-        } else setRestoreError("Nie udało się odtworzyć szkicu. Wczytano dane demonstracyjne.");
+          if (operational && restored.quoteId) {
+            setBusy(true);
+            fetch(`/api/studios/${studioId}/quotes/${restored.quoteId}`).then(async (response) => {
+              if (!response.ok) throw new Error("Nie udało się odczytać zapisanej wyceny.");
+              const quote = await response.json();
+              setServerStatus(quote.status);
+              if (quote.status !== "draft") setComplete(true);
+            }).catch((error: Error) => setError(error.message)).finally(() => setBusy(false));
+          }
+        } else setRestoreError("Nie udało się odtworzyć szkicu. Wczytano dane początkowe.");
       }
     } catch {
       setRestoreError("Nie udało się odczytać szkicu z tej przeglądarki.");
     }
     setReady(true);
-  }, [key]);
+  }, [key, clients, operational, studioId]);
 
   useEffect(() => {
     if (!ready) return;
@@ -72,14 +89,51 @@ export function QuoteWizard({ studioId, userId }: { studioId: string; userId: st
     update({ serviceIds: draft.serviceIds.includes(id) ? draft.serviceIds.filter((item) => item !== id) : [...draft.serviceIds, id] });
   }
 
+  async function persist(send = false) {
+    if (price.selected.some((service) => !/^\d{1,8}(\.\d{1,2})?$/.test(priceInputs[service.id] ?? service.price))) {
+      setError("Wpisz poprawną cenę bazową z maksymalnie dwoma miejscami po przecinku.");
+      return;
+    }
+    setBusy(true); setError("");
+    try {
+      const id = draft.quoteId ?? crypto.randomUUID();
+      const next = { ...draft, quoteId: id };
+      setDraft(next);
+      // Przechowaj ID przed żądaniem, by timeout/reload nie tworzył drugiej wyceny.
+      try { localStorage.setItem(key, JSON.stringify(next)); } catch { /* Zapis serwerowy nadal działa. */ }
+      const base = `/api/studios/${studioId}/quotes/${id}`;
+      async function request(url: string, method: string, body?: unknown) {
+        const response = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error ?? "Nie udało się zapisać wyceny.");
+        return result;
+      }
+      if (serverStatus === "draft") {
+        await request(base, "PUT", { clientId: draft.clientId, vehicleId: draft.vehicleId, size: draft.size,
+          paintMult: price.paint.multiplier, notes: draft.notes,
+          items: price.selected.map((service) => ({ name: service.name, basePrice: service.price,
+            durationMin: new Decimal(service.hours).times(60).div("1.20").toNumber() })) });
+        setSaved("✓ Zapisano szkic na serwerze");
+      }
+      if (send) {
+        await request(`${base}/send`, "POST");
+        setServerStatus("sent"); setComplete(true);
+      }
+    } catch (error) { setError(error instanceof Error ? error.message : "Nie udało się zapisać wyceny."); }
+    finally { setBusy(false); }
+  }
+
   if (!ready) return <p role="status" className="text-df-muted">Odczytywanie szkicu wyceny…</p>;
 
-  return <div className="flex flex-col gap-6">
+  if (!client || !vehicle) return <p role="status">Dodaj klienta z samochodem w zakładce Klienci, aby przygotować wycenę.</p>;
+
+  return <fieldset disabled={busy} aria-busy={busy} className="flex min-w-0 flex-col gap-6 border-0 p-0">
     <header className="flex min-h-[70px] flex-wrap items-start justify-between gap-3">
       <div><h1 ref={title} tabIndex={-1} className="text-df-headline">Nowa wycena</h1>
         <p className="mt-1 text-df-muted">Od potrzeb klienta do konkretnej ceny. Bez liczenia w Excelu.</p></div>
       <p role="status" className="text-df-label text-df-muted">{saved}</p>
     </header>
+    {error && <p role="alert" className="text-df-amber">{error}</p>}
     {restoreError && <p role="alert" className="text-df-amber">{restoreError}</p>}
     <nav aria-label="Kroki wyceny"><ol className="flex flex-wrap items-center gap-3">
       {["Klient i auto", "Usługi i wycena", "Termin i potwierdzenie"].map((label, index) => {
@@ -95,11 +149,11 @@ export function QuoteWizard({ studioId, userId }: { studioId: string; userId: st
     </ol></nav>
 
     {complete ? <Panel className="flex flex-col items-start gap-4" >
-      <Badge variant="completed">Potwierdzono w trybie demonstracyjnym</Badge>
-      <h2 className="text-df-section">Wycena gotowa do wysłania</h2>
+      <Badge variant="completed">{operational ? (({ accepted: "Zaakceptowana", rejected: "Odrzucona", expired: "Wygasła" } as Record<string, string>)[serverStatus] ?? "Wysłana") : "Potwierdzono w trybie demonstracyjnym"}</Badge>
+      <h2 className="text-df-section">{operational ? "Wycena zapisana i przekazana do wysyłki" : "Wycena gotowa do wysłania"}</h2>
       <p>{client.name} · {vehicle.label} · {pln(price.gross)}</p>
-      <p className="text-df-muted">To demonstracja interfejsu. Wiadomość nie została wysłana, a termin nie został zarezerwowany. Szkic jest zapisany lokalnie w tej przeglądarce.</p>
-      <Button variant="secondary" onClick={() => { setComplete(false); setConfirmed(false); }}>Wróć do wyceny</Button>
+      <p className="text-df-muted">{operational ? "Worker wyśle e-mail z linkiem do portalu klienta. Termin nie został zarezerwowany." : "To demonstracja interfejsu. Wiadomość nie została wysłana, a termin nie został zarezerwowany. Szkic jest zapisany lokalnie w tej przeglądarce."}</p>
+      {operational ? <><Button disabled={busy || serverStatus !== "sent"} onClick={() => void persist(true)}>Wyślij ponownie</Button><Button variant="secondary" onClick={() => { setDraft(start); setPriceInputs({}); setServerStatus("draft"); setComplete(false); setConfirmed(false); setError(""); }}>Nowa wycena</Button></> : <Button variant="secondary" onClick={() => { setComplete(false); setConfirmed(false); }}>Wróć do wyceny</Button>}
     </Panel> : <>
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,2.016fr)_minmax(300px,1fr)]">
         <div className="flex min-w-0 flex-col gap-4">
@@ -131,8 +185,8 @@ export function QuoteWizard({ studioId, userId }: { studioId: string; userId: st
               <div className="overflow-x-auto"><table className="w-full min-w-[530px] text-left">
                 <thead className="border-b border-df-line text-df-label text-df-muted"><tr>{["USŁUGA", "CENA BAZOWA", "CZAS", "WYCENA", ""].map((heading, index) => <th key={index} className="pb-4 font-medium">{heading}</th>)}</tr></thead>
                 <tbody>{price.selected.map((service) => <tr key={service.id} className="h-[79px]">
-                  <td className="w-[47%] pr-3"><p className="text-df-strong">{service.name}</p><p className="mt-1 text-df-label text-df-muted">{service.description}</p></td>
-                  <td className="text-df-muted">{pln(service.price)}</td><td className="text-df-muted">{new Decimal(service.hours).div("1.2").times(price.size.multiplier).toDecimalPlaces(1).toString().replace(".", ",")} h</td>
+                  <td className="w-[47%] pr-3">{operational ? <input aria-label={`Nazwa: ${service.name}`} className={control} maxLength={120} value={service.name} onChange={(event) => update({ edits: { ...draft.edits, [service.id]: { name: event.target.value, price: service.price } } })} /> : <p className="text-df-strong">{service.name}</p>}<p className="mt-1 text-df-label text-df-muted">{service.description}</p></td>
+                  <td className="text-df-muted">{operational ? <input aria-label={`Cena bazowa: ${service.name}`} className={control} type="number" min="0" max="99999999.99" step="0.01" value={priceInputs[service.id] ?? service.price} onChange={(event) => { const value = event.target.value; setPriceInputs((current) => ({ ...current, [service.id]: value })); if (/^\d{1,8}(\.\d{1,2})?$/.test(value)) update({ edits: { ...draft.edits, [service.id]: { name: service.name, price: value } } }); }} /> : pln(service.price)}</td><td className="text-df-muted">{new Decimal(service.hours).div("1.2").times(price.size.multiplier).toDecimalPlaces(1).toString().replace(".", ",")} h</td>
                   <td className="whitespace-nowrap text-df-strong">{pln(new Decimal(service.price).times(price.multiplier))}</td>
                   <td><button type="button" aria-label={`Usuń: ${service.name}`} onClick={() => toggleService(service.id)} className="ml-1 min-h-9 min-w-7 text-df-muted hover:text-df-error">×</button></td>
                 </tr>)}</tbody>
@@ -161,11 +215,11 @@ export function QuoteWizard({ studioId, userId }: { studioId: string; userId: st
                 <p>Dzień dobry, przesyłamy wycenę dla {vehicle.label}.</p>
                 <ul className="list-inside list-disc">{price.selected.map((service) => <li key={service.id}>{service.name}</li>)}</ul>
                 <p>Łącznie: <strong>{pln(price.gross)} brutto</strong> (w tym VAT 23%: {pln(price.vat)}).</p>
-                {validSlot && <p>Przyjęcie: {slot.start}. Planowany odbiór: {slot.pickup}. {slot.bay}.</p>}
+                {!operational && validSlot && <p>Przyjęcie: {slot.start}. Planowany odbiór: {slot.pickup}. {slot.bay}.</p>}
                 {draft.notes && <p className="whitespace-pre-wrap">{draft.notes}</p>}
                 <p>Do zobaczenia w studiu!</p>
               </div>
-              <p className="text-df-label text-df-muted">Tryb demonstracyjny: potwierdzenie nie wysyła wiadomości i nie rezerwuje boksu.</p>
+              <p className="text-df-label text-df-muted">{operational ? "Wiadomość zawiera link do portalu ważny 14 dni. Termin demonstracyjny nie rezerwuje boksu." : "Tryb demonstracyjny: potwierdzenie nie wysyła wiadomości i nie rezerwuje boksu."}</p>
               <label className="flex items-start gap-3"><input type="checkbox" className="mt-0.5 accent-df-lime" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} />Sprawdziłem dane klienta, zakres usług i termin.</label>
             </Panel>
           </>}
@@ -187,8 +241,9 @@ export function QuoteWizard({ studioId, userId }: { studioId: string; userId: st
       </div>
       <footer className="flex flex-wrap items-center gap-3 rounded-[14px] bg-df-raised px-5 py-3.5">
         <p className="min-w-[180px] flex-1 text-df-muted">Krok {draft.step} z 3 · zmiany zapisują się automatycznie</p>
-        <Button variant="secondary" disabled={draft.step === 1} onClick={() => go((draft.step - 1) as Draft["step"])} className="h-10 text-df-label">← Wstecz</Button>
-        {draft.step < 3 ? <Button className="h-10 text-df-label" disabled={draft.step === 2 && !price.selected.length} onClick={() => go((draft.step + 1) as Draft["step"])}>{draft.step === 1 ? "Dalej: wybierz usługi →" : "Dalej: wybierz termin →"}</Button> : <Button className="h-10 text-df-label" disabled={!confirmed || !validSlot || !price.selected.length} onClick={() => { setComplete(true); title.current?.focus(); }}>Potwierdź wysyłkę (demo)</Button>}
+        {operational && <Button variant="secondary" disabled={busy || !price.selected.length} onClick={() => void persist()}>Zapisz szkic</Button>}
+        <Button variant="secondary" disabled={draft.step === 1 || busy} onClick={() => go((draft.step - 1) as Draft["step"])} className="h-10 text-df-label">← Wstecz</Button>
+        {draft.step < 3 ? <Button className="h-10 text-df-label" disabled={draft.step === 2 && !price.selected.length} onClick={() => go((draft.step + 1) as Draft["step"])}>{draft.step === 1 ? "Dalej: wybierz usługi →" : "Dalej: wybierz termin →"}</Button> : <Button className="h-10 text-df-label" disabled={busy || !confirmed || !validSlot || !price.selected.length} onClick={() => { if (operational) void persist(true); else { setComplete(true); title.current?.focus(); } }}>{operational ? "Wyślij wycenę" : "Potwierdź wysyłkę (demo)"}</Button>}
       </footer>
     </>}
     <Sheet open={catalog} onClose={() => setCatalog(false)} title="Katalog usług">
@@ -196,5 +251,5 @@ export function QuoteWizard({ studioId, userId }: { studioId: string; userId: st
       {services.map((service) => <label key={service.id} className="flex cursor-pointer items-center gap-3 rounded-lg bg-df-raised p-4"><input type="checkbox" className="accent-df-lime" checked={draft.serviceIds.includes(service.id)} onChange={() => toggleService(service.id)} /><span className="flex-1"><span className="block text-df-strong">{service.name}</span><span className="block text-df-label text-df-muted">{service.description}</span></span><span>{pln(service.price)}</span></label>)}
       <Button onClick={() => setCatalog(false)}>Gotowe</Button>
     </Sheet>
-  </div>;
+  </fieldset>;
 }

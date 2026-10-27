@@ -113,3 +113,58 @@ it("requires a calendar choice when the restored draft has no slot", async () =>
   expect(screen.getByText(/Przyjęcie: 28.10, 08:00/)).toBeTruthy();
   expect((screen.getByRole("checkbox", { name: /Sprawdziłem/ }) as HTMLInputElement).checked).toBe(false);
 });
+
+it("saves edited operational items and sends/resends using the same quote ID", async () => {
+  const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ status: "sent" }) });
+  vi.stubGlobal("fetch", fetchMock);
+  try {
+    const user = userEvent.setup();
+    render(<QuoteWizard studioId="studio-a" userId="user-a" clientChoices={[{ id: "real-client", name: "Klient z bazy", email: "real@example.test", vehicles: [{ id: "real-car", label: "Porsche Panamera" }] }]} />);
+    await user.click(screen.getByRole("button", { name: /Dalej: wybierz usługi/ }));
+    const nameInput = screen.getByLabelText("Nazwa: Korekta lakieru");
+    await user.clear(nameInput);
+    await user.type(nameInput, "Korekta indywidualna");
+    const priceInput = screen.getByLabelText("Cena bazowa: Korekta indywidualna");
+    await user.clear(priceInput);
+    await user.type(priceInput, "123.45");
+    await user.click(screen.getByRole("button", { name: "Zapisz szkic" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const [url, request] = fetchMock.mock.calls[0]!;
+    expect(request.method).toBe("PUT");
+    expect(JSON.parse(request.body)).toMatchObject({ clientId: "real-client", vehicleId: "real-car", items: [{ name: "Korekta indywidualna", basePrice: "123.45" }, { name: "Powłoka ceramiczna" }] });
+    expect(JSON.parse(localStorage.getItem(draftKey("studio-a", "user-a"))!).quoteId).toBe(url.split("/").at(-1));
+    await user.click(screen.getByRole("button", { name: "Termin i potwierdzenie" }));
+    await user.click(screen.getByRole("checkbox", { name: /Sprawdziłem/ }));
+    await user.click(screen.getByRole("button", { name: "Wyślij wycenę" }));
+    await screen.findByRole("heading", { name: "Wycena zapisana i przekazana do wysyłki" });
+    expect(fetchMock.mock.calls[1]![0]).toBe(url);
+    expect(fetchMock.mock.calls[2]![0]).toBe(`${url}/send`);
+    await user.click(screen.getByRole("button", { name: "Wyślij ponownie" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
+    expect(fetchMock.mock.calls[3]![0]).toBe(`${url}/send`);
+    expect(fetchMock.mock.calls[3]![1].method).toBe("POST");
+    await user.click(screen.getByRole("button", { name: "Nowa wycena" }));
+    await user.click(screen.getByRole("button", { name: "Zapisz szkic" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(5));
+    expect(fetchMock.mock.calls[4]![0]).not.toBe(url);
+  } finally { vi.unstubAllGlobals(); }
+});
+
+it("shows save failures and retains the ID for a retry", async () => {
+  const fetchMock = vi.fn().mockRejectedValueOnce(new Error("Brak połączenia")).mockResolvedValue({ ok: true, json: async () => ({}) });
+  vi.stubGlobal("fetch", fetchMock);
+  try {
+    const user = userEvent.setup();
+    render(<QuoteWizard studioId="studio-a" userId="user-a" clientChoices={[{ id: "client", name: "Klient", email: null, vehicles: [{ id: "car", label: "Auto" }] }]} />);
+    await user.click(screen.getByRole("button", { name: "Zapisz szkic" }));
+    expect((await screen.findByRole("alert")).textContent).toContain("Brak połączenia");
+    await user.click(screen.getByRole("button", { name: "Zapisz szkic" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(fetchMock.mock.calls[1]![0]).toBe(fetchMock.mock.calls[0]![0]);
+  } finally { vi.unstubAllGlobals(); }
+});
+
+it("asks for a client with a vehicle when the studio has none", () => {
+  render(<QuoteWizard studioId="empty" userId="user" clientChoices={[]} />);
+  expect(screen.getByRole("status").textContent).toContain("Dodaj klienta z samochodem");
+});

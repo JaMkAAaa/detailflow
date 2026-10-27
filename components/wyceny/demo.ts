@@ -1,5 +1,6 @@
 import Decimal from "decimal.js";
 import { z } from "zod";
+import { serviceCatalog } from "@/src/domain/service-catalog";
 
 /** D-06: wyłącznie dane demonstracyjne, bez zapytań operacyjnych. */
 export const clients = [
@@ -12,12 +13,7 @@ export const clients = [
   ] },
 ] as const;
 
-export const services = [
-  { id: "correction", name: "Korekta lakieru", description: "Dwa etapy · usunięcie mikrorys", price: "2000.00", hours: "8" },
-  { id: "ceramic", name: "Powłoka ceramiczna", description: "Ochrona 3 lata · CarPro CQuartz", price: "2000.00", hours: "4" },
-  { id: "interior", name: "Detailing wnętrza", description: "Czyszczenie i pielęgnacja wnętrza", price: "650.00", hours: "3" },
-  { id: "wash", name: "Mycie detailingowe", description: "Mycie ręczne i dekontaminacja", price: "250.00", hours: "1" },
-] as const;
+export const services = serviceCatalog;
 export const sizes = [
   { id: "small", label: "Małe · ×1,0", multiplier: "1.00" },
   { id: "medium", label: "Średnie · ×1,2", multiplier: "1.20" },
@@ -36,12 +32,14 @@ export const slots = [
 
 export const draftSchema = z.object({
   version: z.literal(1), step: z.union([z.literal(1), z.literal(2), z.literal(3)]),
-  clientId: z.enum(["adam", "anna"]), vehicleId: z.enum(["porsche", "porsche-911", "audi"]),
+  clientId: z.string().min(1), vehicleId: z.string().min(1),
+  quoteId: z.uuid().optional(),
+  edits: z.record(z.string(), z.object({ name: z.string().max(120), price: z.string().regex(/^\d{1,8}(\.\d{0,2})?$/) })).optional(),
   size: z.enum(["small", "medium", "suv"]), paint: z.enum(["standard", "worn", "heavy"]),
   interior: z.enum(["Lekkie", "Umiarkowane", "Silne"]),
   serviceIds: z.array(z.enum(["correction", "ceramic", "interior", "wash"])).max(4),
   notes: z.string().max(2000), slotId: z.enum(["oct24", "oct26", "oct28"]).nullable(),
-}).refine((draft) => clients.find((client) => client.id === draft.clientId)?.vehicles.some((vehicle) => vehicle.id === draft.vehicleId), "Auto musi należeć do klienta");
+});
 export type Draft = z.infer<typeof draftSchema>;
 export const initialDraft: Draft = {
   version: 1, step: 1, clientId: "adam", vehicleId: "porsche", size: "medium", paint: "standard", interior: "Umiarkowane",
@@ -49,10 +47,10 @@ export const initialDraft: Draft = {
   notes: "Cena obejmuje przygotowanie lakieru, aplikację powłoki i kontrolę jakości.\nSamochód pozostaje w studiu do pełnego utwardzenia zabezpieczenia.",
 };
 
-// Podgląd UI; docelowy silnik domenowy i jego reguły należą do #36.
+// Podgląd UI; zapis serwerowy niezależnie weryfikuje kwoty silnikiem domenowym.
 // Kwoty pozostają Decimal aż do formatowania; zaokrąglenie HALF_UP do grosza.
 export function preview(draft: Draft) {
-  const selected = services.filter((service) => draft.serviceIds.includes(service.id));
+  const selected = services.filter((service) => draft.serviceIds.includes(service.id)).map((service) => ({ ...service, ...draft.edits?.[service.id] }));
   const size = sizes.find((size) => size.id === draft.size)!;
   const paint = paints.find((paint) => paint.id === draft.paint)!;
   const multiplier = new Decimal(size.multiplier).times(paint.multiplier);
@@ -60,7 +58,7 @@ export function preview(draft: Draft) {
   const gross = base.times(multiplier).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
   const vat = gross.times(23).div(123).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
   // Czasy w katalogu D-06 dotyczą auta średniego (8 h + 4 h = 12 h).
-  const hours = selected.reduce((sum, service) => sum.plus(service.hours), new Decimal(0)).div("1.20").times(size.multiplier);
+  const hours = selected.reduce((sum, service) => sum.plus(new Decimal(service.hours).times(60).div("1.20")), new Decimal(0)).times(size.multiplier).ceil().div(60);
   return { selected, size, paint, base, gross, vat, hours, multiplier };
 }
 

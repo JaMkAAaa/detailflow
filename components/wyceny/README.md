@@ -16,3 +16,13 @@ Nie ma zapytań operacyjnych ani zmian modeli danych. Kalendarz zawiera terminy
 demo; potwierdzenie jawnie informuje, że nie wysyła wiadomości i nie rezerwuje boksu.
 Silnik domenowy to #36, zapis serwerowy i wysyłka to #38. Dane UI nie są
 przeznaczone do operacyjnej wyceny rzeczywistych usług.
+
+
+## Podłączenie #38
+
+Strona przekazuje klientów i pojazdy z `studioDb`. Dostęp: owner/manager.
+Przycisk „Zapisz szkic” utrwala Quote i snapshot pozycji. „Wyślij wycenę”
+zleca mail z linkiem portalu; „Wyślij ponownie” używa tego samego ID.
+Nazwa i cena pozycji są edytowalne. Szczegóły: `src/server/wyceny/README.md`.
+Opis demonstracji wyżej dotyczy izolowanego wariantu komponentu bez
+`clientChoices`, używanego przez testy UI. Terminy w obu wariantach są demo.

@@ -19,6 +19,7 @@ export const TENANT_MODELS = [
   "KsefEvent",
   "PortalLink",
   "QuoteDecisionMail",
+  "QuoteSendMail",
   "CoatingReminder",
   "OrderPhoto",
   "IntakeProtocol",

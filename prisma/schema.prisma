@@ -129,6 +129,7 @@ model Studio {
   ksefEvents       KsefEvent[]
   portalLinks      PortalLink[]
   quoteDecisionMails QuoteDecisionMail[]
+  quoteSendMails QuoteSendMail[]
   orderPhotos      OrderPhoto[]
   intakeProtocols  IntakeProtocol[]
   intakeDamages    IntakeDamage[]
@@ -379,6 +380,7 @@ model Quote {
   order WorkOrder?
   portalLinks PortalLink[]
   decisionMail QuoteDecisionMail?
+  sendMail QuoteSendMail?
 
   @@unique([id, studioId])
   @@index([studioId, status])
@@ -603,4 +605,18 @@ model IntakeDamage {
 
   @@unique([protocolId, no])
   @@index([studioId, protocolId])
+}
+
+// Trwały job wysyłki. Token powstaje dopiero w workerze i nigdy nie trafia do outboxa.
+model QuoteSendMail {
+  id        String @id @default(cuid())
+  studioId  String
+  quoteId   String @unique
+  sentAt    DateTime?
+  createdAt DateTime @default(now())
+  studio    Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  quote     Quote @relation(fields: [quoteId, studioId], references: [id, studioId], onDelete: Cascade)
+
+  @@unique([quoteId, studioId])
+  @@index([studioId, sentAt])
 }
