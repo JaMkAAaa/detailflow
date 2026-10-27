@@ -62,7 +62,7 @@ export function Sidebar({
   return (
     <aside
       aria-label="Panel studia"
-      className="fixed inset-y-0 left-0 z-20 flex h-dvh w-[220px] flex-col gap-2 overflow-hidden bg-df-side p-4"
+      className="fixed inset-y-0 left-0 z-20 hidden h-dvh w-[220px] flex-col gap-2 overflow-hidden bg-df-side p-4 lg:flex"
     >
       <Link
         href="/"

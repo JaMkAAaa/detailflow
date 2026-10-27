@@ -168,6 +168,10 @@ export async function getDashboardMetrics(studioId: string, now = new Date()) {
       plate: o.vehicle.plate,
       service: o.service,
       grossPln: o.totalGross.toFixed(2),
+      bay: o.bay?.name ?? null,
+      scheduledFrom: o.scheduledFrom.toISOString(),
+      scheduledTo: o.scheduledTo.toISOString(),
+      dueAt: o.dueAt?.toISOString() ?? null,
       status:
         o.status === "in_progress"
           ? ("in-progress" as const)
