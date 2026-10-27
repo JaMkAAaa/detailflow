@@ -63,15 +63,36 @@ describe("portal tokens and decisions (Postgres)", () => {
     expect((await readPortal(token))?.quote?.totalGross.toFixed(2)).toBe("4800.00");
   });
 
-  it.each(["invalid", "", "x".repeat(129), generatePortalToken()])("unknown token renders P-02 without throwing: %s", async (token) => {
+  it.each(["invalid", "", "obsidian-df-0248-demo-extra", "obsidian-df-0244-expired", "x".repeat(129), generatePortalToken()])("unknown token renders P-02 without throwing: %s", async (token) => {
     expect(await resolvePortalLink(token)).toBeNull();
-    expect(renderToStaticMarkup(await page(token))).toContain("Link jest niedostępny");
+    expect(renderToStaticMarkup(await page(token))).toContain("Ten link już wygasł");
+  });
+
+  it("keeps the seeded P-01 demo behind database token validation", async () => {
+    const html = renderToStaticMarkup(await page("obsidian-df-0248-demo"));
+    expect(html).toContain("Cześć, ");
+    expect(html).toContain("Etapy zlecenia");
+    expect(html).toContain("Ceramika i kontrola");
+  });
+
+  it("does not bypass token validation for the static P-01 demo", async () => {
+    const token = "obsidian-df-0248-demo";
+    const link = await platformDb.portalLink.findUniqueOrThrow({ where: { tokenHash: hashPortalToken(token) } });
+    const db = studioDb(link.studioId);
+    try {
+      await db.portalLink.update({ where: { id: link.id }, data: { revokedAt: new Date() } });
+      const html = renderToStaticMarkup(await page(token));
+      expect(html).toContain("Ten link już wygasł");
+      expect(html).not.toContain("Porsche");
+    } finally {
+      await db.portalLink.update({ where: { id: link.id }, data: { revokedAt: link.revokedAt } });
+    }
   });
 
   it("expires and revokes links and forbids decisions through them", async () => {
     const f = await fixture();
     await f.db.portalLink.update({ where: { id: f.link.id }, data: { expiresAt: new Date(Date.now() - 1) } });
-    expect(renderToStaticMarkup(await page(f.token))).toContain("Link jest niedostępny");
+    expect(renderToStaticMarkup(await page(f.token))).toContain("Ten link już wygasł");
     await expect(decideQuote(f.token, "accepted")).rejects.toThrow();
     const other = await createPortalLink(f.db, f.studioId, { quoteId: f.quote.id });
     await revokePortalLink(f.db, other.id);

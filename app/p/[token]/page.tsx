@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { PortalExpired, PortalStatus } from "@/components/portal/PortalScreen";
+import { resolvePortalDemo } from "@/components/portal/demo";
 import { LogoMark } from "@/components/brand/Logo";
 import { Button } from "@/components/ui/button";
 import { readPortal } from "@/src/server/portal/links";
@@ -13,12 +15,12 @@ export default async function PortalPage({ params, searchParams }: {
   const { token } = await params;
   const { unavailable } = await searchParams;
   const data = unavailable ? null : await readPortal(token);
-  if (!data) return <main className="mx-auto flex min-h-screen max-w-lg flex-col justify-center gap-4 p-6">
-    <LogoMark size={40} />
-    <p className="text-df-label text-df-muted">Portal klienta</p>
-    <h1 className="text-df-headline">Link jest niedostępny</h1>
-    <p className="text-df-muted">Link wygasł lub jest nieprawidłowy. Skontaktuj się ze studiem i poproś o nowy link.</p>
-  </main>;
+  if (!data) return <PortalExpired knownStudio={false} />;
+  // The static P-01 fixture still requires a valid, non-revoked database link.
+  // Quotes awaiting a decision always use the operational form below.
+  if (resolvePortalDemo(token) === "active" && data.order && data.quote?.status === "accepted") {
+    return <PortalStatus />;
+  }
   const { studio, quote, order } = data;
   const decided = quote?.status === "accepted" || quote?.status === "rejected";
   return <main className="mx-auto flex min-h-screen max-w-lg flex-col gap-6 p-6">

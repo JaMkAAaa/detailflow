@@ -107,17 +107,20 @@ export function TabBar({ role }: { role: Role }) {
         <ul className="flex flex-col gap-2">
           {[
             { label: "Nowe zlecenie", hint: "Przyjmij auto i otwórz zlecenie", soon: "Przyjmowanie nowych zleceń będzie dostępne wkrótce." },
-            { label: "Nowa wycena", hint: "Przygotuj wycenę dla klienta i auta", soon: "Tworzenie wycen będzie dostępne wkrótce." },
+            { label: "Nowa wycena", hint: "Przygotuj wycenę dla klienta i auta", href: "/quotes/new", soon: "" },
           ].map((item) => (
             <li key={item.label}>
-              <button
+              {item.href ? <Link href={item.href} onClick={close} className="flex min-h-14 w-full flex-col items-start justify-center rounded-[14px] bg-df-raised px-4 py-2 text-left">
+                <span className="text-df-strong">{item.label}</span>
+                <span className="text-df-label text-df-muted">{item.hint}</span>
+              </Link> : <button
                 type="button"
                 onClick={() => setNotice(item.soon)}
                 className="flex min-h-14 w-full flex-col items-start justify-center rounded-[14px] bg-df-raised px-4 py-2 text-left"
               >
                 <span className="text-df-strong">{item.label}</span>
                 <span className="text-df-label text-df-muted">{item.hint}</span>
-              </button>
+              </button>}
             </li>
           ))}
         </ul>
