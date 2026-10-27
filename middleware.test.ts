@@ -17,11 +17,20 @@ describe("middleware", () => {
     expect(location.searchParams.get("next")).toBe(path);
   });
 
-  it("sends a guest from the dashboard to a bare /login", () => {
-    expect(run("/").headers.get("location")).toBe(`${BASE}/login`);
+  it("shows the landing to a guest at / without redirecting", () => {
+    const res = run("/");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("location")).toBeNull();
+    expect(res.headers.get("x-middleware-rewrite")).toBe(`${BASE}/landing`);
   });
 
-  it.each(["/login", "/logout", "/forgot-password", "/reset-password", "/p/abc"])("lets a guest open %s", (path) => {
+  it("keeps the dashboard at / for a signed-in studio", () => {
+    const res = run("/", "df.session_token=abc.def");
+    expect(res.headers.get("x-middleware-rewrite")).toBeNull();
+    expect(res.headers.get("location")).toBeNull();
+  });
+
+  it.each(["/login", "/landing", "/logout", "/forgot-password", "/reset-password", "/p/abc"])("lets a guest open %s", (path) => {
     expect(run(path).headers.get("location")).toBeNull();
   });
 
