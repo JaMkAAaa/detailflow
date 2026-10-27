@@ -14,6 +14,13 @@ function isPublic(pathname: string) {
 // layout (`requireSession`), bo wygasłe/odwołane cookie też tu przejdzie.
 export function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
+  if (pathname.startsWith("/p/")) {
+    const response = NextResponse.next();
+    response.headers.set("Referrer-Policy", "no-referrer");
+    response.headers.set("Cache-Control", "private, no-store");
+    response.headers.set("X-Robots-Tag", "noindex, nofollow");
+    return response;
+  }
   if (isPublic(pathname)) return NextResponse.next();
   if (getSessionCookie(request, { cookiePrefix: AUTH_COOKIE_PREFIX })) return NextResponse.next();
 

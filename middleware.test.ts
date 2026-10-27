@@ -30,6 +30,13 @@ describe("middleware", () => {
     expect(run("/portal").status).toBe(307);
   });
 
+  it("prevents portal secrets from leaking through referrers, caches or indexing", () => {
+    const headers = run("/p/example-token").headers;
+    expect(headers.get("referrer-policy")).toBe("no-referrer");
+    expect(headers.get("cache-control")).toBe("private, no-store");
+    expect(headers.get("x-robots-tag")).toBe("noindex, nofollow");
+  });
+
   it("lets a request with a session cookie through (validity is checked in the layout)", () => {
     expect(run("/orders", "df.session_token=abc.def").headers.get("location")).toBeNull();
     expect(run("/admin", "__Secure-df.session_token=abc.def").headers.get("location")).toBeNull();
