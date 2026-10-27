@@ -1,5 +1,7 @@
 "use client";
 
+import { useMobile } from "@/components/studio/useMobile";
+import { MobileInvoices } from "./MobileInvoices";
 import Link from "next/link";
 import { useState } from "react";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -19,6 +21,7 @@ const filters: { key: InvoiceFilter; label: string }[] = [
 const pageSize = 7;
 
 export function InvoicesScreen({ invoices, env, now }: { invoices: InvoiceRow[]; env: Environment; now: string }) {
+  const mobile = useMobile();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<InvoiceFilter>("all");
   const [page, setPage] = useState(1);
@@ -37,6 +40,7 @@ export function InvoicesScreen({ invoices, env, now }: { invoices: InvoiceRow[];
     try { await navigator.clipboard.writeText(number); setMessage("Skopiowano pełny numer KSeF."); }
     catch { setMessage("Nie udało się skopiować numeru. Zaznacz go i skopiuj ręcznie."); }
   }
+  if (mobile) return <MobileInvoices invoices={invoices} env={env} now={now} visible={visible} query={query} filter={filter} setQuery={value => { setQuery(value); setPage(1); }} setFilter={value => { setFilter(value); setPage(1); }} page={currentPage} pages={pages} setPage={setPage} total={results.length} />;
   return <div className="space-y-6">
     <header className="flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-[34px] font-bold leading-tight">Faktury</h1><p className="mt-2 text-df-body text-df-muted">{invoices.length} dokumentów · faktury klientów studia</p></div><div className="flex flex-wrap gap-3"><Button variant="secondary" className="h-10 text-df-label" onClick={() => setMessage("Eksport JPK nie jest dostępny w tym podglądzie UI.")}>Eksport JPK</Button><Link href="/invoices/new" className={buttonVariants({ className: "h-10 text-df-label" })}>+ Wystaw fakturę</Link></div></header>
     <EnvironmentBanner env={env} />

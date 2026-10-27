@@ -4,10 +4,10 @@ import Link from "next/link";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { MaskIcon } from "./MaskIcon";
 import { Sheet } from "./Sheet";
 
-type Role = "owner" | "manager" | "worker";
-type Panel = "new" | "more" | null;
+type Panel = "new" | null;
 
 const tabs = {
   left: [
@@ -18,9 +18,9 @@ const tabs = {
 } as const;
 
 /** Trasy bez własnej zakładki — podświetlają „Więcej”. */
-const moreRoutes = ["/invoices", "/customers", "/team"];
+const moreRoutes = ["/more", "/invoices", "/customers", "/team"];
 
-/** Szczegóły zlecenia (M-04) mają własny dolny pasek akcji zamiast tab bara. */
+/** Szczegóły zlecenia, FV i kreator wyceny mają własne akcje mobilne. */
 const isOrderDetails = (pathname: string) => /^\/orders\/[^/]+/.test(pathname);
 
 const isUnder = (pathname: string, href: string) =>
@@ -51,7 +51,7 @@ function RouteTab({ label, href, icon, active }: { label: string; href: string; 
   );
 }
 
-export function TabBar({ role, attentionCount = 0 }: { role: Role; attentionCount?: number }) {
+export function TabBar() {
   const pathname = usePathname();
   const [panel, setPanel] = useState<Panel>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -67,7 +67,7 @@ export function TabBar({ role, attentionCount = 0 }: { role: Role; attentionCoun
         aria-label="Nawigacja mobilna"
         className={cn(
           "fixed inset-x-0 bottom-0 z-20 flex items-center justify-between border-t border-df-line bg-df-side px-3 pt-2.5 pb-[max(1.75rem,env(safe-area-inset-bottom))] lg:hidden",
-          isOrderDetails(pathname) && "max-lg:hidden",
+          (isOrderDetails(pathname) || /^\/invoices\/(?!new$|attention$)[^/]+/.test(pathname) || pathname === "/quotes/new") && "max-lg:hidden",
         )}
       >
         {tabs.left.map((tab) => (
@@ -87,20 +87,9 @@ export function TabBar({ role, attentionCount = 0 }: { role: Role; attentionCoun
         {tabs.right.map((tab) => (
           <RouteTab key={tab.href} {...tab} active={isUnder(pathname, tab.href)} />
         ))}
-        <button
-          type="button"
-          aria-haspopup="dialog"
-          aria-current={moreActive ? "page" : undefined}
-          onClick={() => setPanel("more")}
-          className={cn(tabClass, moreActive ? "font-semibold text-df-lime" : "font-medium text-df-muted")}
-        >
-          <svg aria-hidden="true" width="22" height="22" viewBox="0 0 22 22" fill="currentColor" className="shrink-0">
-            <circle cx="5" cy="11" r="1.75" />
-            <circle cx="11" cy="11" r="1.75" />
-            <circle cx="17" cy="11" r="1.75" />
-          </svg>
-          Więcej
-        </button>
+        <Link href="/more" aria-current={moreActive ? "page" : undefined} className={cn(tabClass, moreActive ? "font-semibold text-df-lime" : "font-medium text-df-muted")}>
+          <MaskIcon name="more" size={22} />Więcej
+        </Link>
       </nav>
 
       <Sheet open={panel === "new"} onClose={close} title="Nowe">
@@ -129,28 +118,6 @@ export function TabBar({ role, attentionCount = 0 }: { role: Role; attentionCoun
             {notice}
           </p>
         )}
-      </Sheet>
-
-      <Sheet open={panel === "more"} onClose={close} title="Więcej">
-        <ul className="flex flex-col gap-2">
-          {[
-            ...(role === "worker" ? [] : [{ label: "Faktury", href: "/invoices" }]),
-            { label: "Klienci i auta", href: "/customers" },
-            ...(role === "worker" ? [] : [{ label: "Zaproś do studia", href: "/team" }]),
-            { label: "Wyloguj", href: "/logout" },
-          ].map((item) => (
-            <li key={item.href}>
-              <Link
-                href={item.href}
-                onClick={close}
-                className="flex h-12 items-center rounded-[14px] bg-df-raised px-4 text-df-strong"
-              >
-                {item.label}
-                {item.href === "/invoices" && attentionCount > 0 && <span aria-label={`Wymagają uwagi: ${attentionCount}`} className="ml-auto rounded-full bg-df-error-surface px-2 py-1 text-df-label text-df-error">{attentionCount} do uwagi</span>}
-              </Link>
-            </li>
-          ))}
-        </ul>
       </Sheet>
     </>
   );

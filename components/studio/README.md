@@ -39,11 +39,10 @@ Poniżej `lg` (1024 px) layout `(studio)` chowa sidebar i topbar, a `TabBar`
 zleceń, M-03) nadal przewijają się poziomo — dostaną własne issue.
 
 - **+** otwiera sheet (natywny `<dialog>`, `Sheet.tsx`) z „Nowe zlecenie” i „Nowa
-  wycena”. Obie akcje pokazują „dostępne wkrótce” — kreatory to osobne issue (M-05).
-- **Więcej** to tymczasowo sheet z linkami do istniejących tras (Faktury, Klienci
-  i auta, Zaproś do studia, Wyloguj); M-06 zastąpi go ekranem. Pracownik nie widzi
-  Faktur ani zaproszeń, jak w sidebarze. Zakładka świeci się na `/invoices`,
-  `/customers`, `/team`.
+  wycena”. Nowa wycena prowadzi do `/quotes/new`; nowe zlecenie nadal pokazuje „wkrótce”.
+- **Więcej** prowadzi do `/more` (M-06), z linkami do Faktur, Klientów i aut,
+  zaproszeń i wylogowania. Pracownik nie widzi Faktur ani zaproszeń, jak w sidebarze.
+  Zakładka świeci się na `/more`, `/invoices`, `/customers`, `/team`.
 - Animacja sheetu tylko przy `prefers-reduced-motion: no-preference`.
 
 Pulpit mobilny: `components/pulpit/mobile-dashboard.tsx`, te same dane co D-01
@@ -62,3 +61,16 @@ Odstępstwa od Figmy:
 - Dzwonek powiadomień jest nieaktywny, jak wyszukiwarka w topbarze.
 - Obłożenie to wartość policzona z seeda/dnia (definicja w README pulpitu), więc
   nie musi wynosić 82% z makiety.
+
+
+## M-06 / Więcej (#48)
+
+Zakładka „Więcej” prowadzi do `/more`, z grupami Sprzedaż / Studio / Konto,
+aktualnym studiem, użytkownikiem i licznikiem faktur wymagających uwagi.
+Licznik korzysta z istniejącego helpera `invoiceAttentionCount(studioId, env)`.
+Pracownik nie ma pozycji faktur, KSeF ani zaproszeń; bezpośrednie trasy zachowują
+swoje dotychczasowe guardy. Pozycje poza v1 otwierają komunikat „Wkrótce”.
+Tab bar ustępuje stałym akcjom M-05 i M-08. Widoki używają tego samego progu
+`lg` (1024 px); `useMobile` subskrybuje zmiany szerokości i zachowuje stan wizardu.
+
+Źródło: [M-06](https://www.figma.com/design/3pssHgZjGzo0UeyBC8yZ3S?node-id=32-554).
