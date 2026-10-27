@@ -122,10 +122,10 @@ it("filters and searches compact cards, preserving the KSeF environment", async 
 });
 it("uses shared PDF, UPO and demo payment actions from mobile details", async () => {
   const user = userEvent.setup();
-  const print = vi.spyOn(window, "print").mockImplementation(() => {});
-  render(<InvoiceDetails invoice={invoice} seller={seller} />);
+  const download = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ error: "Brak dokumentu" }), { status: 409, headers: { "Content-Type": "application/json" } }));
+  render(<InvoiceDetails studioId="studio-test" invoice={invoice} seller={seller} />);
   await user.click(screen.getByRole("button", { name: "PDF" }));
-  expect(print).toHaveBeenCalledOnce();
+  expect(download).toHaveBeenCalledWith(`/api/studios/studio-test/invoices/${invoice.id}/pdf?env=test`);
   await user.click(screen.getByRole("button", { name: "UPO" }));
   expect(screen.getByRole("status").textContent).toContain("nie jest dostępne");
   await user.click(
@@ -149,7 +149,7 @@ it("uses shared PDF, UPO and demo payment actions from mobile details", async ()
 });
 it("keeps production labels and already paid controls correct", () => {
   render(
-    <InvoiceDetails
+    <InvoiceDetails studioId="studio-test"
       invoice={{ ...invoice, env: "production", paidAt: now }}
       seller={{ ...seller, env: "production" }}
     />,

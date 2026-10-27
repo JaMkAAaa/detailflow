@@ -73,6 +73,7 @@ jobs:
       - run: pnpm prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
       - run: pnpm db:seed
       - run: pnpm db:seed
+      - run: sudo apt-get update && sudo apt-get install -y libxml2-utils
       - run: pnpm test
 
   docker:

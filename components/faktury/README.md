@@ -80,3 +80,34 @@ i pomiędzy identycznymi numerami faktur TEST/PROD w Postgresie.
   Nie dodano mobilnego API ani zapytań do danych faktur.
 - Źródła: [M-07](https://www.figma.com/design/3pssHgZjGzo0UeyBC8yZ3S?node-id=32-671),
   [M-08](https://www.figma.com/design/3pssHgZjGzo0UeyBC8yZ3S?node-id=32-784).
+
+## PDF i FA(3) — #43
+
+D-09 i M-08 pobierają rzeczywiste dokumenty przez
+`GET /api/studios/[studioId]/invoices/[invoiceId]/pdf?env=test` lub `/xml?env=test`.
+`env` jest obowiązkowy (`test` / `production`); zapytanie łączy ID, studio i środowisko.
+Wymagane jest `invoices:manage`. Odpowiedzi są załącznikami z `private, no-store`.
+Eksport nie ustawia `emailedAt`: pobranie nie jest wysłaniem wiadomości.
+Data na PDF pochodzi z zapisanego `emailedAt`, a przy jej braku jest „nie wysłano”.
+Przycisk kolejnej wysyłki zachowuje nazwę „Wyślij ponownie”. Wysyłka e-mail,
+płatności i korekty pozostają dotychczasową demonstracją; nie dodano HTTP do MF.
+
+`src/invoices/pdf.ts` używa react-pdf, A4 i lokalnego Inter z polskimi znakami.
+Zachowuje strukturę papieru D-09: strony transakcji, daty, pozycje, podsumowanie,
+numer KSeF i datę wysłania. Font jest uwzględniony w standalone Next.
+Nie osadza demonstracyjnego QR jako kodu weryfikacyjnego. Rzeczywisty QR wymaga
+hasha XML faktycznie wysłanego do KSeF; zapis tego dokumentu należy do adaptera #44.
+
+Oba generatory używają zapisanych InvoiceItem.net/vat/gross i sum faktury.
+Wspólna walidacja Decimal odrzuca niepełne daty, szkice, niezakończone zlecenia,
+ułamki grosza, niezgodne pozycje/sumy oraz brutto różne od brutto zlecenia (409).
+Nie naprawia kwot eksportem ani nie wyprowadza ponownie netto z brutto.
+XML obejmuje zwykłą krajową fakturę VAT w PLN (23%, 8%, 5%, 0% krajowe),
+nabywcę z NIP albo konsumenta z BrakID. Korekty, zwolnienia i transakcje
+zagraniczne wymagają osobnego mapowania. Sprzedawca pochodzi z konfiguracji studia,
+nabywca i kwoty z zapisanego snapshotu faktury.
+
+Testy: `pnpm vitest run src/ksef/fa3.test.ts src/invoices/pdf.test.ts`;
+integracja z Postgres: `pnpm vitest run src/server/faktury/document.test.ts`.
+Walidacja XSD jest obowiązkowa: lokalnie potrzebny `xmllint` (macOS: systemowy,
+Linux: `libxml2-utils`), instalowany też w CI. Test nie pomija braku walidatora.
