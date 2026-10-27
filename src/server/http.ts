@@ -6,7 +6,8 @@ import { ZodError } from "zod";
 export async function apiStudio(request: Request, studioId: string, permission?: Permission) {
   const session = await auth.api.getSession({ headers: request.headers });
   if (!session) throw new AccessError(401, "Zaloguj się.");
-  return { ...await authorizeStudio(session.user.id, studioId, permission), user: session.user };
+  const write = !["GET", "HEAD", "OPTIONS"].includes(request.method);
+  return { ...await authorizeStudio(session.user.id, studioId, permission, write), user: session.user };
 }
 
 export function checkOrigin(request: Request) {

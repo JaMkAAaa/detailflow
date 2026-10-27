@@ -1,4 +1,4 @@
-# Stripe — abonament Detailflow (#50)
+# Stripe — abonament Detailflow (#50, #51)
 
 Stripe rozlicza studio za SaaS. Nie zapisuje faktur w modelu `Invoice` (KSeF).
 Rejestracja `/start` nadal tworzy 14-dniowy trial bez klienta Stripe i bez karty.
@@ -57,8 +57,7 @@ w audycie. Operacje platformowe Studio/StripeEvent/AuditLog używają `platformD
 autoryzacja membershipów jest wymuszana przez `studioDb(studioId)`.
 
 Stripe Smart Retries konfiguruje się w Stripe Billing; aplikacja nie ponawia
-obciążenia karty samodzielnie. Customer Portal, gating dostępu, cron i maile trialu
-należą do #51. Sekrety nie trafiają do klienta. Publishable key nie jest potrzebny
+obciążenia karty samodzielnie. Sekrety nie trafiają do klienta. Publishable key nie jest potrzebny
 przy przekierowaniu do hostowanego Checkout.
 
 ## Weryfikacja
@@ -72,3 +71,68 @@ wykonaj pełny zakup kartą testową przez Checkout i resend z Workbench w sandb
 Źródła kontraktu: [webhooki](https://docs.stripe.com/webhooks),
 [Checkout](https://docs.stripe.com/api/checkout/sessions/create),
 [Invoice](https://docs.stripe.com/api/invoices/object).
+
+
+## Customer Portal
+
+W Stripe Dashboard → Settings → Billing → Customer portal skonfiguruj i zapisz
+**domyślną konfigurację**, osobno w sandboxie i live. Włącz zmianę metody płatności,
+podgląd faktur abonamentowych, anulowanie oraz zmianę planu. Do zmiany planu dopuść
+wyłącznie trzy produkty i miesięczne ceny utworzone przez `pnpm billing:setup`
+(Solo/Studio/Pro, PLN, bez zmiany ilości, bez planów rocznych). Wybierz anulowanie
+na koniec okresu i proration zgodnie z polityką rozliczeń operatora. Stripe ustala
+należności; aplikacja synchronizuje plan i status webhookiem. Anulowanie na koniec
+okresu zachowuje `active` do faktycznego zakończenia subskrypcji.
+
+`POST /api/studios/:studioId/billing/portal` wymaga sesji, Origin i roli owner.
+Customer pochodzi wyłącznie z rekordu autoryzowanego studia; body nie wybiera
+customer ani return URL. Portal wraca na `/billing`; powrót nie nadaje dostępu.
+Właściciel może otworzyć portal również w stanie past_due/suspended/canceled,
+np. w celu poprawienia karty lub pobrania faktur abonamentowych. Nowy abonament
+po definitywnym anulowaniu kupuje przez istniejący Checkout.
+Kontrakt: [Stripe Portal Session](https://docs.stripe.com/api/customer_portal/sessions/create).
+
+## Tryb ograniczony
+
+`active` i niewygasły `trial` pozwalają na zapis. `past_due`, `suspended`,
+`canceled` i trial bez daty lub z datą `<= now` dają dostęp tylko do odczytu.
+Nie ma dodatkowego grace period. Wygaśnięcie jest sprawdzane przy żądaniu;
+nie zależy od wykonania crona ani ponownego logowania. Status wygasłego trialu
+pozostaje `trial` (nie `suspended`), aby Checkout mógł go aktywować.
+
+Logowanie nadal działa i layout studia pokazuje komunikat o przyczynie,
+odczycie oraz link do rozliczeń dla właściciela. Każda mutacja operacyjnego API
+(POST/PUT/PATCH/DELETE) dostaje 403, w tym nowe FV, korekty, oznaczanie płatności,
+wyceny, zdjęcia, klienci i zlecenia. GET zachowuje zwykłe uprawnienia ról.
+Zaproszenia z Server Action również sprawdzają blokadę. Przełączenie aktywnego
+studia i zarządzanie billingiem pozostają dostępne; membership jest nadal wymagany.
+Dane są zachowane. Publiczne odpowiedzi klientów i wcześniej przyjęte zadania
+outbox/KSeF kończą swój obieg; ograniczenie dotyczy nowych zapisów personelu studia.
+
+## Codzienny cron trialu
+
+Istniejący proces `pnpm worker` / `pnpm worker:start` rejestruje trwały scheduler
+BullMQ `billing-daily` o **06:00 Europe/Warsaw**, a przy starcie wykonuje catch-up.
+Wymaga Redis, bazy po `pnpm db:deploy` i konfiguracji `SMTP_URL`, `APP_URL`,
+opcjonalnie `EMAIL_FROM`. Bez SMTP/APP_URL wysyłka jest wyłączona.
+Trzy dni przed końcem trialu wysyła mail PL do właściciela studia; po przestoju
+nadrabia przypomnienie, jeśli trial jeszcze trwa. Nie wysyła do aktywnych ani
+wygasłych kont. Sam cut-off jest natychmiastowy i sprawdzany w autoryzacji.
+
+`Studio.trialReminderSentAt` i lock transakcyjny per studio chronią przed
+równoległą wysyłką. Błąd SMTP wycofuje znacznik; BullMQ ponawia zadanie
+(3 próby z exponential backoff). Kolejny cron także ponowi niewysłane wiadomości.
+Message-ID jest stały dla studia i daty końca trialu. Jak przy pozostałych mailach
+SMTP, awaria procesu po przyjęciu wiadomości przez SMTP, przed commitem bazy,
+może spowodować powtórkę; SMTP nie zapewnia exactly-once.
+
+## MRR
+
+`calculateMrr` (`mrr.ts`) zwraca Decimal netto w PLN. Liczy wyłącznie `active`;
+trial/past_due/suspended/canceled są wykluczone. Unit test odtwarza przykład audytu:
+64 × 79 + 48 × 149 + 16 × 279 = 16 672 PLN. Funkcja nie jest jeszcze podłączona
+do demonstracyjnego panelu A-04.
+
+Testy #51: `pnpm test src/server/billing src/server/acl.test.ts` na osobnej bazie
+PostgreSQL po migracjach. Obejmują izolację tenantów, CSRF/role portalu, anulowanie
+→ odczyt z komunikatem, blokadę zapisów, granicę trialu, MRR, deduplikację i retry maili.

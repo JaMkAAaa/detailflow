@@ -110,6 +110,7 @@ model Studio {
   phone                String?
   status               StudioStatus @default(trial)
   plan                 Plan         @default(solo)
+  trialReminderSentAt  DateTime?
   trialEndsAt          DateTime?
   // Stripe = abonament Detailflow, nie faktury klientów studia.
   stripeCustomerId     String?      @unique
