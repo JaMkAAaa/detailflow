@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Kpis } from "./kpis";
 import { LiveSchedule } from "./live-schedule";
 import type { DashboardMetrics } from "@/src/server/pulpit/metrics";
@@ -42,18 +42,9 @@ export function Dashboard({
           </p>
         </div>
         <div className="flex shrink-0 gap-2.5">
-          <Button
-            variant="secondary"
-            className="h-10 px-[18px] text-df-label"
-            onClick={() =>
-              showNotice(
-                "Nowa wycena",
-                "Tworzenie wycen będzie dostępne wkrótce.",
-              )
-            }
-          >
+          <Link href="/quotes/new" className={buttonVariants({ variant: "secondary", className: "h-10 px-[18px] text-df-label" })}>
             Nowa wycena
-          </Button>
+          </Link>
           <Button
             variant="secondary"
             className="h-10 px-[18px] text-df-label"
