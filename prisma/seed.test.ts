@@ -1,6 +1,14 @@
 // Kontrakt danych demo: file-structure.md → „Reguły danych demonstracyjnych”
 // oraz docs/dokumentacja-wdrozenia.md §5.2 i §15.
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
+
+// `listClients` importuje warstwę HTTP → auth → env; seed nie potrzebuje integracji.
+vi.hoisted(() => {
+  process.env.SKIP_ENV_VALIDATION = "1";
+  process.env.APP_URL ??= "http://localhost:3000";
+  process.env.AUTH_SECRET ??= "test-secret-0123456789abcdef0123456789";
+});
+
 import { platformDb } from "../lib/db/client";
 import { Prisma } from "../lib/db/generated/client";
 import { studioDb, type StudioDb } from "../lib/db/tenant";
