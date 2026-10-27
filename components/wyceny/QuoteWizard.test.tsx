@@ -1,16 +1,23 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeAll, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import { QuoteWizard } from "./QuoteWizard";
-import { draftKey, initialDraft } from "./demo";
+import { clients, services, draftKey, initialDraft } from "./demo";
 
+const mocks = vi.hoisted(() => ({ save: vi.fn(), send: vi.fn(), edit: vi.fn() }));
+vi.mock("@/app/(studio)/quotes/new/actions", () => ({ saveQuoteAction: mocks.save, sendQuoteAction: mocks.send, updateServiceAction: mocks.edit }));
+const data = { clients: clients.map((client) => ({ ...client, vehicles: [...client.vehicles] })), services: services.map((service) => ({ ...service, code: service.id, durationMin: Number(service.hours) * 50 })), quote: null };
+beforeEach(() => {
+  mocks.save.mockReset().mockImplementation(async (_studioId, input) => ({ ok: true, value: { id: input.id, revision: input.revision + 1 } }));
+  mocks.send.mockReset().mockResolvedValue({ ok: true, value: { emailId: "email-1" } });
+});
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function () { this.setAttribute("open", ""); };
   HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); this.dispatchEvent(new Event("close")); };
 });
 afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); });
-const renderWizard = (studioId = "studio-a", userId = "user-a") => render(<QuoteWizard studioId={studioId} userId={userId} />);
+const renderWizard = (studioId = "studio-a", userId = "user-a") => render(<QuoteWizard studioId={studioId} userId={userId} data={data} />);
 const total = () => screen.getByLabelText("Kwota brutto").textContent;
 
 it("shows D-06 totals, recalculates size, paint and duration using Decimal", async () => {
@@ -71,7 +78,7 @@ it("changes the vehicle with the client, previews their data, and requires confi
   await user.selectOptions(screen.getByLabelText("Klient"), "anna");
   expect((screen.getByLabelText("Samochód") as HTMLSelectElement).value).toBe("audi");
   await user.click(screen.getByRole("button", { name: "Termin i potwierdzenie" }));
-  const submit = screen.getByRole("button", { name: "Potwierdź wysyłkę (demo)" }) as HTMLButtonElement;
+  const submit = screen.getByRole("button", { name: "Potwierdź wysyłkę" }) as HTMLButtonElement;
   expect(submit.disabled).toBe(true);
   expect(screen.getByText(/Do: Anna Wiśniewska/)).toBeTruthy();
   await user.click(screen.getByRole("radio", { name: /26–27 października/ }));
@@ -79,10 +86,14 @@ it("changes the vehicle with the client, previews their data, and requires confi
   await user.click(screen.getByRole("checkbox", { name: /Sprawdziłem/ }));
   expect(submit.disabled).toBe(false);
   await user.click(submit);
-  expect(screen.getByRole("heading", { name: "Wycena gotowa do wysłania" })).toBeTruthy();
-  expect(screen.getByText(/Wiadomość nie została wysłana/)).toBeTruthy();
-  await user.click(screen.getByRole("button", { name: "Wróć do wyceny" }));
-  expect((screen.getByRole("checkbox", { name: /Sprawdziłem/ }) as HTMLInputElement).checked).toBe(false);
+  await screen.findByRole("heading", { name: "Wycena zapisana i przekazana do wysyłki" });
+  expect(mocks.send).toHaveBeenCalledTimes(1);
+  const lastSave = mocks.save.mock.calls.at(-1)![1];
+  expect(lastSave).toMatchObject({ clientId: "anna", vehicleId: "audi", slotId: "oct26" });
+  expect(lastSave.items).toHaveLength(2);
+  await user.click(screen.getByRole("button", { name: "Wyślij ponownie" }));
+  await waitFor(() => expect(mocks.send).toHaveBeenCalledTimes(2));
+  expect(mocks.save.mock.calls.at(-1)![1]).toBe(lastSave);
 });
 
 it("handles malformed drafts and prevents restoring step 3 with no services", () => {
@@ -96,10 +107,11 @@ it("handles malformed drafts and prevents restoring step 3 with no services", ()
   expect(screen.getByRole("button", { name: "Usługi i wycena" }).getAttribute("aria-current")).toBe("step");
 });
 
-it("reports storage failure without losing editable UI", () => {
+it("saves to the server even when browser storage fails", async () => {
   vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("quota"); });
   renderWizard();
-  expect(screen.getByText(/Nie zapisano szkicu/)).toBeTruthy();
+  await screen.findByText("✓ Zapisano szkic w studiu");
+  expect(mocks.save).toHaveBeenCalled();
   expect(screen.getByLabelText("Klient")).toBeTruthy();
 });
 
@@ -108,8 +120,19 @@ it("requires a calendar choice when the restored draft has no slot", async () =>
   localStorage.setItem(draftKey("studio-a", "user-a"), JSON.stringify({ ...initialDraft, step: 3, slotId: null }));
   renderWizard();
   await user.click(screen.getByRole("checkbox", { name: /Sprawdziłem/ }));
-  expect((screen.getByRole("button", { name: "Potwierdź wysyłkę (demo)" }) as HTMLButtonElement).disabled).toBe(true);
+  expect((screen.getByRole("button", { name: "Potwierdź wysyłkę" }) as HTMLButtonElement).disabled).toBe(true);
   await user.click(screen.getByRole("radio", { name: /28–30 października/ }));
   expect(screen.getByText(/Przyjęcie: 28.10, 08:00/)).toBeTruthy();
   expect((screen.getByRole("checkbox", { name: /Sprawdziłem/ }) as HTMLInputElement).checked).toBe(false);
+});
+
+it("does not send when the final save fails and keeps the draft editable", async () => {
+  const user = userEvent.setup();
+  mocks.save.mockResolvedValue({ ok: false, error: "Błąd zapisu" });
+  renderWizard();
+  await user.click(screen.getByRole("button", { name: "Termin i potwierdzenie" }));
+  await user.click(screen.getByRole("checkbox", { name: /Sprawdziłem/ }));
+  await user.click(screen.getByRole("button", { name: "Potwierdź wysyłkę" }));
+  expect(await screen.findByText("Błąd zapisu")).toBeTruthy();
+  expect(mocks.send).not.toHaveBeenCalled();
 });

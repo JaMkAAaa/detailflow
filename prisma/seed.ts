@@ -8,6 +8,7 @@ import { hashPassword } from "../lib/auth/password";
 import { platformDb } from "../lib/db/client";
 import { Prisma, type KsefEventKind, type OrderStatus, type VehicleSize } from "../lib/db/generated/client";
 import { studioDb } from "../lib/db/tenant";
+import { seedServices } from "../src/server/wyceny/catalog";
 import { hashPortalToken } from "../lib/portal/token";
 
 export const DEMO = {
@@ -366,6 +367,7 @@ export async function seed() {
   });
   const studioId = studio.id;
   const db = studioDb(studioId);
+  await seedServices(studioId);
 
   const owner = await platformDb.user.upsert({
     where: { email: DEMO.ownerEmail },

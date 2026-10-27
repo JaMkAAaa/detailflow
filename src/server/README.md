@@ -27,3 +27,8 @@ Testy `acl.test.ts` wymagają PostgreSQL z migracjami. Tworzą dwa niezależne s
 - Każda zmiana zapisuje wpis `WorkOrderEvent` w tej samej transakcji (`listOrderHistory` → zakładka Historia).
 - Fakturować można tylko `completed` z `completedAt` (`canInvoice`, `assertInvoiceable`). Każda przyszła mutacja faktury z zlecenia wywołuje `assertInvoiceable`.
 - Numer `DF-####`: `allocateOrderNumber` w transakcji tworzenia zlecenia (atomowy licznik `OrderCounter` na studio, unikalność dodatkowo wymusza `@@unique([studioId, number])`).
+
+# Wyceny (#38)
+
+Zapis szkicu i pozycji, katalog oraz trwały outbox e-mail: `wyceny/README.md`.
+Server actions wymagają `quotes:manage` (owner/manager); worker korzysta z `studioDb`.

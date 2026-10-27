@@ -5,6 +5,7 @@ export const permissions = {
   "studio:read": ["owner", "manager", "worker"],
   "orders:write": ["owner", "manager", "worker"],
   "orders:update": ["owner", "manager", "worker"],
+  "quotes:manage": ["owner", "manager"],
   "invoices:manage": ["owner", "manager"],
   "members:invite": ["owner", "manager"],
 } as const satisfies Record<string, readonly MembershipRole[]>;
