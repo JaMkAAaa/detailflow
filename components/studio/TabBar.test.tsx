@@ -50,8 +50,7 @@ it("opens a sheet with new order and quote from the + button", async () => {
   await user.click(screen.getByRole("button", { name: "Nowe zlecenie lub wycena" }));
   const sheet = screen.getByRole("dialog", { name: "Nowe" });
   expect(within(sheet).getByRole("button", { name: /Nowe zlecenie/ })).toBeTruthy();
-  await user.click(within(sheet).getByRole("button", { name: /Nowa wycena/ }));
-  expect(within(sheet).getByRole("status").textContent).toContain("wkrótce");
+  expect(within(sheet).getByRole("link", { name: /Nowa wycena/ }).getAttribute("href")).toBe("/quotes/new");
 });
 
 it("hides owner-only links from workers in Więcej", async () => {
