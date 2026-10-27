@@ -72,7 +72,15 @@ export async function processStripeEvent(event: Stripe.Event, stripe = getStripe
       const currentInvoice = await stripe.invoices.retrieve(invoice.id);
       if (event.type === "invoice.payment_failed" && currentInvoice.status === "open") status = "past_due";
     }
-    await tx.studio.update({ where: { id: studioId }, data: { plan, status, stripeSubscriptionId: subscription.id } });
+    await tx.studio.update({
+      where: { id: studioId },
+      data: {
+        plan,
+        status,
+        stripeSubscriptionId: subscription.id,
+        ...(status === "active" && !studio.activatedAt ? { activatedAt: new Date() } : {}),
+      },
+    });
     await tx.auditLog.create({ data: { studioId, action: event.type, meta: {
       eventId: event.id, subscriptionId: subscription.id, plan, status,
       ...(invoice ? { invoiceId: invoice.id, currency: invoice.currency, amountPaid: String(invoice.amount_paid) } : {}),

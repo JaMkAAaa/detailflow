@@ -33,6 +33,12 @@ enum MembershipRole {
   worker
 }
 
+enum PlatformRole {
+  owner
+  support
+  admin
+}
+
 enum VehicleSize {
   small
   medium
@@ -112,6 +118,8 @@ model Studio {
   plan                 Plan         @default(solo)
   trialReminderSentAt  DateTime?
   trialEndsAt          DateTime?
+  // Pierwsze przejście trial → active. Historyczne MRR i konwersja trialu.
+  activatedAt          DateTime?
   // Stripe = abonament Detailflow, nie faktury klientów studia.
   stripeCustomerId     String?      @unique
   stripeSubscriptionId String?      @unique
@@ -162,7 +170,8 @@ model User {
   accounts        Account[]
   orderPhotos     OrderPhoto[]
   intakeProtocols IntakeProtocol[]
-  orderEvents     WorkOrderEvent[]
+  orderEvents      WorkOrderEvent[]
+  platformOperator PlatformOperator?
 }
 
 // Sesja studia w Postgres; cookie httpOnly niesie podpisany `token`.
@@ -217,6 +226,15 @@ model StripeEvent {
   id          String   @id // evt_...
   type        String
   processedAt DateTime @default(now())
+}
+
+// Operator panelu /admin. To nie jest membership studia — osobna sesja (#52).
+model PlatformOperator {
+  id        String       @id @default(cuid())
+  userId    String       @unique
+  role      PlatformRole
+  createdAt DateTime     @default(now())
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model AuditLog {

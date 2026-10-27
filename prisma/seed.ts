@@ -10,6 +10,7 @@ import { Prisma, type KsefEventKind, type OrderStatus, type VehicleSize } from "
 import { studioDb } from "../lib/db/tenant";
 import { seedServices } from "../src/server/wyceny/catalog";
 import { hashPortalToken } from "../lib/portal/token";
+import { seedPlatform } from "./seed-platform";
 
 export const DEMO = {
   studioSlug: "obsidian-studio",
@@ -24,7 +25,7 @@ export const DEMO = {
 } as const;
 
 /** Czas lokalny Warszawy → Date. 2026: CEST od 29.03 do 25.10. */
-function waw(local: string): Date {
+export function waw(local: string): Date {
   const [date = "", time = "00:00"] = local.split(" ");
   const [, m = 0, d = 0] = date.split("-").map(Number);
   const summer = (m > 3 || (m === 3 && d >= 29)) && (m < 10 || (m === 10 && d < 25));
@@ -363,6 +364,7 @@ export async function seed() {
       plan: "studio",
       ksefEnv: "test",
       createdAt: waw("2025-03-03 10:00"),
+      activatedAt: waw("2025-03-03 10:00"),
     },
   });
   const studioId = studio.id;
@@ -576,13 +578,14 @@ export async function seed() {
     ],
   });
 
+  await seedPlatform();
   return { studioId };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   seed()
     .then(({ studioId }) => {
-      console.log(`Seeded Obsidian Studio (${studioId})`);
+      console.log(`Seeded Obsidian Studio (${studioId}) and platform demo`);
     })
     .catch((err) => {
       console.error(err);

@@ -130,8 +130,8 @@ może spowodować powtórkę; SMTP nie zapewnia exactly-once.
 
 `calculateMrr` (`mrr.ts`) zwraca Decimal netto w PLN. Liczy wyłącznie `active`;
 trial/past_due/suspended/canceled są wykluczone. Unit test odtwarza przykład audytu:
-64 × 79 + 48 × 149 + 16 × 279 = 16 672 PLN. Funkcja nie jest jeszcze podłączona
-do demonstracyjnego panelu A-04.
+64 × 79 + 48 × 149 + 16 × 279 = 16 672 PLN. A-01 podłącza tę funkcję;
+skład per plan jest w A-04.
 
 Testy #51: `pnpm test src/server/billing src/server/acl.test.ts` na osobnej bazie
 PostgreSQL po migracjach. Obejmują izolację tenantów, CSRF/role portalu, anulowanie

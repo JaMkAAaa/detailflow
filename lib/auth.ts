@@ -12,7 +12,7 @@ import { env } from "./env";
 // Auth studia: e-mail + hasło (Argon2id) albo magiczny link. Sesje w Postgres
 // (model Session), cookie httpOnly. Konta zakłada rejestracja trialu (#24)
 // i zaproszenia (#25), więc publiczny sign-up jest tu wyłączony.
-// Panel platformy (/admin) dostanie osobną sesję z MFA (#52).
+// Panel platformy: osobna instancja Better Auth w lib/auth/platform.ts (#52).
 
 export const auth = betterAuth({
   appName: "Detailflow",
