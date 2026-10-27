@@ -2,14 +2,14 @@ import Decimal from "decimal.js";
 import type { Environment } from "./model";
 
 export type InvoiceRow = {
-  id: string; number: string; env: Environment; status: string; ksefStatus: string;
+  id: string; number: string; kind: "invoice" | "correction"; env: Environment; status: string; ksefStatus: string;
   buyerName: string; buyerNip: string | null; orderNumber: string; phone: string | null;
   issuedAt: string | null; dueAt: string | null; paidAt: string | null;
   totalGross: string; totalVat: string; ksefNumber: string | null;
   events: { kind: string; message: string; ref: string | null; attempt: number | null; at: string }[];
 };
 export const requiresKsefAttention = (row: InvoiceRow) => row.status === "issued" && ["rejected", "retrying"].includes(row.ksefStatus);
-export const isUnpaid = (row: InvoiceRow) => row.status === "issued" && row.ksefStatus === "accepted" && !row.paidAt;
+export const isUnpaid = (row: InvoiceRow) => row.kind === "invoice" && row.status === "issued" && row.ksefStatus === "accepted" && !row.paidAt;
 const warsawDay = (value: string) => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Warsaw" }).format(new Date(value));
 export const isOverdue = (row: InvoiceRow, now: string) => isUnpaid(row) && !!row.dueAt && warsawDay(row.dueAt) < warsawDay(now);
 export const sumInvoices = (rows: InvoiceRow[], field: "totalGross" | "totalVat" = "totalGross") => rows.reduce((sum, row) => sum.plus(row[field]), new Decimal(0)).toFixed(2);

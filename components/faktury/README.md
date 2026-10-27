@@ -74,8 +74,8 @@ i pomiędzy identycznymi numerami faktur TEST/PROD w Postgresie.
 - `/invoices/[number]` pokazuje kwotę, status, KSeF, pozycje i stały pasek akcji
   M-08. Kopiowanie, UPO, drukowanie PDF i potwierdzenia korzystają ze wspólnej
   obsługi `InvoiceDetails`. Historia i pozostałe akcje są pod przyciskiem „Więcej”.
-- Płatność, korekta i wysyłka PDF nadal są demonstracją UI (jak D-09).
-  Generator PDF/XML i operacyjne akcje należą do osobnych issue #43–#45.
+- Wysyłka PDF nadal jest demonstracją UI (jak D-09). Płatność i korekta zapisują
+  dane (#45, niżej); generator PDF/XML to #43, adapter KSeF to #44.
 - TEST i PROD pozostają rozdzielone przez istniejące zapytania i parametr `env`.
   Nie dodano mobilnego API ani zapytań do danych faktur.
 - Źródła: [M-07](https://www.figma.com/design/3pssHgZjGzo0UeyBC8yZ3S?node-id=32-671),
@@ -111,3 +111,37 @@ Testy: `pnpm vitest run src/ksef/fa3.test.ts src/invoices/pdf.test.ts`;
 integracja z Postgres: `pnpm vitest run src/server/faktury/document.test.ts`.
 Walidacja XSD jest obowiązkowa: lokalnie potrzebny `xmllint` (macOS: systemowy,
 Linux: `libxml2-utils`), instalowany też w CI. Test nie pomija braku walidatora.
+
+## Wystawianie, korekta i „opłacona” — #45
+
+[D-09 akcje](https://www.figma.com/design/3pssHgZjGzo0UeyBC8yZ3S?node-id=22-640).
+Logika: `src/server/faktury/manage.ts`. Wszystkie trasy wymagają `invoices:manage`,
+sprawdzają Origin i działają przez `studioDb(studioId)`.
+
+- `POST /api/studios/[studioId]/invoices` wystawia FV. **Tylko ze zlecenia `completed`
+  z datą zakończenia**: `#DF-0248` (w trakcie), przyjęte, do odbioru i anulowane dają 409,
+  zakończone `#DF-0243` przechodzi. Jedna aktywna FV na zlecenie w danym środowisku (zmiany
+  idą korektą), suma brutto musi równać się kwocie zlecenia (jak wymaga eksport z #43).
+  Środowisko KSeF pochodzi z konfiguracji studia, nie z żądania. Rabat złóż w cenie netto.
+- Numeracja `FV/n/MM/RRRR` (korekta `KFV/n/MM/RRRR`): licznik `InvoiceCounter` osobno dla
+  studia, środowiska, rodzaju i roku; brakujący startuje od najwyższego istniejącego
+  numeru (seed `FV/41` → następna `FV/42`). Wystawianie jest `Serializable`, równoległe
+  próby dają 409 zamiast duplikatu.
+- `POST …/invoices/[invoiceId]/corrections` wystawia korektę: osobny `Invoice`
+  `kind = correction` z `correctsInvoiceId` (CHECK w bazie), ten sam nabywca i środowisko.
+  Wymaga faktury wystawionej i przyjętej w KSeF. Body: `reason` + pozycje po korekcie
+  (`lp`, `quantity`, `unitNet`; ilość 0 usuwa pozycję, pominięte bez zmian). Kwoty
+  dokumentu to **różnica** (mogą być ujemne), kolejna korekta liczy od stanu po poprzedniej.
+  Korekty korekty nie ma; korekta nie jest „nieopłaconą fakturą” na liście.
+- `POST …/invoices/[invoiceId]/paid` ustawia `paidAt` (przelew; opcjonalne `paidAt` ISO,
+  nie z przyszłości i nie przed wystawieniem). Atomowe: drugi klik daje 409 i nie
+  nadpisuje daty. „Status paid” to pochodna `paidAt`, bez nowej wartości enuma.
+  Płatność jest niezależna od KSeF i od Stripe Checkout (poza v1).
+
+Poza zakresem: PDF i FA(3) korekty (eksport zwraca 409 z komunikatem, wymaga osobnego
+mapowania), wysyłka korekty do KSeF (#44) oraz podpięcie wizarda D-08 do POST wystawiania
+(wizard nadal jest demonstracją UI).
+
+Testy: `pnpm vitest run src/server/faktury/manage.test.ts` (Postgres: blokada
+niezakończonych zleceń, numeracja TEST/PROD, wyścigi, izolacja studiów) oraz
+`components/faktury/*.test.tsx`.

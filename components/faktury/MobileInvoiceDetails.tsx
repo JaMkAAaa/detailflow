@@ -8,7 +8,6 @@ import { EnvironmentBanner } from "./shared";
 export function MobileInvoiceDetails({
   invoice,
   label,
-  paidDemo,
   seconds,
   copy,
   upo,
@@ -21,7 +20,6 @@ export function MobileInvoiceDetails({
 }: {
   invoice: InvoiceView;
   label: string;
-  paidDemo: boolean;
   seconds: number | null;
   copy: () => void;
   upo: () => void;
@@ -32,7 +30,8 @@ export function MobileInvoiceDetails({
   resend: () => void;
   more: () => void;
 }) {
-  const isPaid = !!invoice.paidAt || paidDemo;
+  const isPaid = !!invoice.paidAt;
+  const isCorrection = invoice.kind === "correction";
   return (
     <div className="space-y-4 pb-8 leading-[normal] print:hidden">
       <MobileHeader
@@ -160,7 +159,7 @@ export function MobileInvoiceDetails({
       </section>
       <footer className="fixed inset-x-0 bottom-0 z-30 flex gap-2.5 border-t border-df-line bg-df-side px-4 pt-3 pb-[max(30px,env(safe-area-inset-bottom))]">
         <Button
-          disabled={isPaid}
+          disabled={isPaid || isCorrection}
           onClick={paid}
           className="min-w-0 flex-1 gap-2 px-2 text-[12px]"
         >
@@ -171,13 +170,9 @@ export function MobileInvoiceDetails({
               mask: "url(/mobile-sales/paid.svg) center / contain no-repeat",
             }}
           />
-          {paidDemo
-            ? "Opłacona (demo)"
-            : isPaid
-              ? "Opłacona"
-              : "Oznacz jako opłaconą"}
+          {isPaid ? "Opłacona" : "Oznacz jako opłaconą"}
         </Button>
-        <Button variant="secondary" onClick={correction}>
+        <Button variant="secondary" disabled={isCorrection} onClick={correction}>
           Korekta
         </Button>
       </footer>
