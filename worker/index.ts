@@ -1,12 +1,13 @@
 import { platformDb } from "../lib/db/client";
 import { deliverQuoteDecisionMails } from "../src/server/portal/mail";
+import { deliverQuoteMails } from "../src/server/wyceny/mail";
 
 console.log("[worker] started");
 let current: Promise<void> | undefined;
 function tick() {
   if (current) return;
-  current = deliverQuoteDecisionMails()
-    .catch(() => console.error("[worker] portal outbox failed"))
+  current = Promise.all([deliverQuoteDecisionMails(), deliverQuoteMails()]).then(() => undefined)
+    .catch(() => console.error("[worker] mail outbox failed"))
     .finally(() => { current = undefined; });
 }
 tick();
