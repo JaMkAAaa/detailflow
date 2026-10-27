@@ -5,10 +5,10 @@ import Decimal from "decimal.js";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet } from "@/components/studio/Sheet";
+import { useMobile } from "@/components/studio/useMobile";
+import { MobileQuoteStep } from "./MobileQuoteStep";
 import { cn } from "@/lib/utils";
-import type { QuoteWizardData } from "@/src/server/wyceny/query";
-import { saveQuoteAction, sendQuoteAction, updateServiceAction } from "@/app/(studio)/quotes/new/actions";
-import { sizes, paints, slots, initialDraft, draftKey, draftSchema, preview, pln, type Draft } from "./demo";
+import { clients as demoClients, services as demoServices, sizes, paints, slots, initialDraft, draftKey, draftSchema, preview, pln, type Draft, type WizardService } from "./demo";
 
 const control = "h-[43px] w-full min-w-0 rounded-lg bg-df-raised px-3 text-df-body text-df-text";
 function Panel({ children, className }: { children: ReactNode; className?: string }) {
@@ -18,102 +18,106 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   return <label className="flex min-w-0 flex-col gap-2 text-df-label text-df-muted">{label}{children}</label>;
 }
 
-export function QuoteWizard({ studioId, userId, data }: { studioId: string; userId: string; data: QuoteWizardData }) {
-  const clients = data.clients;
-  const [services, setServices] = useState(() => data.services.map((service) => {
-    const snapshot = data.quote?.items.find((item) => item.serviceId === service.id);
-    return snapshot ? { ...service, name: snapshot.name, price: snapshot.basePrice, durationMin: snapshot.durationMin ?? service.durationMin, hours: new Decimal(snapshot.durationMin ?? service.durationMin).times("1.2").div(60).toString() } : service;
-  }));
-  const freshDraft: Draft = { ...initialDraft, clientId: clients[0]?.id ?? "", vehicleId: clients[0]?.vehicles[0]?.id ?? "", serviceIds: services.filter((service) => ["correction", "ceramic"].includes(service.code)).map((service) => service.id) };
-  const [draft, setDraft] = useState<Draft>(data.quote?.draft ?? freshDraft);
-  const identity = useRef({ id: data.quote?.id ?? "", revision: data.quote?.revision ?? 0 });
-  const saving = useRef<Promise<unknown>>(Promise.resolve());
+type ClientChoice = { id: string; name: string; email: string | null; vehicles: readonly { id: string; label: string }[] };
+type InitialQuote = {
+  id: string;
+  revision: number;
+  status: string;
+  pending: boolean;
+  items: readonly { serviceId: string | null; name: string; basePrice: string; durationMin: number | null }[];
+  draft: Draft;
+};
+
+export function QuoteWizard({ studioId, userId, clientChoices, serviceChoices, initialQuote }: {
+  studioId: string;
+  userId: string;
+  clientChoices?: readonly ClientChoice[];
+  serviceChoices?: readonly WizardService[];
+  initialQuote?: InitialQuote | null;
+}) {
+  const mobile = useMobile();
+  const [options, setOptions] = useState(false);
+  const clients = clientChoices ?? demoClients;
+  const operational = clientChoices !== undefined;
+  const availableServices = serviceChoices ?? demoServices;
+  const defaultServiceIds = operational
+    ? availableServices.filter((service) => ["correction", "ceramic"].includes(service.code ?? service.id)).map((service) => service.id)
+    : initialDraft.serviceIds;
+  const blankStart: Draft = operational ? { ...initialDraft, clientId: clients[0]?.id ?? "", vehicleId: clients[0]?.vehicles[0]?.id ?? "", serviceIds: defaultServiceIds } : initialDraft;
+  const start = initialQuote?.draft ?? blankStart;
+  const [draft, setDraft] = useState<Draft>(start);
+  const [services, setServices] = useState<WizardService[]>(() => {
+    const base = serviceChoices ?? demoServices;
+    if (!initialQuote) return [...base];
+    return base.map((service) => {
+      const snapshot = initialQuote.items.find((item) => item.serviceId === service.id);
+      if (!snapshot) return service;
+      return {
+        ...service,
+        name: snapshot.name,
+        price: snapshot.basePrice,
+        hours: snapshot.durationMin !== null ? new Decimal(snapshot.durationMin).times("1.2").div(60).toString() : service.hours,
+      };
+    });
+  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [deliveryState, setDeliveryState] = useState(data.quote?.status === "sent" && !data.quote.pending ? "sent" : "pending");
+  const [priceInputs, setPriceInputs] = useState<Record<string, string>>({});
+  const [serverStatus, setServerStatus] = useState(initialQuote?.status ?? "draft");
   const [ready, setReady] = useState(false);
-  const [saved, setSaved] = useState(data.quote ? data.quote.pending ? "Wiadomość oczekuje na wysyłkę" : data.quote.status === "sent" ? "✓ Wysłano wycenę" : "✓ Zapisano szkic w studiu" : "Odczytywanie szkicu…");
+  const [saved, setSaved] = useState(initialQuote ? (initialQuote.pending ? "Wiadomość oczekuje na wysyłkę" : initialQuote.status === "sent" ? "✓ Wysłano wycenę" : "✓ Zapisano szkic w studiu") : "Odczytywanie szkicu…");
   const [catalog, setCatalog] = useState(false);
-  const [editingServiceId, setEditingServiceId] = useState(data.services[0]?.id ?? "");
-  const editingService = services.find((service) => service.id === editingServiceId);
+  const [editingServiceId, setEditingServiceId] = useState(services[0]?.id ?? "");
   const [confirmed, setConfirmed] = useState(false);
-  const [complete, setComplete] = useState(!!data.quote && (data.quote.status === "sent" || data.quote.pending));
+  const [complete, setComplete] = useState(!!initialQuote && initialQuote.status !== "draft");
   const [restoreError, setRestoreError] = useState("");
   const title = useRef<HTMLHeadingElement>(null);
   const key = draftKey(studioId, userId);
   const price = preview(draft, services);
-  const client = clients.find((client) => client.id === draft.clientId)!;
+  const client = clients.find((client) => client.id === draft.clientId);
   const vehicle = client?.vehicles.find((vehicle) => vehicle.id === draft.vehicleId);
   const slot = slots.find((slot) => slot.id === draft.slotId);
   const validSlot = slot && price.hours.lte(slot.hours);
+  const editingService = services.find((service) => service.id === editingServiceId) ?? services[0];
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem(key);
-      if (raw && !data.quote) {
+      if (raw && !initialQuote) {
         const result = draftSchema.safeParse(JSON.parse(raw));
         if (result.success && clients.some((client) => client.id === result.data.clientId && client.vehicles.some((vehicle) => vehicle.id === result.data.vehicleId)) && result.data.serviceIds.every((id) => services.some((service) => service.id === id))) {
           const restored = result.data;
           if (restored.step === 3 && restored.serviceIds.length === 0) restored.step = 2;
           setDraft(restored);
-        } else setRestoreError("Nie udało się odtworzyć szkicu. Wczytano bieżące dane studia.");
+          if (operational && restored.quoteId) {
+            setBusy(true);
+            fetch(`/api/studios/${studioId}/quotes/${restored.quoteId}`).then(async (response) => {
+              if (!response.ok) throw new Error("Nie udało się odczytać zapisanej wyceny.");
+              const quote = await response.json();
+              setServerStatus(quote.status);
+              if (quote.status !== "draft") setComplete(true);
+            }).catch((error: Error) => setError(error.message)).finally(() => setBusy(false));
+          }
+        } else setRestoreError("Nie udało się odtworzyć szkicu. Wczytano dane początkowe.");
       }
     } catch {
       setRestoreError("Nie udało się odczytać szkicu z tej przeglądarki.");
     }
-    identity.current.id ||= crypto.randomUUID();
     setReady(true);
-  // Dane początkowe są odtwarzane raz dla aktywnego studia/użytkownika.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Odtworzenie dotyczy wyłącznie aktywnego studia/użytkownika; późniejsze
+    // zmiany katalogu nie mogą nadpisać bieżącego szkicu.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
-  function persist(snapshot: Draft) {
-    const items = services.filter((service) => snapshot.serviceIds.includes(service.id)).map((service) => ({ serviceId: service.id, name: service.name, basePrice: service.price, durationMin: service.durationMin }));
-    const next = saving.current.catch(() => {}).then(async () => {
-      const result = await saveQuoteAction(studioId, { ...snapshot, ...identity.current, items });
-      if (!result.ok) throw new Error(result.error);
-      identity.current = result.value;
-      setSaved("✓ Zapisano szkic w studiu");
-    });
-    saving.current = next;
-    return next;
-  }
-
   useEffect(() => {
-    if (!ready || busy || complete || !draft.clientId || !draft.vehicleId) return;
-    try { localStorage.setItem(key, JSON.stringify(draft)); } catch { /* Baza pozostaje źródłem prawdy. */ }
-    setSaved("Zapisywanie szkicu…");
-    const timer = setTimeout(() => {
-      void persist(draft).catch((error: unknown) => {
-        setSaved("Nie zapisano szkicu");
-        setError(error instanceof Error ? error.message : "Nie udało się zapisać wyceny.");
-      });
-    }, 500);
-    return () => clearTimeout(timer);
-  // persist korzysta z aktualnych usług i serializuje zapisy przez saving.current.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft, key, ready, busy, complete, services]);
-
-  async function submit(resend = false) {
-    setBusy(true); setError("");
+    if (!ready) return;
     try {
-      if (!resend) await persist(draft);
-      else await saving.current.catch(() => {});
-      const result = await sendQuoteAction(studioId, identity.current.id);
-      if (!result.ok) throw new Error(result.error);
-      setDeliveryState("pending");
-      setComplete(true);
-      setSaved("Wiadomość oczekuje na wysyłkę");
-      title.current?.focus();
-    } catch (error) { setError(error instanceof Error ? error.message : "Nie udało się wysłać wyceny."); }
-    finally { setBusy(false); }
-  }
-
-  function newQuote() {
-    identity.current = { id: crypto.randomUUID(), revision: 0 };
-    setServices(data.services);
-    setDraft(freshDraft); setComplete(false); setConfirmed(false); setError("");
-  }
+      localStorage.setItem(key, JSON.stringify(draft));
+      if (!complete) setSaved(`✓ Zapisano lokalnie · ${new Intl.DateTimeFormat("pl-PL", { hour: "2-digit", minute: "2-digit" }).format(new Date())}`);
+    } catch {
+      setSaved("Nie zapisano szkicu — pamięć przeglądarki jest niedostępna.");
+    }
+  }, [draft, key, ready, complete]);
 
   function update(patch: Partial<Draft>) {
     setError("");
@@ -129,11 +133,76 @@ export function QuoteWizard({ studioId, userId, data }: { studioId: string; user
     update({ serviceIds: draft.serviceIds.includes(id) ? draft.serviceIds.filter((item) => item !== id) : [...draft.serviceIds, id] });
   }
 
+  async function persist(send = false) {
+    if (price.selected.some((service) => !/^\d{1,8}(\.\d{1,2})?$/.test(priceInputs[service.id] ?? service.price))) {
+      setError("Wpisz poprawną cenę bazową z maksymalnie dwoma miejscami po przecinku.");
+      return;
+    }
+    setBusy(true); setError("");
+    try {
+      const id = draft.quoteId ?? crypto.randomUUID();
+      const next = { ...draft, quoteId: id };
+      setDraft(next);
+      // Przechowaj ID przed żądaniem, by timeout/reload nie tworzył drugiej wyceny.
+      try { localStorage.setItem(key, JSON.stringify(next)); } catch { /* Zapis serwerowy nadal działa. */ }
+      const base = `/api/studios/${studioId}/quotes/${id}`;
+      async function request(url: string, method: string, body?: unknown) {
+        const response = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error ?? "Nie udało się zapisać wyceny.");
+        return result;
+      }
+      if (serverStatus === "draft") {
+        await request(base, "PUT", { clientId: draft.clientId, vehicleId: draft.vehicleId, size: draft.size,
+          paintMult: price.paint.multiplier, interior: draft.interior, slotId: draft.slotId, step: draft.step, notes: draft.notes,
+          items: price.selected.map((service) => ({ name: service.name, basePrice: service.price,
+            durationMin: new Decimal(service.hours).times(60).div("1.20").toNumber() })) });
+        setSaved("✓ Zapisano szkic na serwerze");
+      }
+      if (send) {
+        await request(`${base}/send`, "POST");
+        setServerStatus("sent"); setComplete(true);
+        setSaved("✓ Wysłano wycenę");
+      }
+    } catch (error) { setError(error instanceof Error ? error.message : "Nie udało się zapisać wyceny."); }
+    finally { setBusy(false); }
+  }
+
+  async function saveService(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!operational) return;
+    const form = event.currentTarget;
+    const fields = new FormData(form);
+    const id = String(fields.get("serviceId"));
+    const edit = { name: String(fields.get("name")), basePrice: String(fields.get("basePrice")).replace(",", "."), durationMin: Number(fields.get("durationMin")) };
+    setBusy(true); setError("");
+    try {
+      const { updateServiceAction } = await import("@/app/(studio)/quotes/new/actions");
+      const result = await updateServiceAction(studioId, id, edit);
+      if (!result.ok) throw new Error(result.error);
+      setServices((current) => current.map((service) => service.id === id ? { ...service, name: edit.name, price: edit.basePrice, durationMin: edit.durationMin, hours: new Decimal(edit.durationMin).times("1.2").div(60).toString() } : service));
+      form.reset();
+    } catch (error) { setError(error instanceof Error ? error.message : "Nie udało się zapisać usługi."); }
+    finally { setBusy(false); }
+  }
+
+  function newQuote() {
+    setDraft(blankStart);
+    setServices([...(serviceChoices ?? demoServices)]);
+    setPriceInputs({});
+    setServerStatus("draft");
+    setComplete(false);
+    setConfirmed(false);
+    setError("");
+    setSaved("✓ Nowy szkic");
+  }
+
   if (!ready) return <p role="status" className="text-df-muted">Odczytywanie szkicu wyceny…</p>;
 
-  if (!client || !vehicle) return <p role="status">Dodaj klienta i samochód w zakładce Klienci, aby utworzyć wycenę.</p>;
+  if (!client || !vehicle) return <p role="status">Dodaj klienta z samochodem w zakładce Klienci, aby przygotować wycenę.</p>;
 
-  return <div className="flex flex-col gap-6">
+  return <fieldset disabled={busy} aria-busy={busy} className="flex min-w-0 flex-col gap-6 border-0 p-0">
+    {mobile && draft.step === 2 && !complete ? <MobileQuoteStep draft={draft} client={client.name} vehicle={vehicle.label} update={update} toggle={toggleService} catalog={() => setCatalog(true)} changeClient={() => go(1)} next={() => go(3)} options={() => setOptions(true)} /> : <>
     <header className="flex min-h-[70px] flex-wrap items-start justify-between gap-3">
       <div><h1 ref={title} tabIndex={-1} className="text-df-headline">Nowa wycena</h1>
         <p className="mt-1 text-df-muted">Od potrzeb klienta do konkretnej ceny. Bez liczenia w Excelu.</p></div>
@@ -141,7 +210,7 @@ export function QuoteWizard({ studioId, userId, data }: { studioId: string; user
     </header>
     {error && <p role="alert" className="text-df-amber">{error}</p>}
     {restoreError && <p role="alert" className="text-df-amber">{restoreError}</p>}
-    <nav hidden={complete} aria-label="Kroki wyceny"><ol className="flex flex-wrap items-center gap-3">
+    <nav aria-label="Kroki wyceny"><ol className="flex flex-wrap items-center gap-3">
       {["Klient i auto", "Usługi i wycena", "Termin i potwierdzenie"].map((label, index) => {
         const step = (index + 1) as Draft["step"];
         return <li key={label} className="flex items-center gap-3">
@@ -155,13 +224,12 @@ export function QuoteWizard({ studioId, userId, data }: { studioId: string; user
     </ol></nav>
 
     {complete ? <Panel className="flex flex-col items-start gap-4" >
-      <Badge variant="completed">{deliveryState === "sent" ? "Wysłano" : "W kolejce do wysyłki"}</Badge>
-      <h2 className="text-df-section">{deliveryState === "sent" ? "Wycena wysłana" : "Wycena zapisana i przekazana do wysyłki"}</h2>
+      <Badge variant="completed">{operational ? (({ accepted: "Zaakceptowana", rejected: "Odrzucona", expired: "Wygasła" } as Record<string, string>)[serverStatus] ?? "Wysłana") : "Potwierdzono w trybie demonstracyjnym"}</Badge>
+      <h2 className="text-df-section">{operational ? "Wycena zapisana i przekazana do wysyłki" : "Wycena gotowa do wysłania"}</h2>
       <p>{client.name} · {vehicle.label} · {pln(price.gross)}</p>
-      <p className="text-df-muted">{deliveryState === "sent" ? "Wiadomość została przyjęta przez serwer pocztowy." : "Wysyłkę obsłuży worker. Odśwież stronę, aby sprawdzić jej status."} Termin jest propozycją i nie rezerwuje boksu.</p>
-      <Button variant="secondary" disabled={busy} onClick={() => void submit(true)}>Wyślij ponownie</Button>
-      <Button onClick={newQuote} disabled={busy}>Nowa wycena</Button>
-    </Panel> : <fieldset disabled={busy} className="contents">
+      <p className="text-df-muted">{operational ? "Worker wyśle e-mail z linkiem do portalu klienta. Termin nie został zarezerwowany." : "To demonstracja interfejsu. Wiadomość nie została wysłana, a termin nie został zarezerwowany. Szkic jest zapisany lokalnie w tej przeglądarce."}</p>
+      {operational ? <><Button disabled={busy || serverStatus !== "sent"} onClick={() => void persist(true)}>Wyślij ponownie</Button><Button variant="secondary" onClick={newQuote}>Nowa wycena</Button></> : <Button variant="secondary" onClick={() => { setComplete(false); setConfirmed(false); }}>Wróć do wyceny</Button>}
+    </Panel> : <>
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,2.016fr)_minmax(300px,1fr)]">
         <div className="flex min-w-0 flex-col gap-4">
           {draft.step !== 3 && <Panel className="flex flex-col gap-2.5">
@@ -192,8 +260,8 @@ export function QuoteWizard({ studioId, userId, data }: { studioId: string; user
               <div className="overflow-x-auto"><table className="w-full min-w-[530px] text-left">
                 <thead className="border-b border-df-line text-df-label text-df-muted"><tr>{["USŁUGA", "CENA BAZOWA", "CZAS", "WYCENA", ""].map((heading, index) => <th key={index} className="pb-4 font-medium">{heading}</th>)}</tr></thead>
                 <tbody>{price.selected.map((service) => <tr key={service.id} className="h-[79px]">
-                  <td className="w-[47%] pr-3"><p className="text-df-strong">{service.name}</p><p className="mt-1 text-df-label text-df-muted">{service.description}</p></td>
-                  <td className="text-df-muted">{pln(service.price)}</td><td className="text-df-muted">{new Decimal(service.hours).div("1.2").times(price.size.multiplier).toDecimalPlaces(1).toString().replace(".", ",")} h</td>
+                  <td className="w-[47%] pr-3">{operational ? <input aria-label={`Nazwa: ${service.name}`} className={control} maxLength={120} value={service.name} onChange={(event) => update({ edits: { ...draft.edits, [service.id]: { name: event.target.value, price: service.price } } })} /> : <p className="text-df-strong">{service.name}</p>}<p className="mt-1 text-df-label text-df-muted">{service.description}</p></td>
+                  <td className="text-df-muted">{operational ? <input aria-label={`Cena bazowa: ${service.name}`} className={control} type="number" min="0" max="99999999.99" step="0.01" value={priceInputs[service.id] ?? service.price} onChange={(event) => { const value = event.target.value; setPriceInputs((current) => ({ ...current, [service.id]: value })); if (/^\d{1,8}(\.\d{1,2})?$/.test(value)) update({ edits: { ...draft.edits, [service.id]: { name: service.name, price: value } } }); }} /> : pln(service.price)}</td><td className="text-df-muted">{new Decimal(service.hours).div("1.2").times(price.size.multiplier).toDecimalPlaces(1).toString().replace(".", ",")} h</td>
                   <td className="whitespace-nowrap text-df-strong">{pln(new Decimal(service.price).times(price.multiplier))}</td>
                   <td><button type="button" aria-label={`Usuń: ${service.name}`} onClick={() => toggleService(service.id)} className="ml-1 min-h-9 min-w-7 text-df-muted hover:text-df-error">×</button></td>
                 </tr>)}</tbody>
@@ -222,11 +290,11 @@ export function QuoteWizard({ studioId, userId, data }: { studioId: string; user
                 <p>Dzień dobry, przesyłamy wycenę dla {vehicle.label}.</p>
                 <ul className="list-inside list-disc">{price.selected.map((service) => <li key={service.id}>{service.name}</li>)}</ul>
                 <p>Łącznie: <strong>{pln(price.gross)} brutto</strong> (w tym VAT 23%: {pln(price.vat)}).</p>
-                {validSlot && <p>Przyjęcie: {slot.start}. Planowany odbiór: {slot.pickup}. {slot.bay}.</p>}
+                {!operational && validSlot && <p>Przyjęcie: {slot.start}. Planowany odbiór: {slot.pickup}. {slot.bay}.</p>}
                 {draft.notes && <p className="whitespace-pre-wrap">{draft.notes}</p>}
                 <p>Do zobaczenia w studiu!</p>
               </div>
-              <p className="text-df-label text-df-muted">Wycena zostanie wysłana e-mailem. Portal klienta jest w przygotowaniu. Proponowany termin nie rezerwuje boksu.</p>
+              <p className="text-df-label text-df-muted">{operational ? "Wiadomość zawiera link do portalu ważny 14 dni. Termin demonstracyjny nie rezerwuje boksu." : "Tryb demonstracyjny: potwierdzenie nie wysyła wiadomości i nie rezerwuje boksu."}</p>
               <label className="flex items-start gap-3"><input type="checkbox" className="mt-0.5 accent-df-lime" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} />Sprawdziłem dane klienta, zakres usług i termin.</label>
             </Panel>
           </>}
@@ -247,37 +315,28 @@ export function QuoteWizard({ studioId, userId, data }: { studioId: string; user
         </aside>
       </div>
       <footer className="flex flex-wrap items-center gap-3 rounded-[14px] bg-df-raised px-5 py-3.5">
-        <p className="min-w-[180px] flex-1 text-df-muted">Krok {draft.step} z 3 · zmiany zapisują się automatycznie</p>
-        <Button variant="secondary" disabled={draft.step === 1} onClick={() => go((draft.step - 1) as Draft["step"])} className="h-10 text-df-label">← Wstecz</Button>
-        {draft.step < 3 ? <Button className="h-10 text-df-label" disabled={draft.step === 2 && !price.selected.length} onClick={() => go((draft.step + 1) as Draft["step"])}>{draft.step === 1 ? "Dalej: wybierz usługi →" : "Dalej: wybierz termin →"}</Button> : <Button className="h-10 text-df-label" disabled={busy || !confirmed || !validSlot || !price.selected.length} onClick={() => void submit()}>{busy ? "Zapisywanie…" : "Potwierdź wysyłkę"}</Button>}
+        <p className="min-w-[180px] flex-1 text-df-muted">Krok {draft.step} z 3 · szkic zapisujesz na serwerze</p>
+        {operational && <Button variant="secondary" disabled={busy || !price.selected.length} onClick={() => void persist()}>Zapisz szkic</Button>}
+        <Button variant="secondary" disabled={draft.step === 1 || busy} onClick={() => go((draft.step - 1) as Draft["step"])} className="h-10 text-df-label">← Wstecz</Button>
+        {draft.step < 3 ? <Button className="h-10 text-df-label" disabled={draft.step === 2 && !price.selected.length} onClick={() => go((draft.step + 1) as Draft["step"])}>{draft.step === 1 ? "Dalej: wybierz usługi →" : "Dalej: wybierz termin →"}</Button> : <Button className="h-10 text-df-label" disabled={busy || !confirmed || !validSlot || !price.selected.length} onClick={() => { if (operational) void persist(true); else { setComplete(true); title.current?.focus(); } }}>{operational ? "Wyślij wycenę" : "Potwierdź wysyłkę (demo)"}</Button>}
       </footer>
-    </fieldset>}
+    </>}
+    </>}
+    {mobile && draft.step === 2 && restoreError && <p role="alert" className="text-df-amber">{restoreError}</p>}
+    {mobile && draft.step === 2 && error && <p role="alert" className="text-df-amber">{error}</p>}
+    <Sheet open={options} onClose={() => setOptions(false)} title="Rozszerzone opcje · v1.1"><p className="text-df-muted">Dodatkowe opcje lakieru i wnętrza na telefonie będą dostępne w wersji 1.1. Możesz teraz kontynuować wycenę.</p><Button onClick={() => setOptions(false)}>Wróć do wyceny</Button></Sheet>
     <Sheet open={catalog} onClose={() => setCatalog(false)} title="Katalog usług">
       <p className="text-df-muted">Zaznacz usługi, które chcesz uwzględnić w wycenie.</p>
       {services.map((service) => <label key={service.id} className="flex cursor-pointer items-center gap-3 rounded-lg bg-df-raised p-4"><input type="checkbox" className="accent-df-lime" checked={draft.serviceIds.includes(service.id)} onChange={() => toggleService(service.id)} /><span className="flex-1"><span className="block text-df-strong">{service.name}</span><span className="block text-df-label text-df-muted">{service.description}</span></span><span>{pln(service.price)}</span></label>)}
-      <form key={editingServiceId} className="flex flex-col gap-3" onSubmit={async (event) => {
-        event.preventDefault();
-        const form = event.currentTarget;
-        const fields = new FormData(form);
-        const id = String(fields.get("serviceId"));
-        const edit = { name: String(fields.get("name")), basePrice: String(fields.get("basePrice")).replace(",", "."), durationMin: Number(fields.get("durationMin")) };
-        setBusy(true);
-        try {
-          const result = await updateServiceAction(studioId, id, edit);
-          if (!result.ok) throw new Error(result.error);
-          setServices((current) => current.map((service) => service.id === id ? { ...service, name: edit.name, price: edit.basePrice, durationMin: edit.durationMin, hours: new Decimal(edit.durationMin).times("1.2").div(60).toString() } : service));
-          setError(""); form.reset();
-        } catch (error) { setError(error instanceof Error ? error.message : "Nie udało się zapisać usługi."); }
-        finally { setBusy(false); }
-      }}>
+      {operational && <form className="flex flex-col gap-3" onSubmit={saveService}>
         <h3 className="text-df-strong">Edytuj usługę katalogu</h3>
-        <Field label="Usługa do edycji"><select required name="serviceId" value={editingServiceId} onChange={(event) => setEditingServiceId(event.target.value)} className={control}>{services.map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}</select></Field>
-        <Field label="Nazwa usługi"><input required name="name" defaultValue={editingService?.name} maxLength={120} className={control} /></Field>
-        <Field label="Cena bazowa brutto PLN"><input required name="basePrice" defaultValue={editingService?.price} inputMode="decimal" pattern="[0-9]+([.,][0-9]{1,2})?" className={control} /></Field>
-        <Field label="Czas bazowy (min)"><input required name="durationMin" defaultValue={editingService?.durationMin} type="number" min={0} max={60000} className={control} /></Field>
+        <Field label="Usługa do edycji"><select required name="serviceId" value={editingService?.id ?? ""} onChange={(event) => setEditingServiceId(event.target.value)} className={control}>{services.map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}</select></Field>
+        <Field label="Nazwa usługi"><input required name="name" defaultValue={editingService?.name} key={`name-${editingService?.id}`} maxLength={120} className={control} /></Field>
+        <Field label="Cena bazowa brutto PLN"><input required name="basePrice" defaultValue={editingService?.price} key={`price-${editingService?.id}`} inputMode="decimal" pattern="[0-9]+([.,][0-9]{1,2})?" className={control} /></Field>
+        <Field label="Czas bazowy (min)"><input required name="durationMin" defaultValue={editingService?.durationMin ?? 0} key={`duration-${editingService?.id}`} type="number" min={0} max={60000} className={control} /></Field>
         <Button type="submit" variant="secondary" disabled={busy}>Zapisz usługę</Button>
-      </form>
+      </form>}
       <Button onClick={() => setCatalog(false)} disabled={busy}>Gotowe</Button>
     </Sheet>
-  </div>;
+  </fieldset>;
 }

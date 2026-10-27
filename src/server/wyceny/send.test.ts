@@ -1,171 +1,142 @@
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { platformDb } from "../../../lib/db/client";
-import { studioDb } from "../../../lib/db/tenant";
-import { authorizeStudio } from "../acl";
-import { seedServices, updateService } from "./catalog";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { platformDb } from "@/lib/db/client";
+import { studioDb } from "@/lib/db/tenant";
+import { hashPortalToken } from "@/lib/portal/token";
 import { saveQuote, sendQuote } from "./send";
-import { deliverQuoteEmail } from "./email";
-import { loadQuoteWizard } from "./query";
-import { relayQuoteEmails } from "./outbox";
+import { deliverQuoteMails } from "./mail";
+import { PUT, GET } from "@/app/api/studios/[studioId]/quotes/[quoteId]/route";
+import { POST } from "@/app/api/studios/[studioId]/quotes/[quoteId]/send/route";
 
+const mocks = vi.hoisted(() => {
+  process.env.SKIP_ENV_VALIDATION = "1";
+  process.env.APP_URL = "http://localhost:3000";
+  process.env.SMTP_URL = "smtp://localhost:1025";
+  return { send: vi.fn(), session: vi.fn() };
+});
+vi.mock("nodemailer", () => ({ createTransport: () => ({ sendMail: mocks.send }) }));
+vi.mock("@/lib/auth", () => ({ auth: { api: { getSession: mocks.session } } }));
 const tag = randomUUID();
 const studios: string[] = [];
-let owner: string;
-let worker: string;
-const fixtures: Array<{ clientId: string; vehicleId: string; items: Array<{ serviceId: string; name: string; basePrice: string; durationMin: number }> }> = [];
-const input = (index = 0) => ({ id: randomUUID(), revision: 0, ...fixtures[index]!, size: "medium" as const, paint: "standard" as const, interior: "Umiarkowane" as const, step: 2, slotId: "oct24", notes: "Kontakt przed odbiorem." });
-
+let userId: string;
+let workerId: string;
+async function fixture(index = 0, email: string | null = "client@example.test") {
+  const studioId = studios[index]!;
+  const db = studioDb(studioId);
+  const client = await db.client.create({ data: { studioId, name: "Adam Nowak", email } });
+  const vehicle = await db.vehicle.create({ data: { studioId, clientId: client.id, make: "Porsche", model: "Panamera", plate: "WA TEST" } });
+  const input = { clientId: client.id, vehicleId: vehicle.id, size: "medium", paintMult: "1.00", notes: "Uwagi klienta",
+    items: [{ name: "Korekta lakieru", basePrice: "2000.00", durationMin: 400 }, { name: "Powłoka ceramiczna", basePrice: "2000.00", durationMin: 200 }] };
+  const id = randomUUID();
+  return { db, studioId, input, id };
+}
 beforeAll(async () => {
-  owner = (await platformDb.user.create({ data: { name: "Owner", email: `${tag}@example.com` } })).id;
-  worker = (await platformDb.user.create({ data: { name: "Worker", email: `${tag}-worker@example.com` } })).id;
-  for (const suffix of ["a", "b"]) {
-    const studioId = (await platformDb.studio.create({ data: { name: tag, publicCode: `${tag}-${suffix}`, slug: `${tag}-${suffix}` } })).id;
-    studios.push(studioId);
-    const db = studioDb(studioId);
-    await db.membership.create({ data: { studioId, userId: owner, role: "owner" } });
-    await db.membership.create({ data: { studioId, userId: worker, role: "worker" } });
-    const client = await db.client.create({ data: { studioId, name: `Klient ${suffix}`, email: `${tag}-${suffix}@example.com` } });
-    const vehicle = await db.vehicle.create({ data: { studioId, clientId: client.id, make: "Porsche", model: "Panamera", plate: "WA 911PC" } });
-    await seedServices(studioId);
-    const services = await db.service.findMany({ where: { code: { in: ["correction", "ceramic"] } }, orderBy: { sort: "asc" } });
-    fixtures.push({ clientId: client.id, vehicleId: vehicle.id, items: services.map((service) => ({ serviceId: service.id, name: service.name, basePrice: service.basePrice.toFixed(2), durationMin: service.durationMin })) });
+  for (const suffix of ["a", "b"]) studios.push((await platformDb.studio.create({ data: { publicCode: `${tag}-${suffix}`, slug: `${tag}-${suffix}`, name: `Studio ${suffix}` } })).id);
+  userId = (await platformDb.user.create({ data: { email: `${tag}@example.test`, name: "Owner" } })).id;
+  workerId = (await platformDb.user.create({ data: { email: `${tag}-worker@example.test`, name: "Worker" } })).id;
+  for (const [id, role] of [[userId, "owner"], [workerId, "worker"]] as const) {
+    await studioDb(studios[0]!).membership.create({ data: { studioId: studios[0]!, userId: id, role } });
   }
 });
+beforeEach(() => { mocks.send.mockReset().mockResolvedValue({}); mocks.session.mockResolvedValue({ user: { id: userId } }); });
 afterAll(async () => {
   await platformDb.studio.deleteMany({ where: { id: { in: studios } } });
-  await platformDb.user.deleteMany({ where: { id: { in: [owner, worker] } } });
+  await platformDb.user.deleteMany({ where: { id: { in: [userId, workerId] } } });
 });
 
-describe("quote persistence and e-mail outbox (Postgres)", () => {
-  it("persists Decimal totals and replaces items on subsequent saves", async () => {
-    const draft = input();
-    const db = studioDb(studios[0]!);
-    const saved = await saveQuote(studios[0]!, owner, draft);
-    await saveQuote(studios[0]!, owner, { ...draft, ...saved, notes: "Nowe uwagi" });
-    const quote = await db.quote.findFirstOrThrow({ where: { id: saved.id }, include: { items: true } });
-    expect(quote.status).toBe("draft");
-    expect(quote.totalGross.toFixed(2)).toBe("4800.00");
-    expect(quote.vatAmount.toFixed(2)).toBe("897.56");
-    expect(quote.items).toHaveLength(2);
-    expect(quote.notes).toBe("Nowe uwagi");
-    await expect(saveQuote(studios[0]!, owner, { ...draft, ...saved })).rejects.toThrow(/Odśwież/);
+describe("quote persistence and e-mail jobs (Postgres)", () => {
+  it("saves Decimal totals and replaces item snapshots on repeated PUT", async () => {
+    const f = await fixture();
+    const first = await saveQuote(f.studioId, f.id, f.input);
+    expect(first.status).toBe("draft");
+    expect(first.totalGross.toFixed(2)).toBe("4800.00");
+    expect(first.vatAmount.toFixed(2)).toBe("897.56");
+    const updated = await saveQuote(f.studioId, f.id, { ...f.input, items: [{ name: "Edycja usługi", basePrice: "100.01", durationMin: null }] });
+    expect(updated.items).toHaveLength(1);
+    expect(updated.items[0]!.name).toBe("Edycja usługi");
+    expect(updated.totalGross.toFixed(2)).toBe("120.01");
   });
 
-  it("sends and resends without duplicating items, retries SMTP errors and skips completed jobs", async () => {
-    const studioId = studios[0]!;
-    const db = studioDb(studioId);
-    const draft = input();
-    const saved = await saveQuote(studioId, owner, draft);
-    const { emailId } = await sendQuote(studioId, saved.id, "http://localhost:3000");
-    expect((await sendQuote(studioId, saved.id, "http://localhost:3000")).emailId).toBe(emailId);
-    const email = await db.quoteEmail.findFirstOrThrow({ where: { id: emailId } });
-    expect(email.text).toContain("4800.00 PLN");
-    expect(email.text).toContain("897.56 PLN");
-    expect(email.text).toContain("Proponowane przyjęcie: 24.10, 08:00");
-    expect(email.text).toContain("Zespół " + tag);
-    expect(email.text).toContain("http://localhost:3000/p/quote-preview");
-    expect(email.recipient).toBe(`${tag}-a@example.com`);
-    expect(await db.quoteItem.count({ where: { quoteId: saved.id } })).toBe(2);
-    await expect(saveQuote(studioId, owner, { ...draft, ...saved, revision: saved.revision + 2 })).rejects.toThrow(/Odśwież/);
-    const smtp = vi.fn().mockRejectedValueOnce(new Error("SMTP down")).mockResolvedValue(undefined);
-    await expect(deliverQuoteEmail({ studioId, emailId }, smtp)).rejects.toThrow("SMTP down");
-    expect((await db.quote.findFirstOrThrow({ where: { id: saved.id } })).status).toBe("draft");
-    await deliverQuoteEmail({ studioId, emailId }, smtp);
-    await deliverQuoteEmail({ studioId, emailId }, smtp);
-    expect(smtp).toHaveBeenCalledTimes(2);
-    const sent = await db.quote.findFirstOrThrow({ where: { id: saved.id } });
-    expect(sent.status).toBe("sent");
-    expect(sent.sentAt).toBeInstanceOf(Date);
-    const resend = await sendQuote(studioId, saved.id, "http://localhost:3000");
-    expect(resend.emailId).not.toBe(emailId);
-    await deliverQuoteEmail({ studioId, emailId: resend.emailId }, smtp);
-    expect(await db.quoteItem.count({ where: { quoteId: saved.id } })).toBe(2);
-    expect(await db.quote.count({ where: { id: saved.id } })).toBe(1);
+  it("queues, sends and resends without duplicating items; stores only portal hashes", async () => {
+    const f = await fixture();
+    await saveQuote(f.studioId, f.id, f.input);
+    await Promise.all([sendQuote(f.studioId, f.id), sendQuote(f.studioId, f.id)]);
+    expect(await f.db.quoteSendMail.count({ where: { quoteId: f.id, sentAt: null } })).toBe(1);
+    await Promise.all([deliverQuoteMails(), deliverQuoteMails()]);
+    const messages = mocks.send.mock.calls.map(([mail]) => mail).filter((mail) => mail.to === "client@example.test" && mail.text.includes(f.input.notes));
+    expect(messages).toHaveLength(1);
+    const url = messages[0].text.match(/http:\/\/localhost:3000\/p\/([\w-]+)/)!;
+    const links = await f.db.portalLink.findMany({ where: { quoteId: f.id } });
+    expect(links).toHaveLength(1);
+    expect(links[0]!.tokenHash).toBe(hashPortalToken(url[1]!));
+    expect(JSON.stringify(await f.db.quoteSendMail.findMany())).not.toContain(url[1]);
+    expect((await f.db.quote.findFirstOrThrow({ where: { id: f.id } })).sentAt).toBeTruthy();
+    mocks.send.mockClear();
+    await sendQuote(f.studioId, f.id);
+    await deliverQuoteMails();
+    expect(mocks.send).toHaveBeenCalledTimes(1);
+    expect(await f.db.quoteItem.count({ where: { quoteId: f.id } })).toBe(2);
+    await expect(saveQuote(f.studioId, f.id, f.input)).rejects.toThrow("nie można edytować");
   });
 
-  it("keeps the outbox after a queue outage and relays IDs only", async () => {
-    const studioId = studios[0]!;
-    const saved = await saveQuote(studioId, owner, input());
-    const { emailId } = await sendQuote(studioId, saved.id, "http://localhost:3000");
-    await expect(relayQuoteEmails(async () => { throw new Error("Redis down"); })).rejects.toThrow("Redis down");
-    const enqueue = vi.fn().mockResolvedValue(undefined);
-    await relayQuoteEmails(enqueue);
-    expect(enqueue).toHaveBeenCalledWith({ studioId, emailId });
-    expect(Object.keys(enqueue.mock.calls[0]![0]).sort()).toEqual(["emailId", "studioId"]);
+  it("rolls back failed SMTP and retries the pending job without retaining a dead link", async () => {
+    const f = await fixture();
+    await saveQuote(f.studioId, f.id, f.input);
+    await sendQuote(f.studioId, f.id);
+    mocks.send.mockRejectedValueOnce(new Error("SMTP unavailable"));
+    await deliverQuoteMails();
+    expect(await f.db.quoteSendMail.count({ where: { quoteId: f.id, sentAt: null } })).toBe(1);
+    expect(await f.db.portalLink.count({ where: { quoteId: f.id } })).toBe(0);
+    expect((await f.db.quote.findFirstOrThrow({ where: { id: f.id } })).sentAt).toBeNull();
+    await deliverQuoteMails();
+    expect(await f.db.quoteSendMail.count({ where: { quoteId: f.id, sentAt: null } })).toBe(0);
   });
 
-  it("serializes concurrent saves and send requests", async () => {
-    const studioId = studios[0]!;
-    const draft = input();
-    const saved = await saveQuote(studioId, owner, draft);
-    const saves = await Promise.allSettled([saveQuote(studioId, owner, { ...draft, ...saved }), saveQuote(studioId, owner, { ...draft, ...saved })]);
-    expect(saves.filter((result) => result.status === "fulfilled")).toHaveLength(1);
-    const sends = await Promise.allSettled([sendQuote(studioId, draft.id, "http://localhost:3000"), sendQuote(studioId, draft.id, "http://localhost:3000")]);
-    expect(sends.some((result) => result.status === "fulfilled")).toBe(true);
-    expect(await studioDb(studioId).quoteEmail.count({ where: { quoteId: draft.id } })).toBe(1);
-    expect(await studioDb(studioId).quoteItem.count({ where: { quoteId: draft.id } })).toBe(2);
+  it("does not send or reset a quote already decided in the portal", async () => {
+    const f = await fixture();
+    await saveQuote(f.studioId, f.id, f.input);
+    await sendQuote(f.studioId, f.id);
+    await f.db.quote.updateMany({ where: { id: f.id }, data: { status: "accepted", decidedAt: new Date() } });
+    await deliverQuoteMails();
+    expect(mocks.send).not.toHaveBeenCalled();
+    expect((await f.db.quote.findFirstOrThrow({ where: { id: f.id } })).status).toBe("accepted");
+    await expect(sendQuote(f.studioId, f.id)).rejects.toThrow();
   });
 
-  it("validates recipients and status without leaving an outbox row", async () => {
-    const studioId = studios[1]!;
-    const db = studioDb(studioId);
-    const saved = await saveQuote(studioId, owner, input(1));
-    await db.client.updateMany({ where: { id: fixtures[1]!.clientId }, data: { email: null } });
-    await expect(sendQuote(studioId, saved.id, "http://localhost:3000")).rejects.toThrow(/adres e-mail/);
-    expect(await db.quoteEmail.count({ where: { quoteId: saved.id } })).toBe(0);
-    await db.client.updateMany({ where: { id: fixtures[1]!.clientId }, data: { email: `${tag}-b@example.com` } });
-    await db.quote.updateMany({ where: { id: saved.id }, data: { status: "accepted" } });
-    await expect(sendQuote(studioId, saved.id, "http://localhost:3000")).rejects.toThrow(/Odśwież/);
+  it("rejects missing e-mail and invalid money without changing the draft", async () => {
+    const f = await fixture(0, null);
+    await saveQuote(f.studioId, f.id, f.input);
+    await expect(sendQuote(f.studioId, f.id)).rejects.toThrow("e-mail");
+    expect((await f.db.quote.findFirstOrThrow({ where: { id: f.id } })).status).toBe("draft");
+    for (const basePrice of [1.23, "-1", "NaN", "1.001"]) {
+      await expect(saveQuote(f.studioId, f.id, { ...f.input, items: [{ ...f.input.items[0], basePrice }] })).rejects.toThrow();
+    }
   });
 
-  it("isolates quotes, items, vehicles, catalog and worker delivery between tenants", async () => {
-    const [a, b] = studios as [string, string];
-    const draft = input(1);
-    const saved = await saveQuote(b, owner, draft);
-    await expect(sendQuote(a, saved.id, "http://localhost:3000")).rejects.toMatchObject({ status: 404 });
-    await expect(saveQuote(a, owner, { ...input(), vehicleId: fixtures[1]!.vehicleId })).rejects.toMatchObject({ status: 404 });
-    await expect(saveQuote(a, owner, { ...input(), items: fixtures[1]!.items })).rejects.toMatchObject({ status: 404 });
-    const { emailId } = await sendQuote(b, saved.id, "http://localhost:3000");
-    const smtp = vi.fn();
-    await deliverQuoteEmail({ studioId: a, emailId }, smtp);
-    expect(smtp).not.toHaveBeenCalled();
-    expect(await studioDb(a).quoteItem.count({ where: { quoteId: saved.id } })).toBe(0);
-    expect(await studioDb(a).quoteEmail.count({ where: { id: emailId } })).toBe(0);
-    const serviceId = fixtures[1]!.items[0]!.serviceId;
-    await expect(updateService(a, serviceId, { name: "Obca", basePrice: "1.00", durationMin: 1 })).rejects.toMatchObject({ status: 404 });
-    const loaded = await loadQuoteWizard(a, owner);
-    expect(loaded.clients.some((client) => client.id === fixtures[1]!.clientId)).toBe(false);
-    expect(loaded.services.some((service) => service.id === serviceId)).toBe(false);
+  it("isolates clients, vehicles, quotes, items and jobs between studios", async () => {
+    const a = await fixture(); const b = await fixture(1);
+    await saveQuote(a.studioId, a.id, a.input);
+    await expect(saveQuote(b.studioId, b.id, a.input)).rejects.toThrow();
+    await expect(saveQuote(a.studioId, randomUUID(), { ...a.input, vehicleId: b.input.vehicleId })).rejects.toThrow();
+    await expect(saveQuote(a.studioId, randomUUID(), { ...a.input, clientId: (await fixture()).input.clientId })).rejects.toThrow();
+    await expect(sendQuote(b.studioId, a.id)).rejects.toThrow();
+    expect(await b.db.quote.findFirst({ where: { id: a.id } })).toBeNull();
+    expect(await b.db.quoteItem.count({ where: { quoteId: a.id } })).toBe(0);
+    expect(await b.db.quoteSendMail.count({ where: { quoteId: a.id } })).toBe(0);
   });
 
-  it("seeds a studio catalog idempotently and preserves edits and quote snapshots", async () => {
-    const studioId = studios[0]!;
-    const saved = await saveQuote(studioId, owner, input());
-    const serviceId = fixtures[0]!.items[0]!.serviceId;
-    await updateService(studioId, serviceId, { name: "Korekta premium", basePrice: "2100.50", durationMin: 410 });
-    await seedServices(studioId);
-    expect(await studioDb(studioId).service.count()).toBe(4);
-    expect((await studioDb(studioId).service.findFirstOrThrow({ where: { id: serviceId } })).basePrice.toFixed(2)).toBe("2100.50");
-    const loaded = await loadQuoteWizard(studioId, owner);
-    expect(loaded.quote?.id).toBe(saved.id);
-    expect(loaded.quote?.items[0]?.basePrice).toBe("2000.00");
-    expect(loaded.quote?.draft.serviceIds).toEqual(fixtures[0]!.items.map((item) => item.serviceId));
-  });
-
-  it("restricts quote mutations to owners and managers", async () => {
-    await expect(authorizeStudio(owner, studios[0]!, "quotes:manage")).resolves.toBeDefined();
-    await expect(authorizeStudio(worker, studios[0]!, "quotes:manage")).rejects.toMatchObject({ status: 403 });
-  });
-
-  it.runIf(process.env.MAILPIT_TEST === "1")("delivers a real SMTP message to local Mailpit", async () => {
-    const studioId = studios[1]!;
-    const saved = await saveQuote(studioId, owner, input(1));
-    const { emailId } = await sendQuote(studioId, saved.id, "http://localhost:3000");
-    await deliverQuoteEmail({ studioId, emailId });
-    const response = await fetch("http://localhost:8025/api/v1/search?query=" + encodeURIComponent(`to:${tag}-b@example.com`));
-    const body = await response.json();
-    expect(body.messages.length).toBeGreaterThan(0);
-    expect((await studioDb(studioId).quote.findFirstOrThrow({ where: { id: saved.id } })).status).toBe("sent");
+  it("enforces session, membership, role and origin in HTTP handlers", async () => {
+    const f = await fixture();
+    const context = { params: Promise.resolve({ studioId: f.studioId, quoteId: f.id }) };
+    const request = (origin = "http://localhost:3000") => new Request(`http://localhost:3000/api/studios/${f.studioId}/quotes/${f.id}`, { method: "PUT", headers: { origin, "Content-Type": "application/json" }, body: JSON.stringify(f.input) });
+    mocks.session.mockResolvedValueOnce(null);
+    expect((await PUT(request(), context)).status).toBe(401);
+    mocks.session.mockResolvedValueOnce({ user: { id: workerId } });
+    expect((await PUT(request(), context)).status).toBe(403);
+    expect((await PUT(request("http://evil.test"), context)).status).toBe(403);
+    expect((await PUT(request(), context)).status).toBe(200);
+    expect((await GET(request(), { params: Promise.resolve({ studioId: studios[1]!, quoteId: f.id }) })).status).toBe(403);
+    expect((await POST(request(), context)).status).toBe(202);
+    await deliverQuoteMails();
   });
 });

@@ -71,6 +71,12 @@ enum KsefStatus {
   retrying
 }
 
+// Korekta to osobny dokument powiązany z fakturą źródłową (`correctsInvoiceId`).
+enum InvoiceKind {
+  invoice
+  correction
+}
+
 // TEST i PROD nigdy nie dzielą numeracji ani liczników.
 enum KsefEnv {
   test
@@ -113,26 +119,29 @@ model Studio {
   createdAt            DateTime     @default(now())
   updatedAt            DateTime     @updatedAt
 
-  coatingReminders CoatingReminder[]
-  orderCounter     OrderCounter?
-  orderEvents      WorkOrderEvent[]
-  invitations      Invitation[]
-  members          Membership[]
-  clients          Client[]
-  vehicles         Vehicle[]
-  bays             Bay[]
-  orders           WorkOrder[]
-  quotes           Quote[]
-  quoteItems       QuoteItem[]
-  services         Service[]
-  quoteEmails      QuoteEmail[]
-  invoices         Invoice[]
-  invoiceRows      InvoiceItem[]
-  ksefEvents       KsefEvent[]
-  portalLinks      PortalLink[]
-  orderPhotos      OrderPhoto[]
-  intakeProtocols  IntakeProtocol[]
-  intakeDamages    IntakeDamage[]
+  coatingReminders   CoatingReminder[]
+  orderCounter       OrderCounter?
+  orderEvents        WorkOrderEvent[]
+  invitations        Invitation[]
+  members            Membership[]
+  clients            Client[]
+  vehicles           Vehicle[]
+  bays               Bay[]
+  orders             WorkOrder[]
+  quotes             Quote[]
+  quoteItems         QuoteItem[]
+  services           Service[]
+  invoices           Invoice[]
+  invoiceRows        InvoiceItem[]
+  invoiceCounters    InvoiceCounter[]
+  ksefEvents         KsefEvent[]
+  ksefSubmissions    KsefSubmission[]
+  portalLinks        PortalLink[]
+  quoteDecisionMails QuoteDecisionMail[]
+  quoteSendMails     QuoteSendMail[]
+  orderPhotos        OrderPhoto[]
+  intakeProtocols    IntakeProtocol[]
+  intakeDamages      IntakeDamage[]
 
   @@index([status])
 }
@@ -376,15 +385,17 @@ model Quote {
   client     Client      @relation(fields: [clientId, studioId], references: [id, studioId], onDelete: NoAction)
   vehicle    Vehicle     @relation(fields: [vehicleId, studioId], references: [id, studioId], onDelete: NoAction)
 
-  authorId   String?
-  size       VehicleSize @default(medium)
-  interior   String @default("Umiarkowane")
-  slotId     String?
-  wizardStep Int @default(1)
-  revision   Int @default(0)
-  emails     QuoteEmail[]
-  items QuoteItem[]
-  order WorkOrder?
+  authorId     String?
+  size         VehicleSize @default(medium)
+  interior     String      @default("Umiarkowane")
+  slotId       String?
+  wizardStep   Int         @default(1)
+  revision     Int         @default(0)
+  items        QuoteItem[]
+  order        WorkOrder?
+  portalLinks  PortalLink[]
+  decisionMail QuoteDecisionMail?
+  sendMail     QuoteSendMail?
 
   @@unique([id, studioId])
   @@index([studioId, status])
@@ -408,37 +419,45 @@ model QuoteItem {
 
 // Faktura klienta studia (KSeF FA(3)). To nie jest Stripe Invoice.
 model Invoice {
-  id             String        @id @default(cuid())
-  studioId       String
-  number         String // FV/41/10/2026
-  workOrderId    String
-  status         InvoiceStatus
-  ksefEnv        KsefEnv
-  ksefStatus     KsefStatus    @default(not_sent)
-  ksefNumber     String?
-  ksefAcceptedAt DateTime?
-  ksefUpoXml     String?
+  id                String        @id @default(cuid())
+  studioId          String
+  number            String // FV/41/10/2026
+  workOrderId       String
+  status            InvoiceStatus
+  kind              InvoiceKind   @default(invoice)
+  ksefEnv           KsefEnv
+  ksefStatus        KsefStatus    @default(not_sent)
+  ksefNumber        String?
+  ksefAcceptedAt    DateTime?
+  ksefUpoXml        String?
   // Nabywca zapisany w chwili wystawienia; może różnić się od klienta zlecenia.
-  buyerName      String
-  buyerNip       String?
-  buyerStreet    String?
-  buyerPostal    String?
-  buyerCity      String?
-  issuedAt       DateTime?
-  saleAt         DateTime?
-  dueAt          DateTime?
-  paidAt         DateTime?
-  emailedAt      DateTime? // data wysyłki PDF; kolejna = „Wyślij ponownie”
-  totalNet       Decimal       @db.Decimal(12, 2)
-  totalVat       Decimal       @db.Decimal(12, 2)
-  totalGross     Decimal       @db.Decimal(12, 2)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  studio         Studio        @relation(fields: [studioId], references: [id], onDelete: Cascade)
-  workOrder      WorkOrder     @relation(fields: [workOrderId, studioId], references: [id, studioId], onDelete: NoAction)
+  buyerName         String
+  buyerNip          String?
+  buyerStreet       String?
+  buyerPostal       String?
+  buyerCity         String?
+  issuedAt          DateTime?
+  saleAt            DateTime?
+  dueAt             DateTime?
+  paidAt            DateTime? // przelew zaksięgowany ręcznie; brak = nieopłacona
+  emailedAt         DateTime? // data wysyłki PDF; kolejna = „Wyślij ponownie”
+  totalNet          Decimal       @db.Decimal(12, 2)
+  totalVat          Decimal       @db.Decimal(12, 2)
+  // Dla korekty kwoty (total*, net/vat/gross pozycji) to różnica względem stanu
+  // przed korektą i mogą być ujemne; quantity/unitNet pozycji to stan po korekcie.
+  totalGross        Decimal       @db.Decimal(12, 2)
+  correctsInvoiceId String?
+  correctionReason  String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  studio            Studio        @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  workOrder         WorkOrder     @relation(fields: [workOrderId, studioId], references: [id, studioId], onDelete: NoAction)
+  correctsInvoice   Invoice?      @relation("InvoiceCorrections", fields: [correctsInvoiceId, studioId], references: [id, studioId], onDelete: NoAction)
 
-  items  InvoiceItem[]
-  events KsefEvent[]
+  corrections Invoice[]       @relation("InvoiceCorrections")
+  items       InvoiceItem[]
+  events      KsefEvent[]
+  submission  KsefSubmission?
 
   @@unique([studioId, ksefEnv, number])
   @@unique([ksefEnv, ksefNumber])
@@ -446,7 +465,21 @@ model Invoice {
   @@index([studioId, status])
   @@index([studioId, ksefStatus])
   @@index([studioId, createdAt])
+  @@index([studioId, correctsInvoiceId])
   @@index([ksefNumber])
+}
+
+// Ostatni przydzielony numer dokumentu (FV/41/10/2026): osobno dla studia,
+// środowiska KSeF, rodzaju dokumentu i roku. TEST i PROD nie dzielą liczników.
+model InvoiceCounter {
+  studioId String
+  ksefEnv  KsefEnv
+  kind     InvoiceKind
+  year     Int
+  last     Int         @default(0)
+  studio   Studio      @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@id([studioId, ksefEnv, kind, year])
 }
 
 model InvoiceItem {
@@ -485,19 +518,55 @@ model KsefEvent {
   @@index([studioId, invoiceId, at])
 }
 
+// Immutable XML prepared and XSD-validated by the invoice generator (#43).
+// Redis contains only IDs. References survive retries and worker restarts.
+model KsefSubmission {
+  id               String    @id @default(cuid())
+  studioId         String
+  invoiceId        String    @unique
+  xml              String
+  xmlHash          String
+  sessionReference String?
+  invoiceReference String?
+  sendStartedAt    DateTime?
+  createdAt        DateTime  @default(now())
+  studio           Studio    @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  invoice          Invoice   @relation(fields: [invoiceId, studioId], references: [id, studioId], onDelete: Cascade)
+
+  @@unique([invoiceId, studioId])
+  @@index([studioId, invoiceId])
+}
+
 // Portal klienta: w bazie tylko hash, surowy token wyłącznie w URL.
 model PortalLink {
-  id          String    @id @default(cuid())
+  id          String     @id @default(cuid())
   studioId    String
-  workOrderId String
-  tokenHash   String    @unique
+  workOrderId String?
+  quoteId     String?
+  tokenHash   String     @unique
   expiresAt   DateTime
   revokedAt   DateTime?
-  createdAt   DateTime  @default(now())
-  studio      Studio    @relation(fields: [studioId], references: [id], onDelete: Cascade)
-  workOrder   WorkOrder @relation(fields: [workOrderId, studioId], references: [id, studioId], onDelete: Cascade)
+  createdAt   DateTime   @default(now())
+  studio      Studio     @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  workOrder   WorkOrder? @relation(fields: [workOrderId, studioId], references: [id, studioId], onDelete: Cascade)
+  quote       Quote?     @relation(fields: [quoteId, studioId], references: [id, studioId], onDelete: Cascade)
 
   @@index([studioId, workOrderId])
+  @@index([studioId, quoteId])
+}
+
+// Outbox zapisany atomowo z decyzją. Bez tokenu i URL portalu.
+model QuoteDecisionMail {
+  id        String    @id @default(cuid())
+  studioId  String
+  quoteId   String    @unique
+  sentAt    DateTime?
+  createdAt DateTime  @default(now())
+  studio    Studio    @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  quote     Quote     @relation(fields: [quoteId, studioId], references: [id, studioId], onDelete: Cascade)
+
+  @@unique([quoteId, studioId])
+  @@index([studioId, sentAt])
 }
 
 // Zaproszenie jednorazowe; surowy token trafia tylko do e-maila.
@@ -597,31 +666,30 @@ model IntakeDamage {
 
 // Mały katalog używany w wycenie; nie samodzielny CMS.
 model Service {
-  id String @id @default(cuid())
-  studioId String
-  code String
-  name String
+  id          String  @id @default(cuid())
+  studioId    String
+  code        String
+  name        String
   description String
-  basePrice Decimal @db.Decimal(12, 2)
+  basePrice   Decimal @db.Decimal(12, 2)
   durationMin Int
-  sort Int
-  studio Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  sort        Int
+  studio      Studio  @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
   @@unique([studioId, code])
   @@unique([id, studioId])
 }
 
-// Trwały outbox: snapshot wiadomości zapisany w transakcji wysyłki wyceny.
-// BullMQ przechowuje tylko identyfikatory, nigdy tokeny ani treść wiadomości.
-model QuoteEmail {
-  id String @id @default(cuid())
-  studioId String
-  quoteId String
-  recipient String
-  subject String
-  text String
-  sentAt DateTime?
-  createdAt DateTime @default(now())
-  studio Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
-  quote Quote @relation(fields: [quoteId, studioId], references: [id, studioId], onDelete: Cascade)
+// Trwały job wysyłki. Token powstaje dopiero w workerze i nigdy nie trafia do outboxa.
+model QuoteSendMail {
+  id        String    @id @default(cuid())
+  studioId  String
+  quoteId   String    @unique
+  sentAt    DateTime?
+  createdAt DateTime  @default(now())
+  studio    Studio    @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  quote     Quote     @relation(fields: [quoteId, studioId], references: [id, studioId], onDelete: Cascade)
+
+  @@unique([quoteId, studioId])
   @@index([studioId, sentAt])
 }

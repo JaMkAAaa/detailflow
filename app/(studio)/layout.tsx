@@ -3,6 +3,7 @@ import { Sidebar } from "@/components/studio/Sidebar";
 import { TabBar } from "@/components/studio/TabBar";
 import { Topbar } from "@/components/studio/Topbar";
 import { requireStudio } from "@/src/server/studio/context";
+import { invoiceAttentionCount } from "@/src/server/faktury/list-query";
 
 export default async function StudioLayout({
   children,
@@ -10,7 +11,9 @@ export default async function StudioLayout({
   children: ReactNode;
 }) {
   const context = await requireStudio();
-  const role = context.choices.find((choice) => choice.studioId === context.studioId)!.role;
+  const current = context.choices.find((choice) => choice.studioId === context.studioId)!;
+  const role = current.role;
+  const attentionCount = role === "worker" ? 0 : await invoiceAttentionCount(context.studioId, current.studio.ksefEnv);
 
   return (
     <div className="flex min-h-dvh bg-df-bg">
@@ -24,6 +27,7 @@ export default async function StudioLayout({
         choices={context.choices}
         studioId={context.studioId}
         user={context.user}
+        attentionCount={attentionCount}
       />
       <div className="flex min-w-0 flex-1 flex-col lg:ml-[220px]">
         <Topbar />
@@ -31,7 +35,7 @@ export default async function StudioLayout({
           {children}
         </main>
       </div>
-      <TabBar role={role} />
+      <TabBar />
     </div>
   );
 }

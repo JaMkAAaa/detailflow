@@ -1,47 +1,47 @@
-# Zapis i wysyłka wyceny (#38)
+# Zapis i wysyłka wycen — #38
 
-`/quotes/new` (alias `/wyceny/nowa`) ładuje klientów, auta i katalog aktywnego
-studia. Owner/manager mają `quotes:manage`; server actions ponownie sprawdzają
-sesję, membership i zgodność aktywnego studia z formularzem.
+`PUT /api/studios/:studioId/quotes/:quoteId` zapisuje szkic i zastępuje pozycje
+w jednej transakcji Serializable. ID nowej wyceny to UUID tworzony przez kreator
+przed pierwszym zapisem. Ponowienie żądania zachowuje ID. Konflikt równoległego
+zapisu zwraca 409. Wysłane i rozstrzygnięte wyceny są nieedytowalne.
+`GET` pozwala odczytać zapisany dokument, również po przeładowaniu kreatora.
+Kwoty liczy serwer silnikiem domenowym, Decimal/PLN, niezależnie od podglądu UI.
 
-- Szkic zapisuje się po 500 ms bezczynności. Źródłem prawdy jest PostgreSQL;
-  localStorage to pomocnicza kopia niezapisanego formularza. Przy ponownym wejściu
-  formularz odtwarza najnowszą wycenę autora, jej rewizję i snapshot pozycji.
-- `saveQuote` przelicza brutto/VAT silnikiem #36 (Decimal, PLN), sprawdza
-  klienta/auto i usługi przez `studioDb`, zastępuje pozycje w transakcji.
-  Rewizja chroni przed nadpisaniem równoległych zmian. Nie można edytować
-  wysłanej wyceny ani szkicu oczekującego na wysyłkę.
-- `sendQuote` zapisuje snapshot wiadomości w `QuoteEmail` (outbox). Nie tworzy
-  nowych pozycji. Dopóki istnieje oczekujące zadanie, następne kliknięcie używa
-  go ponownie. Po wysyłce można utworzyć kolejną wiadomość dla tej samej wyceny.
-- Worker co 5 s przekazuje oczekujące wpisy do BullMQ. Job ID = ID outboxa,
-  payload = tylko `studioId` i `emailId`. Awaria Redis nie usuwa outboxa.
-  SMTP jest ponawiane co 30 s; błąd nie ustawia statusu `sent`.
-- Po akceptacji przez SMTP worker atomowo ustawia `QuoteEmail.sentAt` oraz
-  `Quote.status = sent`, `Quote.sentAt`. Ponowienie zakończonego joba to no-op.
-  SMTP nie gwarantuje exactly-once: awaria między przyjęciem wiadomości a commitem
-  może spowodować ponowne dostarczenie. Message-ID pozostaje stałe dla joba.
-- `seedServices` inicjalizuje cztery usługi D-06 w seedzie demo i przy pierwszym
-  wejściu do wycen danego studia. Ponowne seedowanie nie nadpisuje edycji.
-  Prosta edycja nazwy, ceny i czasu jest dostępna w katalogu w wizardzie.
-  Istniejące wyceny zachowują snapshot cen. Menu „Usługi i cennik” pozostaje
-  poza zakresem tej implementacji.
+`POST .../:quoteId/send` atomowo ustawia `sent` i zapisuje trwały job
+`QuoteSendMail`. Sprawdza e-mail klienta i pozycje. Ponowienie oczekującego joba
+scala wysyłkę; po dostarczeniu można zlecić kolejną. Wysyłka nigdy nie zapisuje
+ani nie dopisuje pozycji. API wymaga sesji, członkostwa owner/manager i zgodnego
+Origin dla zapisu. Wszystkie operacje tenantowe używają `studioDb`.
 
-## Lokalnie
+Worker co 15 s odbiera joby z istniejącego outboxa PostgreSQL, tak jak maile
+decyzji portalu. Zapis jest trwały również przy wyłączonym workerze lub braku
+SMTP. Nie dokładamy drugiej kolejki Redis do istniejącego mechanizmu maili.
+Blokady w transakcji zapobiegają jednoczesnej wysyłce joba przez dwa workery.
+Błąd SMTP wycofuje zapis i zostawia job do ponowienia. `Quote.sentAt` oznacza
+ostatnie skuteczne przekazanie do SMTP. SMTP daje dostawę co najmniej raz:
+awaria między przyjęciem wiadomości a commitem może spowodować powtórkę.
 
-Zastosuj migracje: `pnpm db:deploy`. Uruchom web i `pnpm worker` z tym samym
-`DATABASE_URL`, `REDIS_URL`. `SMTP_URL=smtp://mailpit:1025` w Compose,
-`smtp://localhost:1025` na hoście. Mailpit: `http://localhost:8025`.
-Produkcja: `pnpm build` oraz `pnpm worker:start` (osobny proces/kontener).
+Token 256-bit powstaje w workerze. W bazie tylko SHA-256 i TTL 14 dni;
+surowy token wyłącznie w URL wiadomości, nigdy w jobie ani logach. Korzystamy
+z istniejącego E8 `/p/:token`, bez stubu. Link z ponownej wysyłki nie unieważnia
+poprzednich linków (ich cofanie zapewnia API E8).
 
-Link w e-mailu prowadzi do jawnego stubu `/p/quote-preview`, bez dostępu do
-wyceny i bez tokena. Integracja z tokenem i decyzją klienta należy do E8.2.
-Terminy w wizardzie pozostają propozycjami z UI #37; wysyłka nie rezerwuje boksu.
+## Katalog usług
 
-## Testy
+Katalog startowy jest seedem w `src/domain/service-catalog.ts` (4 usługi D-06).
+`seedServices` inicjalizuje go w seedzie demo i przy pierwszym wejściu do wycen
+danego studia; ponowne seedowanie nie nadpisuje edycji. Prosta edycja nazwy,
+ceny i czasu w katalogu wizarda zapisuje `Service` dla studia, a każda wycena
+zachowuje snapshot `QuoteItem` z chwili zapisu. Menu „Usługi i cennik” pozostaje
+poza zakresem tej implementacji.
 
-`send.test.ts` wymaga pustej lokalnej bazy PostgreSQL z migracjami. Obejmuje
-izolację tenantów (również worker i katalog), ACL, powtórne/współbieżne zapisy,
-ponowną wysyłkę, snapshot cen, brak e-maila oraz awarie Redis/SMTP.
-Dodatkowo `MAILPIT_TEST=1 SMTP_URL=smtp://localhost:1025` włącza rzeczywistą
-wysyłkę SMTP i kontrolę wiadomości przez API lokalnego Mailpit.
+Strona `/quotes/new` ładuje klientów z pojazdami, katalog usług i najnowszy
+szkic autora przez `studioDb`. Kreator zapisuje ten sam szkic ponownie po tym
+samym ID i pokazuje wysłaną wycenę po powrocie na stronę.
+
+Uruchomienie lokalne: `pnpm db:deploy`, `pnpm dev`, `pnpm worker` z
+`SMTP_URL=smtp://localhost:1025` i `APP_URL=http://localhost:3000`
+(wewnątrz Compose: `smtp://mailpit:1025`). Wiadomości: http://localhost:8025.
+Kreator używa klientów/pojazdów aktywnego studia; pusta baza wymaga dodania
+klienta z autem. Szkic lokalny jest przypisany do studioId/userId. Terminy
+pozostają demonstracyjne, nie są rezerwacją ani częścią wysyłanego maila.

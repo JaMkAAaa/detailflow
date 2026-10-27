@@ -39,6 +39,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     services:
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
       postgres:
         image: postgres:16-alpine
         env:
@@ -51,6 +59,7 @@ jobs:
           --health-interval 5s --health-timeout 3s --health-retries 10
     env:
       DATABASE_URL: postgresql://detailflow:detailflow@localhost:5432/detailflow
+      KSEF_REDIS_TEST_URL: redis://localhost:6379/15
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -64,6 +73,7 @@ jobs:
       - run: pnpm prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
       - run: pnpm db:seed
       - run: pnpm db:seed
+      - run: sudo apt-get update && sudo apt-get install -y libxml2-utils
       - run: pnpm test
 
   docker:

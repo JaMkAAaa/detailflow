@@ -136,7 +136,7 @@ describe("seed Obsidian Studio", () => {
 
   it("stores only the portal token hash", async () => {
     const link = await db.portalLink.findFirstOrThrow({ where: { tokenHash: hashPortalToken(DEMO.portalToken) }, include: { workOrder: true } });
-    expect(link.workOrder.number).toBe("DF-0248");
+    expect(link.workOrder?.number).toBe("DF-0248");
     expect(link.tokenHash).not.toBe(DEMO.portalToken);
     expect(await db.portalLink.count({ where: { expiresAt: { lt: DEMO.now } } })).toBe(1);
   });

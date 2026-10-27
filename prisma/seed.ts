@@ -583,7 +583,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   seed()
     .then(({ studioId }) => {
       console.log(`Seeded Obsidian Studio (${studioId})`);
-      console.log(`Portal demo: /p/${DEMO.portalToken} · wygasły: /p/${DEMO.expiredPortalToken}`);
     })
     .catch((err) => {
       console.error(err);
