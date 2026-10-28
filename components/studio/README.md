@@ -21,9 +21,9 @@ Aktywność obejmuje też podstrony, np. `/orders/DF-0248`.
 Usługi i cennik, Magazyn, Statystyki oraz Portfolio są natywnie disabled
 i mają widoczny badge „Wkrótce”. Nie generują nawigacji.
 
-Picker ma jedno demonstracyjne studio Obsidian, a profil — Michała Kowalskiego.
-Sesja i przełączanie tenantów wymagają osobnego wdrożenia. Wyszukiwarka ⌘K
-jest nieaktywnym placeholderem. Shell nie wykonuje zapytań do bazy.
+Picker, aktywne studio i rola pochodzą z sesji. Wyszukiwarka ⌘K działa z topbaru
+oraz ekranu „Więcej”; endpoint wyszukuje przez `studioDb(studioId)` i zwraca
+klientów, auta, zlecenia oraz faktury tylko właścicielom i managerom.
 
 ---
 
@@ -58,7 +58,7 @@ Odstępstwa od Figmy:
 - Lista „Dzisiejsze zlecenia” pomija auto z karty „Na warsztacie”.
 - „Zakończ: …” i „Zdjęcie” otwierają sheet „wkrótce” (issue `type:ui`); zapis etapu
   i upload zdjęć (#33) podłączy osobny krok `type:implement`.
-- Dzwonek powiadomień jest nieaktywny, jak wyszukiwarka w topbarze.
+- Dzwonek powiadomień pozostaje nieaktywny.
 - Obłożenie to wartość policzona z seeda/dnia (definicja w README pulpitu), więc
   nie musi wynosić 82% z makiety.
 
