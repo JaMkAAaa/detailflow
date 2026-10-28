@@ -4,6 +4,8 @@ import { AccessError } from "../acl";
 import type { StudioDb } from "../../../lib/db/tenant";
 import { bookingDateSchema } from "../kalendarz/booking";
 import { allocateOrderNumber, OrderStateError } from "./state";
+import { studioDb } from "../../../lib/db/tenant";
+import { seedServices } from "../wyceny/catalog";
 
 // Money crosses HTTP as a decimal string, never as a JSON floating-point number.
 export const createOrderSchema = z.object({
@@ -22,15 +24,50 @@ export const orderStatusSchema = z.object({
 }).strict();
 
 export function listOrders(db: StudioDb) {
-  return db.workOrder.findMany({ orderBy: [{ createdAt: "desc" }, { id: "desc" }] });
+  return db.workOrder.findMany({
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    include: {
+      client: { select: { id: true, name: true, phone: true, email: true } },
+      vehicle: { select: { id: true, make: true, model: true, plate: true } },
+      bay: { select: { name: true } },
+    },
+  });
 }
 
 export async function getOrder(db: StudioDb, idOrNumber: string) {
   const order = await db.workOrder.findFirst({
     where: /^DF-\d{4,}$/.test(idOrNumber) ? { number: idOrNumber } : { id: idOrNumber },
+    include: {
+      client: { select: { id: true, name: true, phone: true, email: true } },
+      vehicle: { select: { id: true, make: true, model: true, plate: true } },
+      bay: { select: { name: true } },
+      quote: { include: { items: { orderBy: { sort: "asc" } } } },
+      intake: { include: { damages: { orderBy: { no: "asc" } } } },
+      photos: { orderBy: { no: "asc" } },
+      events: { orderBy: [{ createdAt: "asc" }, { id: "asc" }], include: { actor: { select: { name: true } } } },
+    },
   });
   if (!order) throw new OrderStateError("not_found", "Nie znaleziono zlecenia.");
   return order;
+}
+
+/** Choices for the operational order form, scoped to the active studio. */
+export async function loadOrderChoices(studioId: string) {
+  await seedServices(studioId);
+  const db = studioDb(studioId);
+  const [clients, services] = await Promise.all([
+    db.client.findMany({
+      where: { vehicles: { some: {} } }, orderBy: { name: "asc" },
+      include: { vehicles: { orderBy: { createdAt: "asc" }, select: { id: true, make: true, model: true, plate: true } } },
+    }),
+    db.service.findMany({ orderBy: [{ sort: "asc" }, { name: "asc" }] }),
+  ]);
+  return {
+    clients: clients.map(({ id, name, vehicles }) => ({
+      id, name, vehicles: vehicles.map((vehicle) => ({ id: vehicle.id, label: `${vehicle.make} ${vehicle.model} · ${vehicle.plate}` })),
+    })),
+    services: services.map(({ id, name, basePrice }) => ({ id, name, basePrice: basePrice.toFixed(2) })),
+  };
 }
 
 export async function createOrder(db: StudioDb, studioId: string, actorId: string, input: unknown) {

@@ -1,15 +1,9 @@
-import { OrdersBoard } from "@/components/zlecenia/OrdersBoard";
-import { MobileOrders } from "@/components/zlecenia/MobileOrders";
+import { OrdersScreen } from "@/components/zlecenia/OrdersScreen";
+import { requireStudio } from "@/src/server/studio/context";
+import { loadOrderChoices } from "@/src/server/zlecenia/orders";
 
-export default function OrdersPage() {
-  return (
-    <>
-      <div className="lg:hidden">
-        <MobileOrders />
-      </div>
-      <div className="hidden lg:block">
-        <OrdersBoard />
-      </div>
-    </>
-  );
+export default async function OrdersPage() {
+  const { studioId } = await requireStudio("orders:write");
+  const choices = await loadOrderChoices(studioId);
+  return <OrdersScreen studioId={studioId} clients={choices.clients} services={choices.services} />;
 }

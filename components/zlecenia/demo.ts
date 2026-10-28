@@ -1,50 +1,10 @@
-/** D-04, UI-only scenario: #DF-0248, 24 October 2026, 11:30. No operational queries.
+/** Test fixture for the D-04 presentation; operational routes load the API record.
  * Amounts are decimal PLN strings (never float). Matches prisma/seed.ts for the quote and stages.
  * Instants carry the Europe/Warsaw offset (CEST until 25.10.2026 03:00).
  */
-export type StageState = "done" | "current" | "todo";
-
-export type OrderStage = { name: string; note: string; state: StageState };
-
-export type IntakeDamage = {
-  no: number;
-  title: string;
-  part: string;
-  size: string;
-  photo: number;
-};
-
-export type OrderPhoto = {
-  no: number;
-  at: string;
-  caption: string;
-  stage: string;
-  /** Only photo #12 exists in the Figma prototype; the rest have no preview. */
-  src?: string;
-};
-
-export type HistoryEvent = {
-  at: string;
-  title: string;
-  detail?: string;
-  actor: string;
-  kind: "studio" | "client" | "system";
-};
-
-export type OrderDetailsData = {
-  number: string;
-  vehicle: string;
-  plate: string;
-  bay: string;
-  status: "in-progress";
-  service: string;
-  stages: OrderStage[];
-  customer: { name: string; phone: string; email: string };
-  quote: { status: string; items: { name: string; grossPln: string }[]; totalGrossPln: string };
-  intake: { protocol: string; at: string; by: string; acceptedAt: string; damages: IntakeDamage[] };
-  photos: OrderPhoto[];
-  history: HistoryEvent[];
-};
+import type { OrderDetailsData, OrderPhoto } from "./order-types";
+export type { HistoryEvent, IntakeDamage, OrderDetailsData, OrderPhoto, OrderStage, StageState } from "./order-types";
+export { formatDay, formatDayTime, formatDayYear, formatTime } from "./order-format";
 
 const AUTHOR = "Michał Kowalski";
 
@@ -64,6 +24,8 @@ export const photos: OrderPhoto[] = [
 ];
 
 export const order: OrderDetailsData = {
+  id: "demo-order",
+  clientId: "demo-client",
   number: "DF-0248",
   vehicle: "Porsche Panamera",
   plate: "WA 911PC",
@@ -77,7 +39,7 @@ export const order: OrderDetailsData = {
     { name: "Aplikacja ceramiki", note: "Dalej: Powłoka ceramiczna · 4 h", state: "todo" },
     { name: "Kontrola i odbiór", note: "Jutro, 16:00", state: "todo" },
   ],
-  customer: { name: "Adam Nowak", phone: "+48 600 123 456", email: "adam.nowak@example.com" },
+  customer: { id: "demo-client", name: "Adam Nowak", phone: "+48 600 123 456", email: "adam.nowak@example.com" },
   quote: {
     status: "Zaakceptowana",
     items: [
@@ -108,23 +70,6 @@ export const order: OrderDetailsData = {
     { at: "2026-10-24T11:12:00+02:00", title: "Dodano zdjęcie #12", detail: "Tył auta w trakcie korekty", actor: AUTHOR, kind: "studio" },
   ],
 };
-
-const instants = { zone: "Europe/Warsaw", locale: "pl-PL" } as const;
-
-export function formatTime(iso: string) {
-  return new Intl.DateTimeFormat(instants.locale, { hour: "2-digit", minute: "2-digit", timeZone: instants.zone }).format(new Date(iso));
-}
-
-/** "24 października" — separate from the time to avoid ICU-dependent separators. */
-export function formatDay(iso: string) {
-  return new Intl.DateTimeFormat(instants.locale, { day: "numeric", month: "long", timeZone: instants.zone }).format(new Date(iso));
-}
-
-export function formatDayYear(iso: string) {
-  return new Intl.DateTimeFormat(instants.locale, { day: "2-digit", month: "2-digit", year: "numeric", timeZone: instants.zone }).format(new Date(iso));
-}
-
-export const formatDayTime = (iso: string) => `${formatDay(iso)}, ${formatTime(iso)}`;
 
 export function findOrder(number: string) {
   return number === order.number ? order : undefined;

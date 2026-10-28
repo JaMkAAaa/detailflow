@@ -3,17 +3,30 @@
 import { useRef, useState, type KeyboardEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { OrderDetailsData } from "./demo";
+import type { OrderDetailsData } from "./order-types";
 import { HistoryTab, IntakeTab, Overview, PhotosTab } from "./panels";
 import { orderTabs, type OrderTab } from "./tabs";
 
-export function OrderDetails({ data, initialTab = "przeglad" }: { data: OrderDetailsData; initialTab?: OrderTab }) {
+export function OrderDetails({ data, studioId, initialTab = "przeglad", onAdvanced }: { data: OrderDetailsData; studioId: string; initialTab?: OrderTab; onAdvanced?: () => void }) {
   const [tab, setTab] = useState<OrderTab>(initialTab);
   const [notice, setNotice] = useState({ title: "", description: "" });
+  const [advancing, setAdvancing] = useState(false);
+  const [advanceError, setAdvanceError] = useState("");
   const dialog = useRef<HTMLDialogElement>(null);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const current = data.stages.find((stage) => stage.state === "current");
   const counts: Partial<Record<OrderTab, number>> = { zdjecia: data.photos.length, "stan-auta": data.intake.damages.length };
+
+  async function advance() {
+    setAdvancing(true); setAdvanceError("");
+    try {
+      const response = await fetch(`/api/studios/${encodeURIComponent(studioId)}/orders/${encodeURIComponent(data.id)}/advance`, { method: "POST" });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error ?? "Nie udało się zmienić etapu.");
+      if (onAdvanced) onAdvanced(); else window.location.reload();
+    } catch (cause) { setAdvanceError(cause instanceof Error ? cause.message : "Nie udało się zmienić etapu."); }
+    finally { setAdvancing(false); }
+  }
 
   function showNotice(title: string, description: string) {
     setNotice({ title, description });
@@ -47,17 +60,17 @@ export function OrderDetails({ data, initialTab = "przeglad" }: { data: OrderDet
             Zlecenie #{data.number} / {data.customer.name} / {data.plate}
           </p>
         </div>
-        {current && (
+        {current && data.status === "in-progress" && (
           <Button
             className="w-[250px]"
-            onClick={() =>
-              showNotice("Zmiana etapu — wkrótce", `Zakończenie etapu „${current.name}” i przejście dalej będzie dostępne wkrótce. Zmiany etapów nie są jeszcze zapisywane.`)
-            }
+            disabled={advancing}
+            onClick={advance}
           >
-            Zakończ: {current.name}
+            {advancing ? "Zapisywanie…" : `Zakończ: ${current.name}`}
           </Button>
         )}
       </div>
+      {advanceError && <p role="alert" className="text-df-body text-df-error">{advanceError}</p>}
 
       <div className="flex items-start gap-3">
         <div role="tablist" aria-label="Sekcje zlecenia" className="flex items-start gap-3">

@@ -6,24 +6,21 @@ Trasa kanoniczna to `/orders/[number]` (z nią zgadzają się sidebar, okruszki,
 dokumentacja §13 i bloki kalendarza D-02). `/zlecenia/[number]` z issue
 przekierowuje na nią, tak jak `/kalendarz` → `/calendar`. Nieznany numer daje 404.
 
-Ekran jest UI-only z jawnym scenariuszem demo `#DF-0248` (24.10.2026, 11:30),
-bez zapytań operacyjnych — jak D-02. Kwoty to stringi PLN (`Decimal` w
-modelu), formatowane przez `formatPln`. Dane wyceny i etapów zgadzają się z `prisma/seed.ts`.
-Dostęp do studia zapewnia `requireStudio()` w layoucie `(studio)`.
+Ekran odczytuje zlecenie z bazy przez API #117 po numerze lub ID; dane klienta,
+auta, boksu, wyceny, protokołu i historii pochodzą z tego samego rekordu
+operacyjnego. Kwoty są stringami PLN (`Decimal` w modelu), formatowanymi przez
+`formatPln`. Dostęp do aktywnego studia zapewnia `requireStudio()`.
 
 Zakładki (`?tab=zdjecia|stan-auta|historia`, domyślnie Przegląd) działają jako
 ARIA tabs ze strzałkami/Home/End; wybór trafia do URL przez `replaceState`.
 
-- **Przegląd** — jak Figma: dokumentacja, protokół przyjęcia, postęp **4 etapów
-  studia** (portal ma 3), wycena, kontakt.
-- **Zdjęcia, Stan auta, Historia** — luka prototypu, zbudowane tu. W Figmie jest
-  tylko jedno zdjęcie (#12); pozostałe kafelki mają jawny placeholder „Podgląd
-  niedostępny w demo”, bez powielania cudzych fotografii.
+- **Przegląd** — dokumentacja, protokół przyjęcia, postęp **4 etapów studia**
+  (portal ma 3), kwota zlecenia i kontakt. Brak zdjęć/protokołu pokazuje stan pusty.
+- **Zdjęcia, Stan auta, Historia** — pokazują zapisane dane; upload zdjęć i edycja
+  protokołu pozostają osobnymi zadaniami.
 
-Zmiana etapu, link dla klienta, dodawanie zdjęć i karta klienta otwierają
-dialog „wkrótce” — nic nie jest zapisywane ani wysyłane. Podłączenie danych
-(modele zdjęć, protokołu i historii zdarzeń, token portalu, zapis etapu) należy
-do issue `type:implement`. Pulpit nadal pokazuje dialog zamiast linku do tego ekranu.
+Zmiana etapu zapisuje się przez `POST /orders/:id/advance`. Karta klienta prowadzi
+do `/customers/:clientId`; portal i dodawanie zdjęć pozostają poza tym krokiem.
 
 Breadcrumb „Studio / Zlecenia” pochodzi ze wspólnego shellu; Figma pokazuje
 „Studio / Porsche Panamera” — wymaga zmiany Topbara, poza zakresem tego issue.
@@ -34,27 +31,21 @@ Breadcrumb „Studio / Zlecenia” pochodzi ze wspólnego shellu; Figma pokazuje
 
 Referencja: [Figma D-03](https://www.figma.com/design/3pssHgZjGzo0UeyBC8yZ3S?node-id=5-11).
 
-`/orders` renderuje `OrdersBoard` w istniejącym autoryzowanym shellu; `/zlecenia`
-przekierowuje na ten adres (jak `/kalendarz` → `/calendar`). To ekran UI na danych
-demo (`board-demo.ts`, scenariusz 24.10.2026, 11:30) — bez zapytań operacyjnych, więc bez
-`studioDb`. Numery, statusy, usługi i kwoty odtwarzają `ORDERS` z `prisma/seed.ts`
-(7 aktywnych + zakończone #DF-0244 = 8 w widoku). Kwoty to `Decimal`-stringi PLN.
+`/orders` pobiera listę przez `GET /api/studios/:studioId/orders`; tworzenie i
+zmiana statusu korzystają z endpointów #117. `/zlecenia` przekierowuje na ten adres.
+Kwoty API są stringami `Decimal` w PLN.
 
-- Cztery kolumny: Przyjęte / W trakcie / Do odbioru / Zakończone. Licznik kolumny
+- Kolumny: Przyjęte / W trakcie / Do odbioru / Zakończone / Anulowane. Licznik kolumny
   to liczba widocznych w niej kart (po filtrach).
-- Filtry: szukaj (auto, klient, numer), pracownik, usługa. Brak wyników →
-  `NoResultsState` z „Wyczyść filtry”. Pracownik jest tylko w danych demo — seed
-  zna na razie boks, nie osobę.
+- Filtry: szukaj (auto, klient, numer), usługa. Brak wyników → `NoResultsState`.
+  Przypisanie pracownika nie jest częścią tego issue.
 - Przełącznik Tablica / Lista pokazuje te same, przefiltrowane zlecenia. Widoku listy
   nie ma w Figmie D-03; jest oparty o tabelę z pulpitu i `Badge`
   (dodany wariant `accepted` — „Przyjęte”).
-- DnD (`@dnd-kit/core`): tylko wskaźnik, start po 6 px, więc kliknięcie nadal
-  otwiera kartę (Enter/Spacja też). Drop jest wizualny i nic nie zmienia — komunikat
-  w pasku filtrów mówi, że zmiana statusu zapisze się w kolejnym etapie (5.2).
-  Brak animacji, więc `prefers-reduced-motion` jest zachowane.
-- Karta i „＋ Nowe/Dodaj zlecenie” pokazują dialog „wkrótce” (jak pulpit); karta
-  zlecenia pojawi się w 5.3. Zdjęcie Porsche: `public/zlecenia/porsche.png` (2× slotu
-  239 × 82 z Figmy).
+- DnD (`@dnd-kit/core`) zapisuje status przez API; błędne przejście cofa kartę
+  i pokazuje błąd. Drop nie animuje; `prefers-reduced-motion` pozostaje respektowane.
+- Karty otwierają szczegóły dla każdego numeru. Formularz tworzenia pobiera klientów,
+  auta i usługi ze studia; kwotę wysyła jako decimal string.
 - Tekst 13 px (Body) tam, gdzie Figma powiększyła Kanban: nazwisko, usługa, kwota,
   liczniki i przełącznik widoku. Wiersz terminu zostaje 11 px, jak w Figmie.
 - Karta ma min. 186 px jak w Figmie; karta ze zdjęciem wychodzi ok. 9 px wyższa niż
@@ -68,19 +59,16 @@ Referencje: [M-03](https://www.figma.com/design/3pssHgZjGzo0UeyBC8yZ3S?node-id=1
 [M-04](https://www.figma.com/design/3pssHgZjGzo0UeyBC8yZ3S?node-id=20-254).
 
 `/orders` i `/orders/[number]` renderują `MobileOrders` / `MobileOrderDetails` poniżej `lg`
-i wersję desktopową powyżej (CSS). Dane te same co D-03/D-04 (`boardOrders`, `order`), więc
-nadal UI-only na scenariuszu 24.10.2026, 11:30, bez zapytań operacyjnych.
+i wersję desktopową powyżej (CSS). Oba widoki używają rekordów z API i bazy aktywnego studia.
 
-- **M-03** pokazuje **wszystkie 7 aktywnych** w jednej przewijanej treści strony (bez
-  wysokości na „fold”, bez wirtualizacji); zakończone #DF-0244 nie wchodzi. Grupy: W trakcie 3,
-  Do odbioru 2, Przyjęte 2. Chipy statusu i szukajka (auto, klient, numer, rejestracja —
+- **M-03** pokazuje wszystkie aktywne zlecenia w jednej przewijanej treści strony (bez
+  wysokości na „fold”, bez wirtualizacji). Grupy: W trakcie, Do odbioru, Przyjęte. Chipy statusu i szukajka (auto, klient, numer, rejestracja —
   `BoardOrder.plate` z seeda; dotyczy też wyszukiwania na tablicy) działają razem; brak wyników
-  → `NoResultsState`. Karta #DF-0248 linkuje do M-04; pozostałe otwierają sheet „wkrótce”, bo
-  karta zlecenia istnieje tylko dla #DF-0248.
+  → `NoResultsState`. Każda karta linkuje do szczegółów zlecenia.
 - **M-04**: zdjęcie (ostatnie z `photos`), numer/status, „Zadzwoń” (`tel:`), Link i Zdjęcie
   (sheet „wkrótce”), postęp **4 etapów studia** (portal ma 3), wycena w PLN z `formatPln`.
   Dolny pasek „Zakończ: …” zastępuje tab bar (`TabBar` chowa się na `/orders/:numer`).
-  Zmiana etapu nie jest zapisywana — jak na desktopie, czeka na `type:implement`.
+  Zmiana etapu zapisuje się przez API; status odświeża się po mutacji.
 
 Odstępstwa od Figmy: etapy, notatki i linia pojazdu pochodzą z danych D-04 („Aplikacja
 ceramiki”, „WA 911PC · Boks 01” — model nie ma koloru i roku); „⋯” jest nieaktywne; pole

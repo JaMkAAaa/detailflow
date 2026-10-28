@@ -1,4 +1,4 @@
-import type { IntakeDamage } from "./demo";
+import type { IntakeDamage } from "./order-types";
 
 // Marker centres inside the 110 × 195 schematic (px), measured from the Figma
 // markers; they match the order of damages 1–3 in the intake report.

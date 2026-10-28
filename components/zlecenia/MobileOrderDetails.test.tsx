@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeAll, expect, it } from "vitest";
+import { afterEach, beforeAll, expect, it, vi } from "vitest";
 import { MobileOrderDetails } from "./MobileOrderDetails";
 import { order } from "./demo";
 
@@ -14,10 +14,10 @@ beforeAll(() => {
     this.dispatchEvent(new Event("close"));
   };
 });
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 it("shows the header, 4-stage progress and the quote from the same data as D-04 (M-04)", () => {
-  render(<MobileOrderDetails data={order} />);
+  render(<MobileOrderDetails data={order} studioId="studio-test" />);
   expect(screen.getByRole("heading", { level: 1, name: "Porsche Panamera" })).toBeTruthy();
   expect(screen.getByText("#DF-0248")).toBeTruthy();
   expect(screen.getByText("WA 911PC · Boks 01")).toBeTruthy();
@@ -37,17 +37,18 @@ it("shows the header, 4-stage progress and the quote from the same data as D-04 
 });
 
 it("offers a real phone link and a back link", () => {
-  render(<MobileOrderDetails data={order} />);
+  render(<MobileOrderDetails data={order} studioId="studio-test" />);
   expect(screen.getByRole("link", { name: /Zadzwoń do klienta: Adam Nowak/ }).getAttribute("href")).toBe("tel:+48600123456");
   expect(screen.getByRole("link", { name: "Wróć do zleceń" }).getAttribute("href")).toBe("/orders");
 });
 
-it("keeps the stage change as a 'coming soon' sheet and saves nothing", async () => {
+it("posts stage advancement and shows a server error without losing the order context", async () => {
   const user = userEvent.setup();
-  render(<MobileOrderDetails data={order} />);
+  const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: "Konflikt zapisu etapu." }), { status: 409, headers: { "Content-Type": "application/json" } }));
+  vi.stubGlobal("fetch", fetcher);
+  render(<MobileOrderDetails data={order} studioId="studio-test" />);
   await user.click(screen.getByRole("button", { name: "Zakończ: Korekta lakieru" }));
-  const sheet = screen.getByRole("dialog", { name: "Zmiana etapu — wkrótce" });
-  expect(within(sheet).getByText(/nie są jeszcze zapisywane/)).toBeTruthy();
-  await user.click(within(sheet).getByRole("button", { name: "Zamknij" }));
-  expect(screen.queryByRole("dialog")).toBeNull();
+  expect((await screen.findByRole("alert")).textContent).toContain("Konflikt zapisu etapu.");
+  expect(fetcher).toHaveBeenCalledWith("/api/studios/studio-test/orders/demo-order/advance", { method: "POST" });
+  expect(screen.getByRole("heading", { name: "Porsche Panamera" })).toBeTruthy();
 });

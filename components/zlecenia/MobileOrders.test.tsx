@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, expect, it } from "vitest";
 import { MobileOrders } from "./MobileOrders";
+import { boardOrders } from "./board-fixture";
 
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function () {
@@ -16,7 +17,7 @@ beforeAll(() => {
 afterEach(cleanup);
 
 it("renders all 7 active orders in the scrolling content, grouped as in Figma (M-03)", () => {
-  render(<MobileOrders />);
+  render(<MobileOrders orders={boardOrders} />);
   expect(screen.getByText("7 aktywnych")).toBeTruthy();
   const headings = screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent);
   expect(headings).toEqual(["W trakcie · 3", "Do odbioru · 2", "Przyjęte · 2"]);
@@ -30,7 +31,7 @@ it("renders all 7 active orders in the scrolling content, grouped as in Figma (M
 });
 
 it("shows number, customer, due label and PLN amount, and links the Porsche to M-04", () => {
-  render(<MobileOrders />);
+  render(<MobileOrders orders={boardOrders} />);
   const porsche = screen.getByRole("link", { name: /Porsche Panamera/ });
   expect(porsche.getAttribute("href")).toBe("/orders/DF-0248");
   expect(porsche.textContent).toContain("#DF-0248 · Adam Nowak");
@@ -41,7 +42,7 @@ it("shows number, customer, due label and PLN amount, and links the Porsche to M
 
 it("filters by status chip and by search incl. plate, and clears", async () => {
   const user = userEvent.setup();
-  render(<MobileOrders />);
+  render(<MobileOrders orders={boardOrders} />);
   await user.click(screen.getByRole("button", { name: "Do odbioru 2" }));
   expect(screen.getAllByRole("listitem")).toHaveLength(2);
   expect(screen.queryByText("Porsche Panamera")).toBeNull();
@@ -59,10 +60,8 @@ it("filters by status chip and by search incl. plate, and clears", async () => {
   expect(screen.getAllByRole("listitem")).toHaveLength(7);
 });
 
-it("opens a 'coming soon' sheet for orders without a detail screen", async () => {
-  const user = userEvent.setup();
-  render(<MobileOrders />);
-  await user.click(screen.getByRole("button", { name: /Audi Q5/ }));
-  const sheet = screen.getByRole("dialog");
-  expect(within(sheet).getByText(/Szczegóły zlecenia będą dostępne wkrótce/)).toBeTruthy();
+it("links every order to its operational detail page", () => {
+  render(<MobileOrders orders={boardOrders} />);
+  expect(screen.getByRole("link", { name: /Audi Q5/ }).getAttribute("href")).toBe("/orders/DF-0249");
+  expect(screen.queryByRole("dialog")).toBeNull();
 });
