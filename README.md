@@ -244,7 +244,7 @@ Legenda: **Działa** = realne dane i zapis; **Częściowo** = część przepływ
 | Zdjęcia i protokół | **Częściowo** | presigned upload, S3, protokół, akceptacja | UI zlecenia nadal demo; brak sprzątania porzuconych plików |
 | Panel platformy A-01–A-10 | **Brak** | tylko makieta i definicje metryk | osobny produkt/etap |
 | Magazyn/statystyki/portfolio | **Brak** | menu „Wkrótce” | poza v1 |
-| Wyszukiwarka ⌘K | **Brak** | placeholder w topbarze | poza zakresem tego etapu |
+| Wyszukiwarka ⌘K | **Działa** | Cmd/Ctrl+K i przyciski w topbarze oraz „Więcej”; wyniki aktywnego studia dla klientów, aut, zleceń i faktur | pracownicy nie widzą faktur; wyszukiwanie obejmuje do 4 wyników na kategorię |
 | E-mail transakcyjny | **Częściowo** | auth, zaproszenia, wycena, decyzja, trial | brak maila z fakturą; brak SMS |
 | Obserwowalność | **Częściowo** | `/api/health` (DB i Redis), logi pino JSON, Sentry web + worker | brak metryk i gotowych alertów; Sentry milczy bez `SENTRY_DSN` |
 

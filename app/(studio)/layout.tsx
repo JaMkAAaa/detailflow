@@ -3,6 +3,7 @@ import { KsefEnvBadge } from "@/components/ksef/KsefEnvBadge";
 import { Sidebar } from "@/components/studio/Sidebar";
 import { TabBar } from "@/components/studio/TabBar";
 import { Topbar } from "@/components/studio/Topbar";
+import { GlobalSearch } from "@/components/studio/GlobalSearch";
 import { requireStudio } from "@/src/server/studio/context";
 import { invoiceAttentionCount } from "@/src/server/faktury/list-query";
 
@@ -42,6 +43,7 @@ export default async function StudioLayout({
         </main>
       </div>
       <TabBar />
+      <GlobalSearch studioId={context.studioId} />
     </div>
   );
 }

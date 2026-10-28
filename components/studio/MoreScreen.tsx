@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { NoticeSheet, type Notice } from "./NoticeSheet";
 import { MaskIcon } from "./MaskIcon";
+import { GlobalSearchTrigger } from "./GlobalSearch";
 
 type MenuItem = { label: string; icon: string; href?: string; count?: number };
 
@@ -88,6 +89,7 @@ export function MoreScreen({
       <header>
         <p className="text-[13px] text-df-muted">{studio}</p>
         <h1 className="text-[26px] font-bold">Więcej</h1>
+        <div className="mt-4"><GlobalSearchTrigger compact /></div>
       </header>
       <button
         type="button"
