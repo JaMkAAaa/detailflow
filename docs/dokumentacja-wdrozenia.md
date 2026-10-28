@@ -652,6 +652,17 @@ Indeksy obowiązkowe: `(studioId, status)`, `(studioId, createdAt)`, `plate`, `k
 9. KSeF TEST nie może „przypadkiem” iść na PROD — osobne sekrety, twardy feature flag, badge w UI.
 10. Hasła reset, lockout, CSRF na Server Actions, `Content-Security-Policy`.
 
+### 10.1 Retencja zdjęć
+
+Zdjęcia zlecenia (`OrderPhoto`) mogą zawierać tablice rejestracyjne i otoczenie. To dane osobowe.
+
+- Bucket jest prywatny. Odczyt tylko przez podpisany URL ważny 5 minut. Klucz ma prefix `studios/<studioId>/orders/<workOrderId>/`.
+- Niepotwierdzony upload (`uploadedAt` puste) nie jest na liście. Plik o innym rozmiarze lub typie jest usuwany z bucketu razem z wierszem.
+- Zdjęcie zostaje przez czas życia zlecenia, bo protokół przyjęcia i reklamacja potrzebują dowodu stanu auta. v1 nie kasuje automatycznie zdjęć zakończonych zleceń. Długość takiego kasowania (np. po przedawnieniu reklamacji) jest decyzją prawną i nie wchodzi w to wydanie.
+- Cascade w Postgresie usuwa wiersz, nie obiekt S3. Ścieżka odrzuconego uploadu woła `deleteObject`. Przy usuwaniu danych studia trzeba skasować prefix `studios/<studioId>/`.
+- Portal nie pokazuje zdjęcia bez ważnego tokenu. Surowy token nie trafia do logów.
+- Klienta bez zleceń i wycen można usunąć. Klienta z historią nie usuwamy, bo faktury i protokół zostają.
+
 ---
 
 ## 11. Stripe — implementacja

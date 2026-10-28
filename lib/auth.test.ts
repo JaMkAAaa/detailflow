@@ -15,6 +15,7 @@ vi.mock("./auth/email", () => ({
 
 const { auth } = await import("./auth");
 const { platformDb } = await import("./db/client");
+const { clearLoginFailures, lockoutSubject } = await import("./auth/lockout");
 const { DEMO, seed } = await import("../prisma/seed");
 
 const APP = process.env.APP_URL!;
@@ -50,6 +51,8 @@ describe("auth (Better Auth + Postgres)", () => {
   beforeEach(async () => {
     mails.length = 0;
     await platformDb.session.deleteMany({ where: { userId } });
+    await clearLoginFailures("studio", DEMO.ownerEmail);
+    await clearLoginFailures("studio", UNKNOWN);
   });
 
   it("signs in with e-mail + Argon2id password into an httpOnly session stored in Postgres", async () => {
@@ -70,6 +73,21 @@ describe("auth (Better Auth + Postgres)", () => {
 
     const me = await call("/get-session", undefined, cookie!.split(";")[0]);
     expect((await me.json())?.user?.email).toBe(DEMO.ownerEmail);
+  });
+
+  it("locks the e-mail after repeated password failures and stores only a hash", async () => {
+    const email = `lockout-${userId}@example.com`;
+    await clearLoginFailures("studio", email);
+    const attempt = () => call("/sign-in/email", { email, password: "zle-haslo-123" });
+    for (let i = 0; i < 5; i++) expect((await attempt()).status).toBe(401);
+    const locked = await attempt();
+    expect(locked.status).toBe(429);
+    expect(await locked.json()).toMatchObject({ message: "Zbyt wiele prób logowania. Spróbuj ponownie później." });
+    const row = await platformDb.authLockout.findUniqueOrThrow({ where: { subjectHash: lockoutSubject("studio", email) } });
+    expect(row.lockedUntil!.getTime()).toBeGreaterThan(Date.now());
+    expect(JSON.stringify(row)).not.toContain(email);
+    await clearLoginFailures("studio", email);
+    expect(await platformDb.authLockout.findUnique({ where: { subjectHash: lockoutSubject("studio", email) } })).toBeNull();
   });
 
   it("rejects a wrong password and an unknown e-mail the same way", async () => {

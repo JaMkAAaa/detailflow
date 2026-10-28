@@ -1,3 +1,10 @@
+# KSeF 2.0 — TEST oraz PROD za flagą
+
+PROD nie jest globalnym `KSEF_ENV`. Włącza go flaga `ksef_prod` i `Studio.ksefEnv=production`.
+Token TEST (prefiks `test`, klucz `KSEF_TOKEN_ENCRYPTION_KEY`) nie odszyfruje się jako PROD
+(prefiks `production`, klucz `KSEF_PROD_TOKEN_ENCRYPTION_KEY`). Host PROD to wyłącznie
+`https://api.ksef.mf.gov.pl`. Tryb offline KSeF jest poza zakresem.
+
 # KSeF 2.0 TEST — #44
 
 `client.ts` implementuje kontrakt [oficjalnego API TEST v2](https://api-test.ksef.mf.gov.pl/docs/v2/index.html)

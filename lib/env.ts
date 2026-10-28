@@ -28,10 +28,12 @@ export const env = createEnv({
     STRIPE_API_PORT: z.string().regex(/^\d{2,5}$/).optional(),
     STRIPE_API_PROTOCOL: z.enum(["http", "https"]).optional(),
 
-    // TEST i PROD KSeF są rozdzielone; domyślnie zawsze test.
+    // Globalne KSEF_ENV zostaje TEST. PROD jest per studio i za flagą ksef_prod.
     KSEF_ENV: z.literal("test").default("test"),
     KSEF_API_URL: z.url().default("https://api-test.ksef.mf.gov.pl"),
     KSEF_TOKEN_ENCRYPTION_KEY: z.string().regex(/^[A-Za-z0-9+/]{43}=$/).optional(),
+    KSEF_PROD_API_URL: z.url().optional(),
+    KSEF_PROD_TOKEN_ENCRYPTION_KEY: z.string().regex(/^[A-Za-z0-9+/]{43}=$/).optional(),
 
     SMTP_URL: z.url().optional(),
     RESEND_API_KEY: z.string().min(1).optional(),

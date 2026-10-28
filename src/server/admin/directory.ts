@@ -30,6 +30,7 @@ const studioSelect = {
   stripeCustomerId: true,
   stripeSubscriptionId: true,
   trialEndsAt: true,
+  ksefEnv: true,
   members: {
     where: { role: "owner" as const },
     take: 1,
@@ -148,6 +149,7 @@ export type StudioCard = {
   stripeCustomerId: string | null;
   stripeSubscriptionId: string | null;
   trialEndsAt: Date | null;
+  ksefEnv: "test" | "production";
   lastActivityAt: Date;
   limits: {
     users: { used: number; max: number | null };
@@ -212,6 +214,7 @@ export async function getStudioCard(publicCode: string, actorId: string): Promis
     stripeCustomerId: studio.stripeCustomerId,
     stripeSubscriptionId: studio.stripeSubscriptionId,
     trialEndsAt: studio.trialEndsAt,
+    ksefEnv: studio.ksefEnv,
     lastActivityAt: activityAt(studio),
     limits: {
       users: { used: studio._count.members, max: limits.users },

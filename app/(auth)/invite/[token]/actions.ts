@@ -1,5 +1,6 @@
 "use server";
 import { cookies } from "next/headers";
+import { assertActionOrigin } from "@/src/server/action-origin";
 import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/auth/session";
 import { acceptInvitation } from "@/src/server/studio/invitations";
@@ -7,6 +8,7 @@ import { STUDIO_COOKIE } from "@/src/server/studio/context";
 import { AccessError } from "@/src/server/acl";
 
 export async function acceptInvite(token: string): Promise<void> {
+  await assertActionOrigin();
   const { user } = await requireSession();
   let studioId: string;
   try { studioId = await acceptInvitation(user, token); }

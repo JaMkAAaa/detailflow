@@ -1,10 +1,17 @@
 import { InvoicesScreen } from "@/components/faktury/InvoicesScreen";
+import { KsefEnvForm } from "@/components/faktury/KsefEnvForm";
 import { invoiceList } from "@/src/server/faktury/list-query";
-import { invoiceSeller } from "@/src/server/faktury/query";
+import { ksefStudioStatus } from "@/src/ksef/submissions";
 import { requireStudio } from "@/src/server/studio/context";
 
 export default async function InvoicesPage() {
-  const { studioId, user } = await requireStudio("invoices:manage");
-  const { env } = await invoiceSeller(studioId, user.id);
-  return <InvoicesScreen key={`${studioId}:${env}`} invoices={await invoiceList(studioId, env)} env={env} now={new Date().toISOString()} />;
+  const context = await requireStudio("invoices:manage");
+  const current = context.choices.find((choice) => choice.studioId === context.studioId)!;
+  const status = await ksefStudioStatus(context.studioId);
+  return (
+    <div className="space-y-6">
+      {current.role === "owner" && <KsefEnvForm env={status.env} prodAllowed={status.prodAllowed} tokenSet={status.tokenSet} />}
+      <InvoicesScreen key={`${context.studioId}:${status.env}`} invoices={await invoiceList(context.studioId, status.env)} env={status.env} now={new Date().toISOString()} />
+    </div>
+  );
 }

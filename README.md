@@ -421,15 +421,17 @@ Wzór: [`.env.example`](.env.example). W Dockerze hosty to nazwy usług (`postgr
 
 Bez kluczy aplikacja działa, ale billing zwraca „Stripe nie jest skonfigurowany”. Po ustawieniu klucza uruchom `pnpm billing:setup` **osobno dla test i live**.
 
-### 6.3 KSeF (tylko TEST)
+### 6.3 KSeF (TEST domyślnie, PROD za flagą)
 
 | Zmienna | Znaczenie |
 | --- | --- |
-| `KSEF_ENV` | musi być `test`; inna wartość rzuca błąd |
+| `KSEF_ENV` | musi być `test`; inna wartość rzuca błąd. To nie jest przełącznik studia |
 | `KSEF_API_URL` | `https://api-test.ksef.mf.gov.pl` (opcjonalnie `/v2`) |
-| `KSEF_TOKEN_ENCRYPTION_KEY` | dokładnie 32 losowe bajty w base64, np. `openssl rand -base64 32` |
+| `KSEF_TOKEN_ENCRYPTION_KEY` | dokładnie 32 losowe bajty w base64, klucz tokenów TEST |
+| `KSEF_PROD_API_URL` | opcjonalnie; dozwolony jest tylko `https://api.ksef.mf.gov.pl` |
+| `KSEF_PROD_TOKEN_ENCRYPTION_KEY` | osobny klucz tokenów PROD, ten sam format co klucz TEST |
 
-`KSEF_ENV=production` i inne hosty są **odrzucane także przy `SKIP_ENV_VALIDATION=1`**. To celowe: TEST i PROD nie mogą się pomylić.
+`KSEF_ENV=production` i obce hosty są **odrzucane także przy `SKIP_ENV_VALIDATION=1`**. PROD włącza flaga platformy `ksef_prod` oraz `Studio.ksefEnv`. Token TEST nie odszyfruje się jako PROD.
 
 ### 6.4 E-mail
 
@@ -851,10 +853,11 @@ accepted ──▶ in_progress ──▶ ready_for_pickup ──▶ completed
 
 **Implementacja:** `src/ksef/`, `src/worker/ksef.ts`, `app/api/studios/[studioId]/ksef/token`.
 
-- Obsługiwany jest **wyłącznie TEST**. `assertKsefTest()` odrzuca `KSEF_ENV` inne niż `test` oraz host inny niż `api-test.ksef.mf.gov.pl` (także przy `SKIP_ENV_VALIDATION=1`).
-- `KsefClient` implementuje: challenge, token RSA-OAEP/SHA-256, sesję FA(3), XML AES-256-CBC, status dokumentu, UPO XML, zamknięcie sesji. Timeout 20 s, bez przekierowań, tylko host TEST.
-- Token studia jest szyfrowany AES-256-GCM; AAD wiąże go z `studioId` i wersją formatu; w bazie tylko szyfrogram.
-- `PUT /api/studios/:studioId/ksef/token` wymaga `invoices:manage`, Origin i `ksefEnv=test`; zwraca 204 i **nie zwraca tokenu**. NIP jest sprawdzany dopiero przy kolejkowaniu faktury.
+- Domyślna ścieżka to **TEST**. `assertKsefTest()` odrzuca `KSEF_ENV` inne niż `test` oraz host inny niż `api-test.ksef.mf.gov.pl` (także przy `SKIP_ENV_VALIDATION=1`).
+- PROD jest per studio (`Studio.ksefEnv`) i wymaga flagi `ksef_prod`. Badge w sidebarze i na karcie studia pokazuje TEST albo PROD. Właściciel przełącza środowisko na liście faktur; zmiana kasuje zapisany token.
+- `KsefClient` implementuje: challenge, token RSA-OAEP/SHA-256, sesję FA(3), XML AES-256-CBC, status dokumentu, UPO XML, zamknięcie sesji. Timeout 20 s, bez przekierowań. Host wynika ze środowiska faktury: TEST albo `api.ksef.mf.gov.pl`. Tryb offline nie jest obsługiwany.
+- Token studia jest szyfrowany AES-256-GCM. AAD i prefiks szyfrogramu wiążą go ze `studioId` i środowiskiem. TEST i PROD mają osobne klucze. Szyfrogram TEST nie odszyfruje się kluczem PROD.
+- `PUT /api/studios/:studioId/ksef/token` wymaga `invoices:manage` i Origin. Środowisko bierze z studia, nie z body. Odpowiedź 204 **nie zwraca tokenu**. NIP jest sprawdzany dopiero przy kolejkowaniu faktury.
 - `queueTestInvoice` jest **serwerowym punktem wejścia**: wymaga wystawionej faktury TEST po zakończonym zleceniu, waliduje XML, zapisuje niezmienny snapshot + SHA-256 + status `queued` + event `validated`, dopiero potem enqueue.
 - Kolejka `ksef-test`: 10 prób, backoff 5 s–5 min, respektuje `Retry-After`; payload zawiera tylko `studioId` i `invoiceId`.
 - Worker przed POST zapisuje `sendStartedAt` i referencję sesji; po utracie odpowiedzi szuka dokumentu po hashu w tej samej sesji i **nie wysyła ponownie**.
@@ -862,7 +865,8 @@ accepted ──▶ in_progress ──▶ ready_for_pickup ──▶ completed
 - Błędy przejściowe → `retrying`; po wyczerpaniu prób status `retrying` zostaje w D-10 z informacją dla operatora.
 - UPO jest zapisywane w `Invoice.ksefUpoXml`; numer i data przyjęcia pochodzą z MF.
 - Nie logujemy treści odpowiedzi MF ani wyjątków z danymi/sekretami.
-- `recoverKsefOutbox()` co 15 s znajduje faktury `queued` z submission i ponawia enqueue po awarii Redisa.
+- `recoverKsefOutbox()` co 15 s znajduje faktury TEST `queued` z submission i ponawia enqueue po awarii Redisa. Faktury PROD dochodzą tylko przy włączonej fladze.
+- `queueKsefInvoice` bierze środowisko z faktury. Token o prefiksie TEST przy env PROD kończy się 409, zanim powstanie XML.
 - **Brakuje:** publicznego route/akcji, która wywołuje `queueTestInvoice` z UI, oraz ekranu konfiguracji tokenu. Obecnie można zapisać token API, ale nie ma przycisku „Wyślij do KSeF”.
 - Seed FV/41 jest demonstracją: 10:12:08 → 10:13:08, 60 s, DF-0243; brak `KsefSubmission` i UPO.
 
@@ -1191,22 +1195,21 @@ Suma brutto musi równać się `totalGross` zlecenia; w przeciwnym razie API zwr
 
 - **Izolacja tenantów** w aplikacji (`studioDb`) i w bazie (złożone FK); testy dwóch studiów.
 - **Hasła** Argon2id; **sesje** w Postgresie; cookie httpOnly; `safeNext`.
-- **CSRF**: zapisy API wymagają dokładnego `Origin`; portal decyduje tylko POST-em; Server Actions Next.
+- **CSRF**: zapisy API i Server Actions wymagają dokładnego `Origin`; portal decyduje tylko POST-em.
 - **Tokeny portalu**: 256 bitów, SHA-256 w bazie, TTL 14 dni, odwołanie; brak tokenu w logach/outboxie.
 - **S3**: bucket prywatny, presigned URL 5 min, podpisany Content-Type i długość, prefix per studio.
 - **Stripe**: weryfikacja podpisu, idempotencja, lock per studio, walidacja tenanta i subskrypcji.
-- **KSeF**: tylko TEST, szyfrowanie tokenu AES-256-GCM z AAD `studioId`, brak surowych błędów MF w logach.
-- **Nagłówki portalu**: `no-referrer`, `no-store`, `noindex`.
-- **Rate limit auth** w pamięci procesu (nie współdzielony między instancjami).
+- **KSeF**: TEST domyślnie; PROD per studio za flagą `ksef_prod`. Token AES-256-GCM z AAD `studioId` i środowiska, osobny klucz PROD. Brak surowych błędów MF w logach.
+- **Nagłówki**: CSP, `X-Frame-Options`, `nosniff`, Permissions-Policy. Portal dodatkowo `no-referrer`, `no-store`, `noindex`.
+- **Lockout logowania**: 5 błędnych haseł w 15 min blokuje ten adres na 15 min. W bazie jest hash, nie e-mail. Rate limit auth w pamięci procesu zostaje (nie jest współdzielony między instancjami).
 
 ### 12.2 Czego brakuje
 
 - MFA i osobnej sesji administratora platformy,
 - sesji wsparcia 15 min i audytu dostępu admina,
 - pełnego `AuditLog` dla operacji studia (obecnie tylko billing),
-- CSP, HSTS, `X-Frame-Options`/`frame-ancestors` (poza nagłówkami portalu),
 - rate limitingu API poza auth,
-- szyfrowania backupów i polityki retencji,
+- szyfrowania backupów,
 - eksportu/usunięcia danych klienta (RODO),
 - Sentry/monitoringu i alertów,
 - testów E2E i testów obciążeniowych uploadu.
@@ -1214,7 +1217,7 @@ Suma brutto musi równać się `totalGross` zlecenia; w przeciwnym razie API zwr
 ### 12.3 RODO — praktyczne uwagi
 
 - Zdjęcia aut mogą zawierać tablice rejestracyjne i elementy otoczenia; to dane osobowe.
-- Konieczna jest umowa powierzenia przetwarzania ze studiem, polityka retencji zdjęć i procedura usunięcia.
+- Konieczna jest umowa powierzenia ze studiem. Retencja zdjęć: prywatny bucket, URL 5 min, prefix per studio; v1 nie kasuje automatycznie zdjęć zakończonych zleceń (okres prawny nie jest ustawiony). Szczegóły w `docs/dokumentacja-wdrozenia.md` §10.1.
 - Token portalu jest sekretem bearer; nie może trafić do logów, analityki, APM ani historii e-maili.
 - `next.config.ts` wyłącza logowanie pełnych URL w dev, ale proxy/APM trzeba skonfigurować osobno, żeby maskowały `/p/*` i body odpowiedzi z linkiem.
 - Przed produkcją: regulamin, polityka prywatności, zgody marketingowe, DPA, procedura naruszenia.
@@ -1584,7 +1587,7 @@ i ustaw jako `KSEF_TOKEN_ENCRYPTION_KEY` (dokładnie 32 bajty, bez whitespace).
 
 ### KSeF: „Studio musi korzystać z KSeF TEST” / brak NIP
 
-`Studio.ksefEnv` musi być `test`, a `Studio.nip` ustawiony. Token zapisujesz `PUT /api/studios/:studioId/ksef/token`.
+Dla ścieżki TEST `Studio.ksefEnv` musi być `test`, a `Studio.nip` ustawiony. Token zapisujesz `PUT /api/studios/:studioId/ksef/token`. PROD wymaga flagi `ksef_prod`, osobnego klucza `KSEF_PROD_TOKEN_ENCRYPTION_KEY` i tokenu zapisanego już po przełączeniu środowiska. Stary token TEST jest wtedy skasowany.
 
 ### KSeF: nie ma przycisku „Wyślij”
 

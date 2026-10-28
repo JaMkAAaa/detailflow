@@ -1,11 +1,13 @@
 "use server";
 
 import { headers } from "next/headers";
+import { assertActionOrigin } from "@/src/server/action-origin";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { createTrialStudio, SignupError } from "@/src/server/studio/create";
 
 export async function signupTrial(_state: { error?: string }, form: FormData): Promise<{ error?: string }> {
+  await assertActionOrigin();
   let email: string;
   try {
     ({ email } = await createTrialStudio({

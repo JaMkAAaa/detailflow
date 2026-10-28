@@ -41,7 +41,7 @@ const FEATURE_FLAGS = [
   {
     key: "ksef_prod",
     label: "KSeF PROD",
-    description: "Wysyłka na produkcyjne API KSeF. Domyślnie wyłączona. Worker v1 obsługuje tylko TEST.",
+    description: "Pozwala właścicielowi studia przejść na produkcyjne API KSeF. Domyślnie wyłączona. Token TEST nie działa na PROD.",
     enabled: false,
   },
   {

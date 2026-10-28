@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { LogoMark } from "@/components/brand/Logo";
+import { KsefEnvBadge } from "@/components/ksef/KsefEnvBadge";
 import { cn } from "@/lib/utils";
 import { activeStudioItem, studioNavigation } from "./navigation";
 
@@ -27,7 +28,7 @@ function NavigationIcon({ name }: { name: string }) {
 type Choice = {
   studioId: string;
   role: "owner" | "manager" | "worker";
-  studio: { name: string; city: string | null; district: string | null };
+  studio: { name: string; city: string | null; district: string | null; ksefEnv: "test" | "production" };
 };
 export function Sidebar({
   choices,
@@ -102,6 +103,7 @@ export function Sidebar({
         </span>
       </div>
 
+      <div className="px-1"><KsefEnvBadge env={current.studio.ksefEnv} /></div>
       {error && <p role="alert">Nie udało się zmienić studia.</p>}
       <nav
         aria-label="Nawigacja studia"

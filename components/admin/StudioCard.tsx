@@ -3,6 +3,7 @@ import { AccessTools } from "@/components/admin/AccessTools";
 import { startSupportSessionAction, suspendStudioAction } from "@/app/(platform)/admin/(console)/studios/[publicCode]/actions";
 import { formatDate } from "@/components/klienci/format";
 import { formatPln } from "@/components/pulpit/demo";
+import { KsefEnvBadge } from "@/components/ksef/KsefEnvBadge";
 import { Badge } from "@/components/ui/badge";
 import { STATUS_LABEL } from "@/src/server/admin/accounts";
 import type { StudioCard as StudioCardData } from "@/src/server/admin/directory";
@@ -58,6 +59,7 @@ export function StudioCard({
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <h1 className="text-df-headline">{card.name}</h1>
           <Badge variant={statusVariant[card.status]}>{STATUS_LABEL[card.status]}</Badge>
+          <KsefEnvBadge env={card.ksefEnv} />
         </div>
         <p className="mt-1 text-df-body text-df-muted">
           {card.publicCode}

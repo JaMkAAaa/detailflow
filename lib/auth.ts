@@ -9,6 +9,7 @@ import { sendAuthMailInBackground } from "./auth/email";
 import { studioLoginBlocked } from "../src/server/studio/login-gate";
 import { hashPassword, verifyPassword } from "./auth/password";
 import { PASSWORD_MIN_LENGTH } from "./auth/password-policy";
+import { loginLockoutHooks } from "./auth/lockout";
 import { env } from "./env";
 
 // Auth studia: e-mail + hasło (Argon2id) albo magiczny link. Sesje w Postgres
@@ -61,6 +62,8 @@ export const auth = betterAuth({
     cookiePrefix: AUTH_COOKIE_PREFIX,
     database: { generateId: false },
   },
+
+  hooks: loginLockoutHooks("studio"),
 
   databaseHooks: {
     session: {

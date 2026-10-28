@@ -3,9 +3,9 @@ import { QueueEvents } from "bullmq";
 import { afterAll, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import { platformDb } from "../../lib/db/client";
 import { studioDb } from "../../lib/db/tenant";
-import { encryptTestToken } from "../ksef/secrets";
 import { KsefClient, KsefError, hash } from "../ksef/client";
-import { queueTestInvoice, saveTestToken } from "../ksef/submissions";
+import { queueKsefInvoice, queueTestInvoice, saveTestToken, setStudioKsefEnv } from "../ksef/submissions";
+import { encryptTestToken, encryptToken } from "../ksef/secrets";
 import { processKsef, recoverKsefOutbox, startKsefWorker } from "./ksef";
 import { ksefQueue, ksefJobId, redisConnection, KSEF_QUEUE } from "../ksef/queue";
 import { invoiceAttentionCount } from "../server/faktury/list-query";
@@ -172,6 +172,44 @@ it("retains accepted number when UPO is delayed and fetches UPO again without re
   await processKsef(job(b, inv.id, 1), client as unknown as KsefClient);
   expect(client.submit).toHaveBeenCalledTimes(1);
   expect(client.upo).toHaveBeenCalledTimes(2);
+});
+
+it("drops a TEST token when the studio moves to PROD and never calls the API with it", async () => {
+  const previous = await platformDb.featureFlag.findUnique({ where: { key: "ksef_prod" } });
+  const inv = await invoice("production");
+  try {
+    await expect(setStudioKsefEnv(b, "production")).rejects.toMatchObject({ status: 409 });
+    expect((await platformDb.studio.findUnique({ where: { id: b }, select: { ksefEnv: true } }))?.ksefEnv).toBe("test");
+    await platformDb.featureFlag.upsert({
+      where: { key: "ksef_prod" },
+      create: { key: "ksef_prod", label: "KSeF PROD", description: "test", enabled: true },
+      update: { enabled: true },
+    });
+    vi.stubEnv("KSEF_PROD_TOKEN_ENCRYPTION_KEY", Buffer.alloc(32, 9).toString("base64"));
+    await setStudioKsefEnv(b, "production");
+    expect(await platformDb.studio.findUnique({ where: { id: b }, select: { ksefEnv: true, ksefTokenEnc: true } })).toMatchObject({ ksefEnv: "production", ksefTokenEnc: null });
+    await platformDb.studio.update({ where: { id: b }, data: { ksefTokenEnc: encryptTestToken(b, "test-studio-token") } });
+    prepare.mockClear();
+    await expect(queueKsefInvoice(b, inv.id, prepare)).rejects.toMatchObject({ status: 409 });
+    expect(prepare).not.toHaveBeenCalled();
+    await studioDb(b).ksefSubmission.create({ data: { studioId: b, invoiceId: inv.id, xml, xmlHash: hash(Buffer.from(xml)) } });
+    await studioDb(b).invoice.update({ where: { id: inv.id }, data: { ksefStatus: "queued" } });
+    const apiClient = api();
+    await expect(processKsef(job(b, inv.id), apiClient as unknown as KsefClient)).rejects.toThrow("terminal error");
+    expect(apiClient.authenticate).not.toHaveBeenCalled();
+    const fresh = await invoice("production");
+    await platformDb.studio.update({ where: { id: b }, data: { ksefTokenEnc: encryptToken(b, "production", "prod-token") } });
+    await queueKsefInvoice(b, fresh.id, prepare);
+    const prodClient = api();
+    await processKsef(job(b, fresh.id), prodClient as unknown as KsefClient);
+    expect(prodClient.authenticate).toHaveBeenCalledWith("1234567890", "prod-token");
+    expect((await studioDb(b).invoice.findFirstOrThrow({ where: { id: fresh.id } })).ksefNumber).toContain("test-number-");
+  } finally {
+    await platformDb.studio.update({ where: { id: b }, data: { ksefEnv: "test", ksefTokenEnc: null } });
+    await saveTestToken(b, "test-studio-token");
+    if (previous) await platformDb.featureFlag.update({ where: { key: "ksef_prod" }, data: { enabled: previous.enabled } });
+    else await platformDb.featureFlag.deleteMany({ where: { key: "ksef_prod" } });
+  }
 });
 
 it.skipIf(!process.env.KSEF_REDIS_TEST_URL)("runs real BullMQ retries and stops buyer-data failures after one attempt", async () => {

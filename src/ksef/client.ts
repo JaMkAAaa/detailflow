@@ -1,6 +1,6 @@
 import { constants, createCipheriv, createHash, publicEncrypt, randomBytes, X509Certificate } from "node:crypto";
 import { z } from "zod";
-import { assertKsefTest, TEST_API } from "./config";
+import { ksefApiUrl, type KsefEnvironment } from "./config";
 
 export class KsefError extends Error {
   constructor(message: string, public retryable = false, public ambiguous = false, public retryAfterMs?: number) { super(message); }
@@ -13,36 +13,44 @@ export type InvoiceStatus = z.infer<typeof invoiceStatus>;
 export const hash = (bytes: Buffer) => createHash("sha256").update(bytes).digest("base64");
 const part = encodeURIComponent;
 
-/** Official v2 TEST contract. No caller-supplied hosts and no redirects. */
+/** Official v2 contract. No caller-supplied hosts, no redirects, and no offline mode. */
 export class KsefClient {
-  constructor(private transport: typeof fetch = fetch, private pause = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms))) { assertKsefTest(); }
+  private readonly api: string;
+  private readonly label: string;
+  constructor(
+    private transport: typeof fetch = fetch,
+    private pause = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms)),
+    environment: KsefEnvironment = "test",
+  ) {
+    this.api = ksefApiUrl(environment);
+    this.label = environment === "production" ? "KSeF PROD" : "KSeF TEST";
+  }
 
   private async request(path: string, token?: string, body?: unknown, xml = false): Promise<unknown> {
-    assertKsefTest();
     let response: Response;
     try {
-      response = await this.transport(`${TEST_API}${path}`, {
+      response = await this.transport(`${this.api}${path}`, {
         method: body === undefined ? "GET" : "POST", redirect: "error", signal: AbortSignal.timeout(20_000),
         headers: { Accept: xml ? "application/xml" : "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(body !== undefined ? { "Content-Type": "application/json" } : {}) },
         ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
       });
-    } catch { throw new KsefError("KSeF TEST: transport timeout or connection error", true, body !== undefined); }
+    } catch { throw new KsefError(`${this.label}: transport timeout or connection error`, true, body !== undefined); }
     if (!response.ok) {
       const retryable = response.status === 429 || response.status >= 500;
       const seconds = Number(response.headers.get("retry-after"));
       // Never include response bodies: MF errors may contain invoice data or credentials.
-      throw new KsefError(`KSeF TEST: HTTP ${response.status}`, retryable, response.status >= 500 && body !== undefined, seconds > 0 ? seconds * 1000 : undefined);
+      throw new KsefError(`${this.label}: HTTP ${response.status}`, retryable, response.status >= 500 && body !== undefined, seconds > 0 ? seconds * 1000 : undefined);
     }
     if (response.status === 204) return undefined;
     try { return xml ? await response.text() : await response.json(); }
-    catch { throw new KsefError("KSeF TEST: invalid response", true, body !== undefined); }
+    catch { throw new KsefError(`${this.label}: invalid response`, true, body !== undefined); }
   }
 
   private async publicKey(usage: string) {
     const certificates = z.array(certificate).parse(await this.request("/security/public-key-certificates"));
     const now = Date.now();
     const cert = certificates.find(c => c.usage.includes(usage) && Date.parse(c.validFrom) <= now && Date.parse(c.validTo) > now);
-    if (!cert) throw new KsefError("KSeF TEST: no valid encryption certificate");
+    if (!cert) throw new KsefError(`${this.label}: no valid encryption certificate`);
     return { key: new X509Certificate(Buffer.from(cert.certificate, "base64")).publicKey, publicKeyId: cert.publicKeyId };
   }
   private encrypt(key: Awaited<ReturnType<KsefClient["publicKey"]>>, bytes: Buffer) {
@@ -61,10 +69,10 @@ export class KsefClient {
       if (result.status.code === 200) {
         return z.object({ accessToken: z.object({ token: z.string() }) }).parse(await this.request("/auth/token/redeem", auth.authenticationToken.token, {})).accessToken.token;
       }
-      if (result.status.code >= 400) throw new KsefError(`KSeF TEST: authentication status ${result.status.code}`, result.status.code >= 500);
+      if (result.status.code >= 400) throw new KsefError(`${this.label}: authentication status ${result.status.code}`, result.status.code >= 500);
       await this.pause(Math.min(1000 * 2 ** attempt, 8000));
     }
-    throw new KsefError("KSeF TEST: authentication pending", true);
+    throw new KsefError(`${this.label}: authentication pending`, true);
   }
 
   async openSession(token: string) {
@@ -96,7 +104,7 @@ export class KsefClient {
     const found = page.invoices.find(invoice => invoice.invoiceHash === invoiceHash);
     if (found) return found.referenceNumber;
     // This adapter opens one session per invoice. Absence is inconclusive.
-    if (page.continuationToken) throw new KsefError("KSeF TEST: unexpected multi-page session; manual reconciliation required");
+    if (page.continuationToken) throw new KsefError(`${this.label}: unexpected multi-page session; manual reconciliation required`);
     return null;
   }
   async upo(token: string, session: string, invoice: string) {

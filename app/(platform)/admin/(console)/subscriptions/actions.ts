@@ -3,12 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { platformDb } from "@/lib/db/client";
 import { requirePlatform } from "@/src/server/admin/context";
+import { assertActionOrigin } from "@/src/server/action-origin";
 import { COST_CATEGORIES, parseCostAmount } from "@/src/server/admin/costs";
 import { warsawParts } from "@/src/server/admin/metrics";
 
 export type CostFormState = { message: string };
 
 export async function savePlatformCosts(_prev: CostFormState, form: FormData): Promise<CostFormState> {
+  await assertActionOrigin();
   const { role } = await requirePlatform();
   if (role === "support") return { message: "Rola wsparcia nie zmienia kosztów." };
   const amounts: { category: (typeof COST_CATEGORIES)[number]; amount: string }[] = [];
