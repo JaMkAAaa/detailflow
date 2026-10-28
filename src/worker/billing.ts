@@ -1,5 +1,6 @@
 import { Queue, Worker } from "bullmq";
 import { logger } from "../observability/logger";
+import { reportWorkerError } from "../observability/report";
 import { redisConnection } from "../ksef/queue";
 import { sendTrialReminders } from "../server/billing/trial";
 
@@ -15,7 +16,7 @@ export async function startBillingWorker() {
     worker.on("error", () => log.error("billing worker error"));
     worker.on("failed", (_job, error) => {
       log.error("billing daily job failed");
-      void import("../observability/sentry").then(({ captureWorkerError }) => captureWorkerError(error, { queue: "billing-daily" }));
+      reportWorkerError(error, { queue: "billing-daily" });
     });
     return { close: async () => { await worker.close(); await queue.close(); } };
   } catch (error) {

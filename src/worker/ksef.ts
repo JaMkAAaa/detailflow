@@ -1,6 +1,7 @@
 import { Worker, UnrecoverableError, type Job } from "bullmq";
 import { platformDb } from "../../lib/db/client";
 import { logger } from "../observability/logger";
+import { reportWorkerError } from "../observability/report";
 import { studioDb } from "../../lib/db/tenant";
 import type { KsefEventKind } from "../../lib/db/generated/client";
 import { KsefClient, KsefError } from "../ksef/client";
@@ -114,7 +115,7 @@ export function startKsefWorker(client?: KsefClient) {
     const studioId = job?.data.studioId;
     log.error({ studioId }, "KSeF TEST job failed");
     if (!studioId) return;
-    void import("../observability/sentry").then(({ captureWorkerError }) => captureWorkerError(error, { studioId, queue: KSEF_QUEUE }));
+    reportWorkerError(error, { studioId, queue: KSEF_QUEUE });
   });
   return worker;
 }

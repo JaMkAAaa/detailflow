@@ -1,6 +1,7 @@
 import { platformDb } from "../lib/db/client";
 import { logger } from "../src/observability/logger";
-import { captureWorkerError, initSentry } from "../src/observability/sentry";
+import { reportWorkerError } from "../src/observability/report";
+import { initSentry } from "../src/observability/sentry";
 import { deliverQuoteDecisionMails } from "../src/server/portal/mail";
 import { deliverQuoteMails } from "../src/server/wyceny/mail";
 import { ksefQueue } from "../src/ksef/queue";
@@ -20,7 +21,7 @@ function tick() {
   current = Promise.all([deliverQuoteDecisionMails(), deliverQuoteMails(), recoverKsefOutbox()]).then(() => undefined)
     .catch(error => {
       log.error("worker outbox failed");
-      void captureWorkerError(error, { queue: "outbox" });
+      reportWorkerError(error, { queue: "outbox" });
     })
     .finally(() => { current = undefined; });
 }
