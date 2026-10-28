@@ -16,9 +16,10 @@ import { hashPortalToken } from "../lib/portal/token";
 import { partitionByStatus } from "../src/server/admin/accounts";
 import { DEMO, seed } from "./seed";
 import { PLATFORM_DEMO } from "./seed-platform";
+import Decimal from "decimal.js";
 import { calculateMrr } from "../src/server/billing/mrr";
 import { getPlatformOverview } from "../src/server/admin/overview";
-import { trialConversion } from "../src/server/admin/metrics";
+import { arrears, churnStats, formatRate, mrrByPlan, operatingMargin, trialConversion } from "../src/server/admin/metrics";
 import { allocateOrderNumber, listOrderHistory } from "../src/server/zlecenia/state";
 import { getDashboardMetrics } from "../src/server/pulpit/metrics";
 import { listClients } from "../src/server/klienci/clients";
@@ -163,6 +164,35 @@ describe("seed Obsidian Studio", () => {
     const operator = await platformDb.user.findUnique({ where: { email: PLATFORM_DEMO.email }, include: { platformOperator: true } });
     expect(operator?.platformOperator?.role).toBe("owner");
     expect(await platformDb.platformOperator.findFirst({ where: { user: { email: DEMO.ownerEmail } } })).toBeNull();
+  });
+
+  it("platform seed matches A-04 composition, churn, collected net and costs", async () => {
+    const studios = await platformDb.studio.findMany({
+      where: { OR: [{ slug: DEMO.studioSlug }, { slug: { startsWith: PLATFORM_DEMO.slugPrefix } }] },
+      select: {
+        id: true, name: true, publicCode: true, status: true, plan: true,
+        createdAt: true, updatedAt: true, activatedAt: true, trialEndsAt: true,
+      },
+    });
+    const composition = mrrByPlan(studios);
+    expect(composition.rows.map((row) => [row.plan, row.count, row.amount.toFixed(2)])).toEqual([
+      ["solo", 64, "5056.00"],
+      ["studio", 48, "7152.00"],
+      ["pro", 16, "4464.00"],
+    ]);
+    expect(arrears(studios).total.toFixed(2)).toBe("894.00");
+    const churn = churnStats(studios, PLATFORM_DEMO.now);
+    expect(churn).toMatchObject({ base: 118, left: 5, joined: 15, paying: 128 });
+    expect(formatRate(churn.rate)).toBe("4,2%");
+    const payments = await platformDb.subscriptionPayment.aggregate({
+      where: { stripeInvoiceId: { startsWith: "in_demo_" } },
+      _sum: { amountNet: true },
+    });
+    expect(payments._sum.amountNet?.toFixed(2)).toBe("14980.00");
+    const costs = await platformDb.platformCost.findMany({ where: { year: 2026, month: 10 } });
+    const total = costs.reduce((sum, row) => sum.plus(row.amountNet.toString()), new Decimal(0));
+    expect(total.toFixed(2)).toBe("4260.00");
+    expect(formatRate(operatingMargin(composition.total, total))).toBe("74,4%");
   });
 
   it("stores only the portal token hash", async () => {

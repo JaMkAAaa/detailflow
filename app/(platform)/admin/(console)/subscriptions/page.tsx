@@ -1,3 +1,8 @@
-export default function AdminSubscriptionsPage() {
-  return <h1 className="text-df-headline">Abonamenty</h1>;
+import { Subscriptions } from "@/components/admin/Subscriptions";
+import { requirePlatform } from "@/src/server/admin/context";
+import { getPlatformSubscriptions } from "@/src/server/admin/subscriptions";
+
+export default async function AdminSubscriptionsPage() {
+  const [{ role }, data] = await Promise.all([requirePlatform(), getPlatformSubscriptions()]);
+  return <Subscriptions data={data} canEdit={role !== "support"} />;
 }
