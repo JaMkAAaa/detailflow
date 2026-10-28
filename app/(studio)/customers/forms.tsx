@@ -161,13 +161,17 @@ export function ImportForm({ studioId }: { studioId: string }) {
     const file = (form.elements.namedItem("file") as HTMLInputElement).files?.[0];
     setError(""); setSummary(""); setBusy(true);
     try {
-      const csv = file ? await file.text() : "";
-      if (!csv.trim()) throw new Error("Wybierz plik CSV.");
-      const data = await send(`/api/studios/${studioId}/clients/import`, "POST", { csv }) as {
+      if (!file) throw new Error("Wybierz plik CSV lub XLSX.");
+      const body = new FormData();
+      body.append("file", file);
+      const response = await fetch(`/api/studios/${studioId}/clients/import`, { method: "POST", body });
+      const data = await response.json().catch(() => ({})) as {
         createdClients: number; createdVehicles: number; unchanged: number; invalid: number;
         errors: { row: number; message: string }[];
         warnings: DuplicatePlateWarning[];
+        error?: string;
       };
+      if (!response.ok) throw new Error(data.error ?? "Nie udało się zaimportować.");
       setSummary(`Nowe osoby: ${data.createdClients}, nowe auta: ${data.createdVehicles}, bez zmian: ${data.unchanged}, pominięte: ${data.invalid}.`);
       if (data.errors[0]) setError(data.errors.map((item) => `Wiersz ${item.row}: ${item.message}`).join(" "));
       form.reset();
@@ -179,8 +183,8 @@ export function ImportForm({ studioId }: { studioId: string }) {
   return (
     <form className="flex flex-wrap items-end gap-3" onSubmit={(event) => { event.preventDefault(); void onSubmit(event.currentTarget); }}>
       <div className={field}>
-        <label className={label} htmlFor="csv">Import CSV</label>
-        <Input id="csv" name="file" type="file" accept=".csv,text/csv" />
+        <label className={label} htmlFor="csv">Import CSV lub XLSX</label>
+        <Input id="csv" name="file" type="file" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
       </div>
       <Button type="submit" variant="secondary" loading={busy} loadingLabel="Importowanie…">Importuj</Button>
       {summary && <p role="status" className="w-full text-df-body text-df-muted">{summary}</p>}

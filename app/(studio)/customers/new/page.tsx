@@ -12,8 +12,8 @@ export default async function NewCustomerPage() {
       </div>
       <ClientForm studioId={studioId} />
       <section className="flex max-w-xl flex-col gap-3 border-t border-df-line pt-6">
-        <h2 className="text-df-strong text-df-text">Import CSV</h2>
-        <p className="text-df-body text-df-muted">Kolumny: imię, telefon, e-mail, marka, model, tablica. Excel z średnikiem też przejdzie.</p>
+        <h2 className="text-df-strong text-df-text">Import CSV lub XLSX</h2>
+        <p className="text-df-body text-df-muted">Kolumny: imię, telefon, e-mail, marka, model, tablica. XLSX importuje pierwszy arkusz; limit to 1 MB i 5000 wierszy.</p>
         <ImportForm studioId={studioId} />
       </section>
     </div>

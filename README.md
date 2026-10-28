@@ -230,7 +230,7 @@ Legenda: **Działa** = realne dane i zapis; **Częściowo** = część przepływ
 | Pulpit D-01 / M-01 | **Działa** | KPI, plan boksów, lista dnia, alerty z DB | akcje „nowe zlecenie”, „zdjęcie”, „zakończ etap” nadal „Wkrótce” |
 | Kalendarz D-02 / M-02 | **Działa** | rezerwacje boksów, dzień/tydzień, formularz, kolizje | brak przypisania pracownika w modelu; brak tworzenia zlecenia z kalendarza |
 | Klienci D-05 | **Działa** | lista 20/stronę, filtry, karta, wyszukiwanie | brak zdjęcia auta w modelu |
-| CRUD klientów/aut | **Działa** | dodawanie, edycja, usuwanie, import CSV | import tylko CSV, nie XLSX |
+| CRUD klientów/aut | **Działa** | dodawanie, edycja, usuwanie, import CSV/XLSX | import do 1 MB i 5000 wierszy, pierwszy arkusz XLSX |
 | Zlecenia D-03 / M-03 | **Demo** | tablica/lista na danych seeda, filtry, DnD wizualne | brak odczytu z DB; brak tworzenia zlecenia |
 | Szczegóły zlecenia D-04 / M-04 | **Demo** | przegląd, zakładki, historia wizualna, wycena | brak zapisu etapu, zdjęć, linku do portalu |
 | Backend zleceń | **Działa** | HTTP tworzenia i odczytu, maszyna stanów, historia, numeracja, `canInvoice` | UI nadal demo |
@@ -711,8 +711,7 @@ Dane pochodzą z `studioDb`; **nie ma fallbacku na dane demo**, gdy baza jest pu
 - CRUD: klient, auto, zmiana właściciela auta w tym samym studiu.
 - **Duplikat tablicy nie jest błędem**: zapis przechodzi, odpowiedź zawiera `warnings: [{ code: "duplicate_plate", ... }]`. Powód: historyczne dane z Excela i sprzedaż auta.
 - Usunięcie klienta/auta z historią zleceń lub wycen → **409**.
-- Import CSV: maks. 1 MB i 5000 wierszy; separator `,`/`;`/tab; BOM; aliasy nagłówków PL/EN; wymagane imię, marka, model, tablica; dopasowanie klienta po e-mailu, potem telefonie, tylko w tym studiu; ten sam klient + ta sama tablica = `unchanged`.
-- Import przyjmuje **CSV**, nie XLSX. Landing mówi o Excelu — trzeba zapisać arkusz jako CSV albo dodać parser XLSX w przyszłości.
+- Import CSV/XLSX: maks. 1 MB i 5000 wierszy; CSV obsługuje separator `,`/`;`/tab i BOM; oba formaty używają tych samych aliasów nagłówków PL/EN i wymagają imienia, marki, modelu oraz tablicy. XLSX czyta pierwszy arkusz. Dopasowanie klienta po e-mailu, potem telefonie, tylko w tym studiu; ten sam klient + ta sama tablica = `unchanged`; duplikat tablicy zwraca ostrzeżenie.
 - Strona `/customers` używa `directory.ts` (sortowanie od najdłużej współpracujących, nacisk na demo D-05); API `GET /clients` używa `clients.ts` (sortowanie po nazwie, 20/stronę). To dwie świadome ścieżki odczytu.
 
 ### 9.6 Zlecenia i maszyna stanów
@@ -957,7 +956,7 @@ accepted ──▶ in_progress ──▶ ready_for_pickup ──▶ completed
 - „Zobacz demo (2 min)” to placeholder przewijający do podglądu pulpitu.
 - Podgląd pulpitu to statyczna kopia D-01; zmiany D-01 trzeba przenieść ręcznie.
 - Stopka nie linkuje do nieistniejących stron.
-- Obietnice (KSeF, import Excel, brak karty, polski support) wymagają zatwierdzenia prawnego; część jest jeszcze przed implementacją (np. import XLSX, pełna wysyłka KSeF).
+- Obietnice (KSeF, import Excel, brak karty, polski support) wymagają zatwierdzenia prawnego; pełna wysyłka KSeF pozostaje przed implementacją.
 
 ### 9.15 Panel platformy (poza implementacją)
 
@@ -1062,7 +1061,7 @@ Assety: logo Flowcut w `branding/`, ikony i zdjęcia demo w `public/`; część 
 | `GET/PATCH/DELETE` | `/api/studios/:studioId/clients/:clientId` | sesja (+ Origin dla zapisu) | karta/edycja/usunięcie; 409 przy historii |
 | `POST` | `/api/studios/:studioId/clients/:clientId/vehicles` | sesja + Origin | dodanie auta |
 | `PATCH/DELETE` | `/api/studios/:studioId/vehicles/:vehicleId` | sesja + Origin | edycja/usunięcie auta |
-| `POST` | `/api/studios/:studioId/clients/import` | sesja + Origin | CSV w JSON, `text/csv` lub multipart `file` |
+| `POST` | `/api/studios/:studioId/clients/import` | sesja + Origin | CSV w JSON, `text/csv` lub multipart `file`; XLSX multipart `file` |
 
 #### Kalendarz
 
@@ -1255,7 +1254,7 @@ Testy integracyjne wymagają PostgreSQL po migracjach. Testy S3/MinIO i Redis/KS
 - **Tenant:** `studioDb` (where/data/update/upsert, blokady), dwa studia w testach.
 - **Auth:** hasła, redirect, sesje, rejestracja, zaproszenia, role, CSRF/Origin.
 - **Billing:** plany, Checkout, webhooki, idempotencja, race, retry, trial, MRR, read-only.
-- **Klienci:** CSV, 20/stronę, duplikat tablicy, izolacja.
+- **Klienci:** CSV/XLSX, 20/stronę, duplikat tablicy, izolacja.
 - **Kalendarz:** kolizje, DST, CRUD, równoległe zapisy.
 - **Zlecenia:** przejścia, etapy, historia, numeracja, `canInvoice`.
 - **Wyceny:** zapis, wysyłka, outbox, błąd SMTP, link portalu.
@@ -1425,7 +1424,7 @@ Priorytet najbliższego etapu: **domknąć obieg zlecenia i faktury end-to-end**
 | [`src/server/zlecenia/README.md`](src/server/zlecenia/README.md) | zdjęcia, protokół, stan zlecenia |
 | [`src/server/wyceny/README.md`](src/server/wyceny/README.md) | zapis i wysyłka wycen |
 | [`src/server/portal/README.md`](src/server/portal/README.md) | tokeny i decyzja portalu |
-| [`src/server/klienci/README.md`](src/server/klienci/README.md) | CRUD, CSV, paginacja |
+| [`src/server/klienci/README.md`](src/server/klienci/README.md) | CRUD, CSV/XLSX, paginacja |
 | [`src/server/kalendarz/README.md`](src/server/kalendarz/README.md) | rezerwacje i kolizje |
 | [`components/*/README.md`](components) | szczegóły ekranów i odstępstw od Figmy |
 | [`branding/`](branding) | logo Flowcut (SVG) |

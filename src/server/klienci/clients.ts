@@ -2,6 +2,7 @@ import { z } from "zod";
 import { Prisma } from "../../../lib/db/generated/client";
 import { studioDb, type StudioDb } from "../../../lib/db/tenant";
 import { parseClientCsv, type CsvRowError } from "./csv";
+import { parseClientXlsx } from "./xlsx";
 import { ClientError } from "./errors";
 import { normalizeEmail, normalizePhone, normalizePlate } from "./plate";
 
@@ -270,11 +271,18 @@ export type ImportResult = {
 };
 
 /**
- * Import CSV w obrębie jednego `studioId`. Ten sam e-mail/telefon w innym
+ * Import CSV/XLSX w obrębie jednego `studioId`. Ten sam e-mail/telefon w innym
  * studiu to inny klient. Ponowny import tego samego pliku nic nie dopisuje.
  */
 export async function importClientsCsv(studioId: string, csv: string) {
-  const parsed = parseClientCsv(csv);
+  return importParsedClients(studioId, parseClientCsv(csv));
+}
+
+export async function importClientsXlsx(studioId: string, buffer: Buffer) {
+  return importParsedClients(studioId, await parseClientXlsx(buffer));
+}
+
+async function importParsedClients(studioId: string, parsed: ReturnType<typeof parseClientCsv>) {
   const db = studioDb(studioId);
   return db.$transaction(async (tx) => {
     const [clients, vehicles] = await Promise.all([

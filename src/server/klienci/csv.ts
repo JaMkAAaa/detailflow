@@ -70,7 +70,7 @@ export function parseCsv(text: string): string[][] {
   return rows.filter((cells) => cells.some((cell) => cell.trim()));
 }
 
-function mapHeaders(header: string[]) {
+function mapHeaders(header: string[], format = "CSV") {
   const index: Partial<Record<Column, number>> = {};
   header.forEach((cell, i) => {
     const key = fold(cell);
@@ -79,7 +79,7 @@ function mapHeaders(header: string[]) {
     });
   });
   if (index.name === undefined || index.make === undefined || index.model === undefined || index.plate === undefined) {
-    throw new ClientError(400, "Nieprawidłowy plik CSV. Potrzebne kolumny: imię, marka, model, tablica.");
+    throw new ClientError(400, `Nieprawidłowy plik ${format}. Potrzebne kolumny: imię, marka, model, tablica.`);
   }
   return index as Record<Column, number | undefined>;
 }
@@ -89,11 +89,16 @@ const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export function parseClientCsv(text: string): { rows: ParsedCsvRow[]; errors: CsvRowError[] } {
   if (text.length > MAX_CSV_BYTES) throw new ClientError(400, "Plik CSV jest za duży (maks. 1 MB).");
   const table = parseCsv(text);
+  return parseClientRows(table, "CSV");
+}
+
+/** Apply the exact CSV header, validation, and row-limit rules to tabular data. */
+export function parseClientRows(table: string[][], format = "CSV"): { rows: ParsedCsvRow[]; errors: CsvRowError[] } {
   const header = table[0];
-  if (!header) throw new ClientError(400, "Nieprawidłowy plik CSV. Potrzebne kolumny: imię, marka, model, tablica.");
-  const index = mapHeaders(header);
+  if (!header) throw new ClientError(400, `Nieprawidłowy plik ${format}. Potrzebne kolumny: imię, marka, model, tablica.`);
+  const index = mapHeaders(header, format);
   const body = table.slice(1);
-  if (body.length > MAX_CSV_ROWS) throw new ClientError(400, `Plik CSV ma za dużo wierszy (maks. ${MAX_CSV_ROWS}).`);
+  if (body.length > MAX_CSV_ROWS) throw new ClientError(400, `Plik ${format} ma za dużo wierszy (maks. ${MAX_CSV_ROWS}).`);
 
   const rows: ParsedCsvRow[] = [];
   const errors: CsvRowError[] = [];
@@ -145,4 +150,27 @@ export async function readCsvBody(request: Request) {
   if (!text.trim()) throw new ClientError(400, "Brak treści CSV.");
   if (text.length > MAX_CSV_BYTES) throw new ClientError(400, "Plik CSV jest za duży (maks. 1 MB).");
   return text;
+}
+
+export type ClientImportBody = { format: "csv"; data: string } | { format: "xlsx"; data: Buffer };
+
+/** Keep the existing CSV request formats; XLSX is accepted as a multipart file. */
+export async function readClientImportBody(request: Request): Promise<ClientImportBody> {
+  const type = request.headers.get("content-type") ?? "";
+  if (!type.includes("multipart/form-data")) return { format: "csv", data: await readCsvBody(request) };
+
+  const form = await request.formData();
+  const file = form.get("file") ?? form.get("csv");
+  if (!(file instanceof Blob)) {
+    if (typeof file === "string" && file.trim()) return { format: "csv", data: file };
+    throw new ClientError(400, "Dołącz plik CSV lub XLSX w polu file.");
+  }
+  if (file.size > MAX_CSV_BYTES) throw new ClientError(400, "Plik jest za duży (maks. 1 MB).");
+  if (file.size === 0) throw new ClientError(400, "Dołącz niepusty plik CSV lub XLSX.");
+
+  const fileName = typeof File !== "undefined" && file instanceof File ? file.name.toLowerCase() : "";
+  const isXlsx = fileName.endsWith(".xlsx") || file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  return isXlsx
+    ? { format: "xlsx", data: Buffer.from(await file.arrayBuffer()) }
+    : { format: "csv", data: await file.text() };
 }

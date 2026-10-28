@@ -1,6 +1,6 @@
 # Klienci i auta (#35)
 
-CRUD i import CSV. Lista D-05 (`directory.ts`) i mutacje (`clients.ts`) idą przez `studioDb(studioId)`.
+CRUD i import CSV/XLSX. Lista D-05 (`directory.ts`) i mutacje (`clients.ts`) idą przez `studioDb(studioId)`.
 Mutacje API wymagają sesji, membershipu (owner/manager/worker) i zgodnego Origin.
 
 ## Tablica — ostrzeżenie, nie twardy fail
@@ -30,14 +30,14 @@ kroić ich w przeglądarce. `GET /api/studios/:studioId/clients?page=&q=` zwraca
 - `GET|PATCH|DELETE /api/studios/:studioId/clients/:clientId` — karta, edycja, usunięcie (409 przy zleceniach/wycenach).
 - `POST /api/studios/:studioId/clients/:clientId/vehicles` — dodaj auto.
 - `PATCH|DELETE /api/studios/:studioId/vehicles/:vehicleId` — edycja (w tym `clientId` w tym samym studiu) / usunięcie.
-- `POST /api/studios/:studioId/clients/import` — JSON `{ csv }`, `text/csv` albo `multipart` pole `file`.
+- `POST /api/studios/:studioId/clients/import` — JSON `{ csv }`, `text/csv` albo multipart `file`; XLSX przyjmuje multipart `file`.
 
-CSV: kolumny `imię, telefon, e-mail, marka, model, tablica` (aliasy PL/EN; Excel `;` albo `,`; BOM).
+CSV/XLSX: kolumny `imię, telefon, e-mail, marka, model, tablica` (aliasy PL/EN; CSV obsługuje `;`, `,`, tab i BOM; XLSX czyta pierwszy arkusz). Limit obu formatów: 1 MB i 5000 wierszy.
 Wiersz bez imienia/marki/modelu/tablicy jest pomijany z błędem, reszta wchodzi.
 Dopasowanie istniejącego klienta: e-mail, potem telefon — **tylko w tym studiu**.
 Ten sam klient + ta sama tablica przy ponownym imporcie = `unchanged`.
 
 Obcy identyfikator i brak rekordu → ten sam 404.
 
-Testy: `clients.test.ts` — parser CSV, 20/stronę, ostrzeżenie tablicy, izolacja dwóch tenantów, HTTP 401/403/Origin.
+Testy: `clients.test.ts` — parser CSV/XLSX, pierwszy arkusz, limity i błędne pliki, 20/stronę, ostrzeżenie tablicy, izolacja dwóch tenantów, HTTP 401/403/Origin.
 Wymagają PostgreSQL z migracjami.
