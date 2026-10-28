@@ -1,5 +1,7 @@
 import { Worker, UnrecoverableError, type Job } from "bullmq";
 import { platformDb } from "../../lib/db/client";
+import { logger } from "../observability/logger";
+import { reportWorkerError } from "../observability/report";
 import { studioDb } from "../../lib/db/tenant";
 import type { KsefEventKind } from "../../lib/db/generated/client";
 import { KsefClient, KsefError } from "../ksef/client";
@@ -106,6 +108,14 @@ export function startKsefWorker(client?: KsefClient) {
     connection: redisConnection(), concurrency: 2,
     settings: { backoffStrategy: (attempt, _type, error) => Math.max(Math.min(5000 * 2 ** (attempt - 1), 300_000), error instanceof KsefError ? error.retryAfterMs ?? 0 : 0) },
   });
-  worker.on("error", () => console.error("[worker] KSeF TEST queue error"));
+  const log = logger.child({ service: "worker", queue: KSEF_QUEUE });
+  // Odszyfrowany token zostaje lokalną zmienną. Do logu i Sentry idzie tylko studioId.
+  worker.on("error", () => log.error("KSeF TEST queue error"));
+  worker.on("failed", (job, error) => {
+    const studioId = job?.data.studioId;
+    log.error({ studioId }, "KSeF TEST job failed");
+    if (!studioId) return;
+    reportWorkerError(error, { studioId, queue: KSEF_QUEUE });
+  });
   return worker;
 }

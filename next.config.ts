@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs/config";
 
 // Walidacja env przy starcie i buildzie (SKIP_ENV_VALIDATION=1 w obrazie buildowym).
 import "./lib/env";
@@ -6,11 +7,24 @@ import "./lib/env";
 const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
-  // BullMQ loads optional Redis adapters at runtime; keep them out of webpack.
-  serverExternalPackages: ["bullmq"],
+  // BullMQ ładuje opcjonalne adaptery w runtime. pino zostaje w node_modules, bo bundler gubi wątek sonic-boom.
+  serverExternalPackages: ["bullmq", "pino"],
   outputFileTracingIncludes: { "/api/studios/*/invoices/*/*": ["./app/fonts/Inter.ttf"] },
   // Next dev loguje domyślnie pełny URL, w tym sekret portalu.
   logging: { incomingRequests: false },
 };
 
-export default nextConfig;
+const uploadSourceMaps = Boolean(process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_ORG && process.env.SENTRY_PROJECT);
+
+export default withSentryConfig(nextConfig, {
+  silent: true,
+  telemetry: false,
+  sourcemaps: { disable: uploadSourceMaps ? false : true },
+  suppressOnRouterTransitionStartWarning: true,
+  errorHandler() {
+    return undefined;
+  },
+  webpack: {
+    treeshake: { removeDebugLogging: true, removeTracing: true },
+  },
+});

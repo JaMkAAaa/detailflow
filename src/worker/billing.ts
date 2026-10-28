@@ -1,4 +1,6 @@
 import { Queue, Worker } from "bullmq";
+import { logger } from "../observability/logger";
+import { reportWorkerError } from "../observability/report";
 import { redisConnection } from "../ksef/queue";
 import { sendTrialReminders } from "../server/billing/trial";
 
@@ -10,8 +12,12 @@ export async function startBillingWorker() {
     // Catch-up po restarcie; sentAt i lock w bazie deduplikują wiele workerów.
     await queue.add("trial-reminders", {});
     const worker = new Worker("billing-daily", () => sendTrialReminders(), { connection: redisConnection(), concurrency: 1 });
-    worker.on("error", () => console.error("[billing] worker error"));
-    worker.on("failed", () => console.error("[billing] daily job failed"));
+    const log = logger.child({ service: "worker", queue: "billing-daily" });
+    worker.on("error", () => log.error("billing worker error"));
+    worker.on("failed", (_job, error) => {
+      log.error("billing daily job failed");
+      reportWorkerError(error, { queue: "billing-daily" });
+    });
     return { close: async () => { await worker.close(); await queue.close(); } };
   } catch (error) {
     await queue.close();

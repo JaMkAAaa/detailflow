@@ -34,6 +34,12 @@ COPY . .
 RUN DATABASE_URL=postgresql://build:build@127.0.0.1:5432/detailflow_build \
     SKIP_ENV_VALIDATION=1 pnpm build
 
+# Cron pg_dump. Osobny obraz, żeby runner Next.js nie dźwigał klienta Postgresa.
+FROM deps AS backup
+RUN apk add --no-cache postgresql16-client || apk add --no-cache postgresql-client
+COPY . .
+CMD ["pnpm", "backup:cron"]
+
 # Produkcja: web (domyślnie) albo worker (`node dist/worker.mjs`) z tego samego obrazu.
 FROM node:24-alpine AS runner
 ENV NODE_ENV=production \

@@ -1,8 +1,8 @@
 import { createEnv } from "@t3-oss/env-nextjs";
 import { z } from "zod";
 
-// Integracje (Stripe, KSeF, e-mail, SMS, Sentry) są opcjonalne w szkielecie.
-// Każde issue, które je wdraża, przenosi swoje zmienne do wymaganych.
+// Stripe, KSeF, e-mail i SMS zostają opcjonalne, dopóki ich issue nie włączy sekretów.
+// Sentry jest podłączone (web + worker). DSN zostaje opcjonalne: bez niego zdarzenia są odrzucane.
 export const env = createEnv({
   server: {
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -41,9 +41,11 @@ export const env = createEnv({
   },
   client: {
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().startsWith("pk_").optional(),
+    NEXT_PUBLIC_SENTRY_DSN: z.url().optional(),
   },
   experimental__runtimeEnv: {
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+    NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,
   },
   skipValidation: !!process.env.SKIP_ENV_VALIDATION,
   emptyStringAsUndefined: true,

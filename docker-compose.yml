@@ -85,6 +85,20 @@ services:
       "
     env_file: .env
 
+  backup:
+    build:
+      context: .
+      target: backup
+    command: pnpm backup:cron
+    env_file: .env
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      postgres: { condition: service_healthy }
+      minio-init: { condition: service_completed_successfully }
+    restart: unless-stopped
+
   mailpit:
     image: axllent/mailpit
     ports: ["8025:8025", "1025:1025"]
