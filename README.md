@@ -246,7 +246,7 @@ Legenda: **Działa** = realne dane i zapis; **Częściowo** = część przepływ
 | Magazyn/statystyki/portfolio | **Brak** | menu „Wkrótce” | poza v1 |
 | Wyszukiwarka ⌘K | **Brak** | placeholder w topbarze | poza zakresem tego etapu |
 | E-mail transakcyjny | **Częściowo** | auth, zaproszenia, wycena, decyzja, trial | brak maila z fakturą; brak SMS |
-| Obserwowalność | **Brak** | `/api/health`, logi stdout | brak Sentry, metryk, gotowych alertów |
+| Obserwowalność | **Częściowo** | `/api/health` (DB i Redis), logi pino JSON, Sentry web + worker | brak metryk i gotowych alertów; Sentry milczy bez `SENTRY_DSN` |
 
 ### 3.2 Co to oznacza przy testach ręcznych
 
@@ -446,7 +446,11 @@ Bez `SMTP_URL` w trybie development maile auth trafiają do logu serwera; w prod
 
 | Zmienna | Znaczenie |
 | --- | --- |
-| `SENTRY_DSN` | zarezerwowane; Sentry **nie jest podłączone** |
+| `SENTRY_DSN` | Sentry dla serwera Next i workera. Puste = zdarzenia są odrzucane |
+| `NEXT_PUBLIC_SENTRY_DSN` | opcjonalny DSN przeglądarki (zwykle ten sam projekt) |
+| `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT` | opcjonalny upload source map przy buildzie. Bez kompletu upload jest wyłączony |
+| `BACKUP_RETENTION_DAYS` | domyślnie 14. `pnpm backup` robi jeden `pg_dump --format=custom` do S3; `backup:cron` i serwis Compose `backup` powtarzają go o `BACKUP_HOUR_UTC` (domyślnie 3) |
+| `BACKUP_S3_PREFIX` | domyślnie `backups/postgres` w `S3_BUCKET` |
 | `SKIP_ENV_VALIDATION` | używane w buildzie Docker/CI; nie ustawiaj w runtime produkcyjnym |
 
 ### 6.6 Ważne zależności między zmiennymi
@@ -1026,7 +1030,7 @@ Assety: logo Flowcut w `branding/`, ikony i zdjęcia demo w `public/`; część 
 
 | Metoda | Ścieżka | Dostęp | Opis |
 | --- | --- | --- | --- |
-| `GET` | `/api/health` | publiczny | `{ status: "ok", time }`; nie sprawdza DB/Redis/S3 |
+| `GET` | `/api/health` | publiczny | `{ status, time, checks: { db, redis } }`. 200 gdy oba żyją, inaczej 503. Nie sprawdza S3 i nie zwraca szczegółów połączenia |
 | `GET/POST` | `/api/auth/[...all]` | publiczny | Better Auth (login, magic link, reset itd.) |
 | `GET` | `/p/:token` | token | portal; brak efektów ubocznych |
 | `POST` | `/p/:token/decision` | token + Origin | decyzja o wycenie; formularz, 303 |
@@ -1328,16 +1332,17 @@ Wymaga `DATABASE_URL`, `REDIS_URL`, `S3_*`, `AUTH_SECRET`, `APP_URL` i konfigura
 - [ ] Stripe Tax i Customer Portal skonfigurowane osobno dla live.
 - [ ] `KSEF_ENV=test`, `KSEF_API_URL` test, `KSEF_TOKEN_ENCRYPTION_KEY` 32 bajty.
 - [ ] Worker działa i ma połączenie z Redis/SMTP/KSeF.
-- [ ] Backup `pg_dump` + test odtworzenia; polityka retencji.
-- [ ] Monitoring/alerty (brak w repo; dodać zewnętrznie).
+- [ ] `SENTRY_DSN` (i ewentualnie `NEXT_PUBLIC_SENTRY_DSN`) wskazują projekt Sentry. Bez DSN błędy nie wychodzą z procesu.
+- [ ] `pnpm backup` przechodzi, a serwis `backup` zostawia dumpy w `BACKUP_S3_PREFIX` i kasuje starsze niż `BACKUP_RETENTION_DAYS`. Odtworzenie: `pg_restore` na kopię.
+- [ ] Alerty na 503 z `/api/health` i na nowe issue w Sentry (poza repo).
 - [ ] Reverse proxy maskuje `/p/*` w logach i body odpowiedzi.
 - [ ] Regulamin, polityka prywatności, DPA, zgody.
 - [ ] Test zakupu kartą testową i webhooka; test reseed na kopii.
 
 ### 14.5 Backup i odtwarzanie
 
-- Backup: `pg_dump --format=custom` + retencja poza serwerem; szyfrowanie i ograniczone uprawnienia.
-- Odtwarzanie: `pg_restore` do osobnej bazy, `migrate deploy`, smoke test, dopiero potem przełączenie.
+- Backup: `pnpm backup` albo serwis Compose `backup` (`pg_dump --format=custom`, plik `backups/postgres/detailflow-….dump` w prywatnym buckecie). Hasło bazy idzie przez `PGPASSWORD`, nie przez argumenty procesu. Retencja domyślnie 14 dni; najnowszy dump zostaje nawet, gdy jest starszy. Osobnego klucza szyfrującego dumpa nie ma w aplikacji — na produkcji włącz SSE bucketa i osobne konto S3 tylko do backupu.
+- Odtwarzanie: `pg_restore --no-owner` do osobnej bazy, `migrate deploy`, smoke test, dopiero potem przełączenie.
 - Backup powinien obejmować też bucket S3 (zdjęcia, UPO) albo mieć politykę odtwarzania obiektów.
 - Logi i metryki nie mogą zawierać tokenów portalu, sekretów KSeF, payloadów Stripe ani danych klientów.
 
