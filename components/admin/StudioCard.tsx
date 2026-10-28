@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { AccessTools } from "@/components/admin/AccessTools";
+import { startSupportSessionAction, suspendStudioAction } from "@/app/(platform)/admin/(console)/studios/[publicCode]/actions";
 import { formatDate } from "@/components/klienci/format";
 import { formatPln } from "@/components/pulpit/demo";
 import { Badge } from "@/components/ui/badge";
@@ -42,7 +44,13 @@ function Limit({ label, used, max }: { label: string; used: number; max: number 
   );
 }
 
-export function StudioCard({ card }: { card: StudioCardData }) {
+export function StudioCard({
+  card,
+  supportSession,
+}: {
+  card: StudioCardData;
+  supportSession: { expiresAt: string; reason: string; ticketCode: string | null } | null;
+}) {
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -85,6 +93,12 @@ export function StudioCard({ card }: { card: StudioCardData }) {
             <Field label="Subscription" value={card.stripeSubscriptionId} />
           </dl>
         </section>
+        <AccessTools
+          publicCode={card.publicCode}
+          supportSession={supportSession}
+          suspendAction={suspendStudioAction}
+          supportAction={startSupportSessionAction}
+        />
         <section aria-labelledby="events-heading" className="rounded-xl bg-df-panel p-5 lg:col-span-2">
           <h2 id="events-heading" className="text-df-section">Zdarzenia</h2>
           {card.events.length === 0 ? (

@@ -10,7 +10,7 @@ import { Prisma, type KsefEventKind, type OrderStatus, type VehicleSize } from "
 import { studioDb } from "../lib/db/tenant";
 import { seedServices } from "../src/server/wyceny/catalog";
 import { hashPortalToken } from "../lib/portal/token";
-import { seedPlatform } from "./seed-platform";
+import { seedObsidianSupport, seedPlatform } from "./seed-platform";
 
 export const DEMO = {
   studioSlug: "obsidian-studio",
@@ -585,7 +585,8 @@ export async function seed() {
     ],
   });
 
-  await seedPlatform();
+  const platform = await seedPlatform();
+  await seedObsidianSupport(studioId, platform.operatorId);
   await platformDb.auditLog.createMany({
     data: [
       { studioId, actorId: owner.id, action: "studio.created", meta: {}, createdAt: waw("2025-03-03 10:00") },

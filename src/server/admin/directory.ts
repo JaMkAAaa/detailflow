@@ -164,6 +164,8 @@ function addressLine(studio: { address: string | null; postal: string | null; ci
 
 function eventDetail(meta: Prisma.JsonValue) {
   if (!meta || typeof meta !== "object" || Array.isArray(meta)) return null;
+  if (typeof meta.ticketCode === "string") return meta.ticketCode;
+  if (typeof meta.reason === "string") return meta.reason;
   const plan = meta.plan;
   if (plan === "solo" || plan === "studio" || plan === "pro") return BILLING_PLANS[plan].name;
   return null;

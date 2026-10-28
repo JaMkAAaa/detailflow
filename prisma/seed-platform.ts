@@ -37,8 +37,92 @@ type Extra = {
   recentOrder: boolean;
 };
 
+const FEATURE_FLAGS = [
+  {
+    key: "ksef_prod",
+    label: "KSeF PROD",
+    description: "Wysyłka na produkcyjne API KSeF. Domyślnie wyłączona. Worker v1 obsługuje tylko TEST.",
+    enabled: false,
+  },
+  {
+    key: "annual_billing",
+    label: "Abonament roczny",
+    description: "Poza v1. Nie tworzy ceny rocznej w Stripe.",
+    enabled: false,
+  },
+  {
+    key: "client_online_pay",
+    label: "Płatność online klienta",
+    description: "Poza v1. Nie przyjmuje płatności za detailing.",
+    enabled: false,
+  },
+] as const;
+
+export async function seedFeatureFlags() {
+  for (const flag of FEATURE_FLAGS) {
+    await platformDb.featureFlag.upsert({
+      where: { key: flag.key },
+      update: {},
+      create: { key: flag.key, label: flag.label, description: flag.description, enabled: flag.enabled },
+    });
+  }
+}
+
+/** Dwa zgłoszenia Obsidian Studio, żeby A-07 miało kolejkę i SLA po seedzie. */
+export async function seedObsidianSupport(studioId: string, actorId: string) {
+  const now = PLATFORM_DEMO.now;
+  await platformDb.supportTicket.deleteMany({ where: { publicCode: { in: ["TK-00041", "TK-00042"] } } });
+  await platformDb.supportTicket.create({
+    data: {
+      publicCode: "TK-00041",
+      studioId,
+      subject: "Faktura TEST odrzucona przez KSeF",
+      status: "open",
+      priority: "urgent",
+      openedAt: new Date(now.getTime() - 20 * 60_000),
+      slaDueAt: new Date(now.getTime() + 40 * 60_000),
+      assigneeId: actorId,
+      messages: {
+        create: {
+          fromStudio: true,
+          body: "FV na środowisku TEST wraca z błędem danych nabywcy. Proszę o podgląd, bez zmian w koncie.",
+          createdAt: new Date(now.getTime() - 20 * 60_000),
+        },
+      },
+    },
+  });
+  await platformDb.supportTicket.create({
+    data: {
+      publicCode: "TK-00042",
+      studioId,
+      subject: "Pracownik nie może wejść do kalendarza",
+      status: "waiting",
+      priority: "normal",
+      openedAt: new Date(now.getTime() - 26 * 60 * 60_000),
+      slaDueAt: new Date(now.getTime() - 18 * 60 * 60_000),
+      assigneeId: actorId,
+      messages: {
+        create: [
+          {
+            fromStudio: true,
+            body: "Konto pracownika kończy się błędem po zalogowaniu.",
+            createdAt: new Date(now.getTime() - 26 * 60 * 60_000),
+          },
+          {
+            authorId: actorId,
+            fromStudio: false,
+            body: "Sprawdziliśmy sesję. Poproś pracownika o nowy link i daj znać, czy wszedł.",
+            createdAt: new Date(now.getTime() - 25 * 60 * 60_000),
+          },
+        ],
+      },
+    },
+  });
+}
+
 /** 166 kont makiety + zakończone triale i odejścia do konwersji / MRR. */
 export async function seedPlatform() {
+  await seedFeatureFlags();
   await platformDb.studio.deleteMany({ where: { slug: { startsWith: PLATFORM_DEMO.slugPrefix } } });
 
   const operator = await platformDb.user.upsert({
