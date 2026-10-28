@@ -28,7 +28,7 @@ export function bookingDate(value: string): Date | null {
   return candidates.length === 1 ? candidates[0]! : null;
 }
 
-const dateSchema = z.iso.datetime({ local: true, offset: true }).transform((value, ctx) => {
+export const bookingDateSchema = z.iso.datetime({ local: true, offset: true }).transform((value, ctx) => {
   const date = bookingDate(value);
   if (!date) {
     ctx.addIssue({ code: "custom", message: "Nieprawidłowy lub niejednoznaczny czas Europe/Warsaw. Podaj offset UTC." });
@@ -37,7 +37,7 @@ const dateSchema = z.iso.datetime({ local: true, offset: true }).transform((valu
   return date;
 });
 export const bookingSchema = z.object({
-  bayId: z.string().trim().min(1), scheduledFrom: dateSchema, scheduledTo: dateSchema,
+  bayId: z.string().trim().min(1), scheduledFrom: bookingDateSchema, scheduledTo: bookingDateSchema,
 }).strict().refine((value) => value.scheduledFrom < value.scheduledTo, {
   path: ["scheduledTo"], message: "Koniec rezerwacji musi być późniejszy niż początek.",
 });
