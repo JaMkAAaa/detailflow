@@ -1,5 +1,4 @@
 import { headers } from "next/headers";
-import { env } from "../../lib/env";
 
 export function sameOrigin(origin: string | null, appUrl: string) {
   if (!origin) return false;
@@ -9,6 +8,7 @@ export function sameOrigin(origin: string | null, appUrl: string) {
 
 /** Server Actions Next sprawdzają Origin. Ten warunek jest drugi, jawny, i pada przy braku nagłówka. */
 export async function assertActionOrigin() {
+  const { env } = await import("../../lib/env");
   const origin = (await headers()).get("origin");
   if (!sameOrigin(origin, env.APP_URL)) throw new Error("Niedozwolone źródło żądania.");
 }
