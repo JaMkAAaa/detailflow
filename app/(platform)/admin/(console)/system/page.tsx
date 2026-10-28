@@ -1,3 +1,8 @@
-export default function AdminSystemPage() {
-  return <h1 className="text-df-headline">System</h1>;
+import { SystemScreen } from "@/components/admin/SystemScreen";
+import { getSystemSnapshot } from "@/src/server/admin/system";
+
+export const metadata = { title: "System i KSeF — Detailflow" };
+
+export default async function AdminSystemPage() {
+  return <SystemScreen data={await getSystemSnapshot()} />;
 }

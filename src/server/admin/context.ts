@@ -10,5 +10,5 @@ export async function requirePlatform() {
     select: { role: true },
   });
   if (!operator) redirect(PLATFORM_LOGIN_PATH);
-  return { user: session.user, role: operator.role };
+  return { user: session.user, role: operator.role, sessionId: session.session.id };
 }

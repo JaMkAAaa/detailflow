@@ -1,3 +1,4 @@
+import { APIError } from "better-auth/api";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
@@ -5,6 +6,7 @@ import { magicLink } from "better-auth/plugins/magic-link";
 import { platformDb } from "./db/client";
 import { AUTH_COOKIE_PREFIX } from "./auth/cookie";
 import { sendAuthMailInBackground } from "./auth/email";
+import { studioLoginBlocked } from "../src/server/studio/login-gate";
 import { hashPassword, verifyPassword } from "./auth/password";
 import { PASSWORD_MIN_LENGTH } from "./auth/password-policy";
 import { env } from "./env";
@@ -58,6 +60,19 @@ export const auth = betterAuth({
   advanced: {
     cookiePrefix: AUTH_COOKIE_PREFIX,
     database: { generateId: false },
+  },
+
+  databaseHooks: {
+    session: {
+      create: {
+        before: async (session) => {
+          if (await studioLoginBlocked(session.userId)) {
+            throw new APIError("FORBIDDEN", { message: "Konto studia jest wstrzymane. Skontaktuj się ze wsparciem." });
+          }
+          return { data: session };
+        },
+      },
+    },
   },
 
   plugins: [

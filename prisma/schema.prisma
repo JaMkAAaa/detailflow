@@ -39,6 +39,17 @@ enum PlatformRole {
   admin
 }
 
+enum SupportTicketStatus {
+  open
+  waiting
+  resolved
+}
+
+enum SupportPriority {
+  normal
+  urgent
+}
+
 enum VehicleSize {
   small
   medium
@@ -152,6 +163,9 @@ model Studio {
   intakeProtocols      IntakeProtocol[]
   intakeDamages        IntakeDamage[]
   subscriptionPayments SubscriptionPayment[]
+  supportTickets       SupportTicket[]
+  supportMessages      SupportMessage[]
+  supportSessions      SupportSession[]
 
   @@index([status])
 }
@@ -236,6 +250,7 @@ model PlatformOperator {
   role      PlatformRole
   createdAt DateTime     @default(now())
   user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mfa       OperatorMfa?
 }
 
 model AuditLog {
@@ -247,6 +262,98 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   @@index([studioId, createdAt])
+  @@index([createdAt])
+}
+
+// Flaga platformy. Wyłączenie KSeF PROD jest domyślne; worker i tak wysyła tylko TEST.
+model FeatureFlag {
+  key         String   @id
+  label       String
+  description String
+  enabled     Boolean  @default(false)
+  updatedAt   DateTime @updatedAt
+  updatedById String?
+}
+
+// Zgłoszenie wsparcia. SLA jest terminem odpowiedzi, nie obietnicą naprawy.
+model SupportTicket {
+  id         String              @id @default(cuid())
+  publicCode String              @unique
+  studioId   String
+  subject    String
+  status     SupportTicketStatus @default(open)
+  priority   SupportPriority     @default(normal)
+  slaDueAt   DateTime
+  openedAt   DateTime            @default(now())
+  resolvedAt DateTime?
+  assigneeId String?
+  studio     Studio              @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  messages   SupportMessage[]
+  sessions   SupportSession[]
+
+  @@unique([id, studioId])
+  @@index([studioId, openedAt])
+  @@index([status, slaDueAt])
+}
+
+model SupportMessage {
+  id         String        @id @default(cuid())
+  ticketId   String
+  studioId   String
+  authorId   String?
+  fromStudio Boolean       @default(false)
+  body       String
+  createdAt  DateTime      @default(now())
+  ticket     SupportTicket @relation(fields: [ticketId, studioId], references: [id, studioId], onDelete: Cascade)
+  studio     Studio        @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@index([studioId, ticketId, createdAt])
+}
+
+// Sesja wsparcia: audytowany podgląd, nigdy sesja użytkownika studia.
+model SupportSession {
+  id        String         @id @default(cuid())
+  studioId  String
+  actorId   String
+  ticketId  String?
+  reason    String
+  startedAt DateTime       @default(now())
+  expiresAt DateTime
+  endedAt   DateTime?
+  studio    Studio         @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  ticket    SupportTicket? @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+
+  @@index([studioId, actorId, expiresAt])
+  @@index([expiresAt])
+}
+
+// TOTP operatora panelu. Sekret zaszyfrowany, kody zapasowe tylko jako skrót.
+model OperatorMfa {
+  operatorId       String             @id
+  secretEnc        String
+  enabledAt        DateTime?
+  lastAcceptedStep Int                @default(0)
+  operator         PlatformOperator   @relation(fields: [operatorId], references: [id], onDelete: Cascade)
+  backups          OperatorMfaBackup[]
+}
+
+model OperatorMfaBackup {
+  id         String      @id @default(cuid())
+  operatorId String
+  codeHash   String
+  usedAt     DateTime?
+  operator   OperatorMfa @relation(fields: [operatorId], references: [operatorId], onDelete: Cascade)
+
+  @@index([operatorId, usedAt])
+}
+
+// Drugi składnik ważny dla bieżącej sesji panelu. Bez niego A-08 nie wpuszcza.
+model PlatformMfaStepUp {
+  sessionId  String   @id
+  operatorId String
+  expiresAt  DateTime
+
+  @@index([operatorId])
 }
 
 // Wpływ z Stripe `invoice.paid` (abonament Detailflow, netto PLN).

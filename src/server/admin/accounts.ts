@@ -102,6 +102,14 @@ export function studiosExportHref(query: Pick<StudiosQuery, "q" | "filter">) {
 export function auditEventLabel(action: string) {
   if (action === "studio.created") return "Konto utworzone";
   if (action === "billing.subscription_active") return "Abonament aktywny";
+  if (action === "studio.suspended") return "Konto wstrzymane";
+  if (action === "support.session.started") return "Sesja wsparcia";
+  if (action === "support.ticket.opened") return "Zgłoszenie otwarte";
+  if (action === "support.ticket.replied") return "Odpowiedź wsparcia";
+  if (action === "support.ticket.resolved") return "Zgłoszenie zamknięte";
+  if (action === "platform.operator.role") return "Zmiana roli operatora";
+  if (action === "platform.flag.set") return "Zmiana flagi";
+  if (action === "platform.mfa.enabled") return "Włączono MFA";
   return action;
 }
 
