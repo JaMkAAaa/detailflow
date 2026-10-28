@@ -24,7 +24,7 @@ Wspólny komponent menu administratora: `117:457`, 7 wariantów. Ekrany korzysta
 ## Definicje i spójność metryk
 
 - Stan: 26.10.2026, 11:30. Kwoty abonamentów netto w PLN.
-- Wszystkie studia: 166 = 128 aktywnych płacących + 24 triale + 6 z zaległością + 8 wstrzymanych. Są to rozłączne grupy na potrzeby tej makiety.
+- Wszystkie studia w A-02: 192 = 128 aktywnych płacących + 24 triale + 6 z zaległością + 8 wstrzymanych + 26 anulowanych (archiwum churnu, w liście wpadają w filtr „Wstrzymane”). Pierwsze cztery grupy to 166 kont makiety.
 - MRR w tym projekcie to wartość miesięczna aktywnych abonamentów. Wyklucza triale, konta z zaległością i konta wstrzymane. Nie jest sumą faktycznie pobranych płatności.
 - Solo: 64 × 79 zł = 5 056 zł; Studio: 48 × 149 zł = 7 152 zł; Pro: 16 × 279 zł = 4 464 zł. Razem: 128 kont i 16 672 zł.
 - Wrzesień: 14 920 zł MRR. Wzrost: 1 752 zł, czyli 11,7% po zaokrągleniu.

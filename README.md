@@ -454,7 +454,7 @@ Bez `SMTP_URL` w trybie development maile auth trafiają do logu serwera; w prod
 - `APP_URL` musi być **dokładnym originem**, z którego przeglądarka wysyła żądania. Wszystkie zapisy API porównują `Origin` z `new URL(APP_URL).origin`. Inny port/host = 403.
 - `S3_PUBLIC_ENDPOINT` musi być osiągalny z przeglądarki, bo podpis obejmuje host. W Compose `S3_ENDPOINT` to `minio:9000`, więc lokalnie ustaw `S3_PUBLIC_ENDPOINT=http://localhost:9000`.
 - `KSEF_TOKEN_ENCRYPTION_KEY` nie może leżeć w repo; zmiana klucza wymaga ponownego zapisania tokenów (brak automatycznej rotacji).
-- Prisma 7 **nie czyta `.env` sama**. `DATABASE_URL` musi być w środowisku procesu; `prisma.config.ts` bierze je z `process.env`.
+- `prisma.config.ts` wczytuje `.env` z katalogu repo, jeśli `DATABASE_URL` nie jest już w środowisku procesu. W kontenerze zmienne pochodzą z `env_file` w Compose.
 
 ---
 
@@ -1508,7 +1508,7 @@ pnpm dev
 
 ### `DATABASE_URL is not set` / Prisma nie widzi `.env`
 
-Prisma 7 nie czyta `.env` sama. Ustaw `DATABASE_URL` w środowisku procesu albo uruchamiaj przez `docker compose` z `env_file`.
+`prisma.config.ts` wczytuje `.env` z katalogu repo tylko wtedy, gdy `DATABASE_URL` nie jest ustawiony w środowisku. Sprawdź, czy plik istnieje (`cp .env.example .env`) i czy komenda jest uruchamiana z katalogu repo. W kontenerze zmienne pochodzą z `env_file` w Compose.
 
 ### `P1001` / baza nieosiągalna
 
