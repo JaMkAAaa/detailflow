@@ -18,7 +18,7 @@ const tabs = {
 } as const;
 
 /** Trasy bez własnej zakładki — podświetlają „Więcej”. */
-const moreRoutes = ["/more", "/invoices", "/customers", "/team"];
+const moreRoutes = ["/more", "/invoices", "/customers", "/team", "/settings"];
 
 /** Szczegóły zlecenia, FV i kreator wyceny mają własne akcje mobilne. */
 const isOrderDetails = (pathname: string) => /^\/orders\/[^/]+/.test(pathname);

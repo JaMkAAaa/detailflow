@@ -22,7 +22,7 @@ Połączenia mają timeout, blokują przekierowania i korzystają wyłącznie z 
   np. wygenerowane przez `openssl rand -base64 32`. Klucz poza bazą i repozytorium.
 - `REDIS_URL`: Redis dla BullMQ, wspólny dla web i worker.
 - `PUT /api/studios/:studioId/ksef/token`, JSON `{ "token": "…" }`:
-  wymaga sesji, uprawnienia `invoices:manage` i prawidłowego Origin. Odpowiedź 204.
+  wymaga sesji właściciela (`studio:settings`) i prawidłowego Origin. Odpowiedź 204.
   Nie zwraca tokenu. Studio musi mieć `ksefEnv=test` i skonfigurowany NIP.
 - Token zapisujemy w `Studio.ksefTokenEnc` jako AES-256-GCM. AAD wiąże go z ID studia,
   środowiskiem TEST i wersją formatu. Nie można przenieść szyfrogramu do innego studia.

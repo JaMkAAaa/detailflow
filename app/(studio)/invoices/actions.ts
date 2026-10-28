@@ -20,5 +20,6 @@ export async function setKsefEnvAction(_prev: { error: string }, form: FormData)
   }
   revalidatePath("/", "layout");
   revalidatePath("/invoices");
+  revalidatePath("/settings");
   return { error: "" };
 }

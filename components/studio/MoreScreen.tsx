@@ -71,13 +71,13 @@ export function MoreScreen({
     {
       title: "KONTO",
       items: [
-        ...(role === "owner" ? [{ label: "Abonament Detailflow", icon: "settings", href: "/billing" }] : []),
-        ...(role === "worker"
-          ? []
-          : [
-              { label: "Ustawienia i KSeF", icon: "settings" },
-              { label: "Zaproś do studia", icon: "klienci", href: "/team" },
-            ]),
+        ...(role === "owner"
+          ? [
+              { label: "Abonament Detailflow", icon: "settings", href: "/billing" },
+              { label: "Ustawienia i KSeF", icon: "settings", href: "/settings" },
+            ]
+          : []),
+        ...(role === "worker" ? [] : [{ label: "Zaproś do studia", icon: "klienci", href: "/team" }]),
         { label: "Pomoc", icon: "help" },
         { label: "Wyloguj", icon: "logout", href: "/logout" },
       ],
