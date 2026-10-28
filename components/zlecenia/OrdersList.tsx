@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
-import { formatPln } from "@/components/pulpit/demo";
+import Link from "next/link";
+import { formatPln } from "@/lib/format-pln";
 import { columns, type BoardOrder } from "./board-demo";
 
 const badge = {
@@ -7,6 +8,7 @@ const badge = {
   in_progress: "in-progress",
   ready_for_pickup: "ready-for-pickup",
   completed: "completed",
+  canceled: "error",
 } as const;
 
 const headings = ["ZLECENIE", "AUTO / KLIENT", "USŁUGA", "PRACOWNIK", "STATUS", "TERMIN", "WARTOŚĆ"];
@@ -14,10 +16,8 @@ const headings = ["ZLECENIE", "AUTO / KLIENT", "USŁUGA", "PRACOWNIK", "STATUS",
 /** Widok „Lista” — te same zlecenia co na tablicy, w kolejności kolumn. */
 export function OrdersList({
   orders,
-  onOpenOrder,
 }: {
   orders: BoardOrder[];
-  onOpenOrder: (order: BoardOrder) => void;
 }) {
   const rows = columns.flatMap(({ status }) => orders.filter((order) => order.status === status));
   return (
@@ -47,13 +47,13 @@ export function OrdersList({
             <tr key={order.number} className="h-[59px]">
               <td className="pr-2 text-df-body text-df-muted">#{order.number}</td>
               <td className="pr-2">
-                <button onClick={() => onOpenOrder(order)} className="text-left hover:text-df-lime">
+                <Link href={`/orders/${order.number}`} className="text-left hover:text-df-lime">
                   <span className="block text-df-strong">{order.vehicle}</span>
                   <span className="mt-px block text-df-label text-df-muted">{order.customer}</span>
-                </button>
+                </Link>
               </td>
               <td className="pr-2 text-df-body text-df-muted">{order.service}</td>
-              <td className="pr-2 text-df-body text-df-muted">{order.employee}</td>
+              <td className="pr-2 text-df-body text-df-muted">—</td>
               <td className="pr-2">
                 <Badge variant={badge[order.status]} />
               </td>

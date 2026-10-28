@@ -1,19 +1,17 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { formatPln } from "@/components/pulpit/demo";
+import { formatPln } from "@/lib/format-pln";
 import { cn } from "@/lib/utils";
 import { IntakeSchematic } from "./intake-schematic";
 import {
-  formatDay,
-  formatDayTime,
-  formatDayYear,
-  formatTime,
   type HistoryEvent,
   type OrderDetailsData,
   type OrderPhoto,
-} from "./demo";
+} from "./order-types";
+import { formatDay, formatDayTime, formatDayYear, formatTime } from "./order-format";
 
 type Notice = (title: string, description: string) => void;
 
@@ -43,7 +41,7 @@ function PhotoFrame({ photo, vehicle, className, sizes }: { photo: OrderPhoto; v
     return (
       <div className={cn("flex flex-col items-center justify-center gap-1 rounded-[10px] bg-df-raised text-df-muted", className)}>
         <span className="text-df-section text-df-text">#{String(photo.no).padStart(2, "0")}</span>
-        <span className="text-df-label">Podgląd niedostępny w demo</span>
+        <span className="text-df-label">Podgląd niedostępny</span>
       </div>
     );
   }
@@ -56,6 +54,8 @@ function PhotoFrame({ photo, vehicle, className, sizes }: { photo: OrderPhoto; v
 
 function IntakeSummary({ data }: { data: OrderDetailsData }) {
   const { intake } = data;
+  if (!intake.protocol) return <p className="rounded-[10px] bg-df-raised p-6 text-center text-df-body text-df-muted">Protokół przyjęcia nie został jeszcze utworzony.</p>;
+  if (intake.damages.length === 0) return <p className="rounded-[10px] bg-df-raised p-6 text-center text-df-body text-df-muted">Protokół #{intake.protocol} nie zawiera jeszcze punktów uszkodzeń.</p>;
   return (
     <>
       <div className="flex gap-6">
@@ -69,16 +69,14 @@ function IntakeSummary({ data }: { data: OrderDetailsData }) {
                 <span aria-hidden="true" className="mr-3">{damage.no}</span>
                 {damage.title}
               </p>
-              <p className="mt-1 text-df-label text-df-muted">
-                {damage.size} · zdjęcie #{String(damage.photo).padStart(2, "0")}
-              </p>
+              <p className="mt-1 text-df-label text-df-muted">{damage.size}{damage.photo ? ` · zdjęcie #${String(damage.photo).padStart(2, "0")}` : ""}</p>
             </li>
           ))}
         </ol>
       </div>
-      <p className="text-df-label text-df-green">
+      {intake.acceptedAt && <p className="text-df-label text-df-green">
         ✓ Stan zaakceptowany przez klienta · {formatDayYear(intake.acceptedAt)}, {formatTime(intake.acceptedAt)}
-      </p>
+      </p>}
     </>
   );
 }
@@ -113,7 +111,7 @@ export function Overview({
             <>
               <PhotoFrame photo={latest} vehicle={data.vehicle} className="h-[220px] w-full" sizes="(min-width: 1280px) 722px, 60vw" />
               <div className="flex items-center gap-3 text-df-label text-df-muted">
-                <Badge variant={data.status} />
+                <Badge variant={data.status}>{data.status === "error" ? "Anulowane" : undefined}</Badge>
                 <span>{formatDayTime(latest.at)} · {data.intake.by}</span>
               </div>
             </>
@@ -123,11 +121,7 @@ export function Overview({
         </Card>
         <Card
           title="Stan auta przy przyjęciu"
-          aside={
-            <button type="button" onClick={() => onOpenTab("stan-auta")} className={textButton}>
-              Protokół #{data.intake.protocol}
-            </button>
-          }
+          aside={data.intake.protocol ? <button type="button" onClick={() => onOpenTab("stan-auta")} className={textButton}>Protokół #{data.intake.protocol}</button> : <span>Protokół przyjęcia</span>}
         >
           <IntakeSummary data={data} />
         </Card>
@@ -135,10 +129,10 @@ export function Overview({
 
       <div className="flex flex-col gap-5">
         <Card title="Postęp prac" aside={data.bay} className="gap-2">
-          <div><Badge variant={data.status} /></div>
+          <div><Badge variant={data.status}>{data.status === "error" ? "Anulowane" : undefined}</Badge></div>
           <Stages stages={data.stages} />
         </Card>
-        <Card title="Wycena" aside={`${quote.status} ✓`}>
+        <Card title="Wycena" aside={quote.status === "—" ? "Kwota zlecenia" : `${quote.status} ✓`}>
           <dl className="flex flex-col gap-4 text-df-body">
             {quote.items.map((item) => (
               <div key={item.name} className="flex justify-end gap-6">
@@ -155,15 +149,9 @@ export function Overview({
         </Card>
         <section aria-label="Kontakt do klienta" className="flex flex-col gap-4 rounded-xl bg-df-panel p-5">
           <h2 className="text-df-section">{customer.name}</h2>
-          <a href={`tel:${customer.phone.replaceAll(" ", "")}`} className="w-fit text-df-body text-df-muted hover:text-df-text">{customer.phone}</a>
-          <a href={`mailto:${customer.email}`} className="w-fit text-df-body text-df-muted hover:text-df-text">{customer.email}</a>
-          <Button
-            variant="secondary"
-            className="h-10 w-full text-df-label"
-            onClick={() => notice("Karta klienta — wkrótce", `Karta klienta ${customer.name} będzie dostępna razem z listą klientów.`)}
-          >
-            Otwórz kartę klienta ↗
-          </Button>
+          {customer.phone && <a href={`tel:${customer.phone.replaceAll(" ", "")}`} className="w-fit text-df-body text-df-muted hover:text-df-text">{customer.phone}</a>}
+          {customer.email && <a href={`mailto:${customer.email}`} className="w-fit text-df-body text-df-muted hover:text-df-text">{customer.email}</a>}
+          {customer.id && <Link href={`/customers/${customer.id}`} className="flex h-10 items-center justify-center rounded-md bg-df-raised px-4 text-df-label font-medium hover:bg-df-hover">Otwórz kartę klienta ↗</Link>}
         </section>
       </div>
     </div>
@@ -224,41 +212,21 @@ export function PhotosTab({ data, notice }: { data: OrderDetailsData; notice: No
 export function IntakeTab({ data }: { data: OrderDetailsData }) {
   const { intake } = data;
   return (
-    <Card title="Stan auta przy przyjęciu" aside={`Protokół #${intake.protocol}`}>
-      <p className="text-df-body text-df-muted">
-        Przyjęto {formatDayTime(intake.at)} · przyjął {intake.by} · {data.vehicle}, {data.plate}
-      </p>
-      <div className="flex gap-6">
-        <div className="flex h-[227px] w-[280px] shrink-0 justify-center rounded-lg bg-df-raised p-4">
-          <IntakeSchematic damages={intake.damages} />
-        </div>
-        <table className="h-fit w-full min-w-0 text-left text-df-body">
-          <caption className="sr-only">Uszkodzenia zapisane w protokole #{intake.protocol}</caption>
-          <thead className="text-df-label text-df-muted">
-            <tr className="border-b border-df-line">
-              <th scope="col" className="py-2 pr-4 font-medium">Nr</th>
-              <th scope="col" className="py-2 pr-4 font-medium">Uszkodzenie</th>
-              <th scope="col" className="py-2 pr-4 font-medium">Element</th>
-              <th scope="col" className="py-2 pr-4 font-medium">Rozmiar</th>
-              <th scope="col" className="py-2 font-medium">Zdjęcie</th>
-            </tr>
-          </thead>
-          <tbody>
-            {intake.damages.map((damage) => (
-              <tr key={damage.no} className="border-b border-df-line last:border-0">
-                <td className="py-3 pr-4 text-df-muted">{damage.no}</td>
-                <td className="py-3 pr-4 text-df-strong">{damage.title}</td>
-                <td className="py-3 pr-4">{damage.part}</td>
-                <td className="py-3 pr-4">{damage.size}</td>
-                <td className="py-3">#{String(damage.photo).padStart(2, "0")}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <p className="text-df-label text-df-green">
-        ✓ Stan zaakceptowany przez klienta · {formatDayYear(intake.acceptedAt)}, {formatTime(intake.acceptedAt)}
-      </p>
+    <Card title="Stan auta przy przyjęciu" aside={intake.protocol ? `Protokół #${intake.protocol}` : undefined}>
+      {!intake.protocol ? <p className="rounded-[10px] bg-df-raised p-6 text-center text-df-body text-df-muted">Protokół przyjęcia nie został jeszcze utworzony.</p> : <>
+        <p className="text-df-body text-df-muted">Przyjęto {formatDayTime(intake.at)} · przyjął {intake.by} · {data.vehicle}, {data.plate}</p>
+        {intake.damages.length === 0 ? <p className="rounded-[10px] bg-df-raised p-6 text-center text-df-body text-df-muted">Nie dodano jeszcze punktów uszkodzeń.</p> : <div className="flex gap-6">
+          <div className="flex h-[227px] w-[280px] shrink-0 justify-center rounded-lg bg-df-raised p-4"><IntakeSchematic damages={intake.damages} /></div>
+          <table className="h-fit w-full min-w-0 text-left text-df-body">
+            <caption className="sr-only">Uszkodzenia zapisane w protokole #{intake.protocol}</caption>
+            <thead className="text-df-label text-df-muted"><tr className="border-b border-df-line">
+              <th scope="col" className="py-2 pr-4 font-medium">Nr</th><th scope="col" className="py-2 pr-4 font-medium">Uszkodzenie</th><th scope="col" className="py-2 pr-4 font-medium">Element</th><th scope="col" className="py-2 pr-4 font-medium">Rozmiar</th><th scope="col" className="py-2 font-medium">Zdjęcie</th>
+            </tr></thead>
+            <tbody>{intake.damages.map((damage) => <tr key={damage.no} className="border-b border-df-line last:border-0"><td className="py-3 pr-4 text-df-muted">{damage.no}</td><td className="py-3 pr-4 text-df-strong">{damage.title}</td><td className="py-3 pr-4">{damage.part}</td><td className="py-3 pr-4">{damage.size}</td><td className="py-3">{damage.photo ? `#${String(damage.photo).padStart(2, "0")}` : "—"}</td></tr>)}</tbody>
+          </table>
+        </div>}
+        {intake.acceptedAt && <p className="text-df-label text-df-green">✓ Stan zaakceptowany przez klienta · {formatDayYear(intake.acceptedAt)}, {formatTime(intake.acceptedAt)}</p>}
+      </>}
     </Card>
   );
 }

@@ -1,0 +1,21 @@
+export type StageState = "done" | "current" | "todo";
+export type OrderStage = { name: string; note: string; state: StageState };
+export type IntakeDamage = { no: number; title: string; part: string; size: string; photo?: number };
+export type OrderPhoto = { no: number; at: string; caption: string; stage: string; src?: string };
+export type HistoryEvent = { at: string; title: string; detail?: string; actor: string; kind: "studio" | "client" | "system" };
+export type OrderDetailsData = {
+  id: string;
+  clientId?: string;
+  number: string;
+  vehicle: string;
+  plate: string;
+  bay: string;
+  status: "in-progress" | "accepted" | "ready-for-pickup" | "completed" | "error";
+  service: string;
+  stages: OrderStage[];
+  customer: { id?: string; name: string; phone: string; email: string };
+  quote: { status: string; items: { name: string; grossPln: string }[]; totalGrossPln: string };
+  intake: { protocol: string; at: string; by: string; acceptedAt: string; damages: IntakeDamage[] };
+  photos: OrderPhoto[];
+  history: HistoryEvent[];
+};

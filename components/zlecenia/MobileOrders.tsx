@@ -3,15 +3,14 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { formatPln } from "@/components/pulpit/demo";
+import { formatPln } from "@/lib/format-pln";
 import { MaskIcon } from "@/components/studio/MaskIcon";
-import { NoticeSheet, type Notice } from "@/components/studio/NoticeSheet";
-import { NoResultsState } from "@/components/states";
+import { EmptyState, NoResultsState } from "@/components/states";
 import { cn } from "@/lib/utils";
-import { boardOrders, filterOrders, type BoardOrder, type OrderStatus } from "./board-demo";
-import { findOrder } from "./demo";
+import { filterOrders, type BoardOrder, type OrderStatus } from "./board-demo";
+import { OrderCreateDialog, type OrderClientChoice, type OrderServiceChoice } from "./OrderCreateDialog";
 
-type ActiveStatus = Exclude<OrderStatus, "completed">;
+type ActiveStatus = Exclude<OrderStatus, "completed" | "canceled">;
 
 /** Kolejność grup jak w Figmie M-03: najpierw to, co wymaga pracy teraz. */
 const groups: { status: ActiveStatus; title: string; dot: string }[] = [
@@ -56,16 +55,16 @@ function OrderCardBody({ order }: { order: BoardOrder }) {
 }
 
 /**
- * M-03 — lista aktywnych zleceń w układzie telefonu. Te same dane co tablica D-03
- * (`boardOrders` bez zakończonych), wszystkie karty w jednej przewijanej treści strony.
+ * M-03 — lista aktywnych zleceń w układzie telefonu. Dane pochodzą z API zleceń.
  */
-export function MobileOrders({ orders = boardOrders }: { orders?: BoardOrder[] }) {
+export function MobileOrders({ orders, studioId = "", clients = [], services = [], onCreated = () => undefined }: {
+  orders: BoardOrder[]; studioId?: string; clients?: OrderClientChoice[]; services?: OrderServiceChoice[]; onCreated?: (order: unknown) => void;
+}) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<ActiveStatus | null>(null);
-  const [notice, setNotice] = useState<Notice | null>(null);
-
-  const active = orders.filter((order) => order.status !== "completed");
-  const found = filterOrders(active, { query, employee: "", service: "" });
+  const [createOpen, setCreateOpen] = useState(false);
+  const active = orders.filter((order) => order.status !== "completed" && order.status !== "canceled");
+  const found = filterOrders(active, { query, service: "" });
   const visible = status ? found.filter((order) => order.status === status) : found;
   const count = (value: ActiveStatus) => found.filter((order) => order.status === value).length;
 
@@ -78,7 +77,7 @@ export function MobileOrders({ orders = boardOrders }: { orders?: BoardOrder[] }
     <div className="flex flex-col gap-4">
       <header>
         <p className="text-df-body font-medium text-df-muted">{active.length} aktywnych</p>
-        <h1 className="text-[26px] leading-[1.15] font-bold">Zlecenia</h1>
+        <div className="flex items-center gap-3"><h1 className="flex-1 text-[26px] leading-[1.15] font-bold">Zlecenia</h1><button type="button" onClick={() => setCreateOpen(true)} className="h-10 rounded-lg bg-df-lime px-3 text-df-body font-semibold text-df-bg">＋ Nowe</button></div>
       </header>
 
       <label className="flex items-center gap-2.5 rounded-[14px] bg-df-panel px-3.5 py-[13px] text-df-muted">
@@ -110,7 +109,9 @@ export function MobileOrders({ orders = boardOrders }: { orders?: BoardOrder[] }
         ))}
       </div>
 
-      {visible.length === 0 ? (
+      {active.length === 0 ? (
+        <EmptyState title="Brak aktywnych zleceń" description="Nowe zlecenia pojawią się tutaj po ich utworzeniu." actions={<button type="button" onClick={() => setCreateOpen(true)} className="rounded-lg bg-df-lime px-4 py-2 text-df-body font-semibold text-df-bg">＋ Nowe zlecenie</button>} />
+      ) : visible.length === 0 ? (
         <NoResultsState query={query} onClearFilters={clearFilters} />
       ) : (
         groups.map((group) => {
@@ -125,25 +126,7 @@ export function MobileOrders({ orders = boardOrders }: { orders?: BoardOrder[] }
               <ul className="flex flex-col gap-2.5">
                 {items.map((order) => (
                   <li key={order.number}>
-                    {findOrder(order.number) ? (
-                      <Link href={`/orders/${order.number}`} className={cardClass}>
-                        <OrderCardBody order={order} />
-                      </Link>
-                    ) : (
-                      // Karta zlecenia istnieje na razie tylko dla #DF-0248 (D-04, dane demo).
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setNotice({
-                            title: `${order.vehicle} · #${order.number}`,
-                            description: `Szczegóły zlecenia będą dostępne wkrótce. ${order.customer} · ${order.service}.`,
-                          })
-                        }
-                        className={cn(cardClass, "w-full")}
-                      >
-                        <OrderCardBody order={order} />
-                      </button>
-                    )}
+                    <Link href={`/orders/${order.number}`} className={cardClass}><OrderCardBody order={order} /></Link>
                   </li>
                 ))}
               </ul>
@@ -151,8 +134,7 @@ export function MobileOrders({ orders = boardOrders }: { orders?: BoardOrder[] }
           );
         })
       )}
-
-      <NoticeSheet notice={notice} onClose={() => setNotice(null)} />
+      {createOpen && <OrderCreateDialog studioId={studioId} clients={clients} services={services} onCreated={onCreated} onClose={() => setCreateOpen(false)} />}
     </div>
   );
 }

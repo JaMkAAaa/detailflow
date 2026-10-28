@@ -4,11 +4,11 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { formatPln } from "@/components/pulpit/demo";
+import { formatPln } from "@/lib/format-pln";
 import { MaskIcon } from "@/components/studio/MaskIcon";
 import { NoticeSheet, type Notice } from "@/components/studio/NoticeSheet";
 import { cn } from "@/lib/utils";
-import type { OrderDetailsData, StageState } from "./demo";
+import type { OrderDetailsData, StageState } from "./order-types";
 import { pluralPhotos } from "./panels";
 
 const phoneHref = (phone: string) => `tel:${phone.replace(/[^\d+]/g, "")}`;
@@ -38,12 +38,25 @@ function StageMarker({ state }: { state: StageState }) {
  * M-04 — szczegóły zlecenia w układzie telefonu. Te same dane co D-04 (`OrderDetailsData`):
  * postęp 4 etapów studia, wycena, kontakt. Zapis etapu, link i zdjęcia otwierają sheet „wkrótce”.
  */
-export function MobileOrderDetails({ data }: { data: OrderDetailsData }) {
+export function MobileOrderDetails({ data, studioId, onAdvanced }: { data: OrderDetailsData; studioId: string; onAdvanced?: () => void }) {
   const [notice, setNotice] = useState<Notice | null>(null);
+  const [advancing, setAdvancing] = useState(false);
+  const [advanceError, setAdvanceError] = useState("");
   const current = data.stages.find((stage) => stage.state === "current");
   const done = data.stages.filter((stage) => stage.state === "done").length;
   const cover = [...data.photos].reverse().find((photo) => photo.src);
   const soon = (title: string, description: string) => setNotice({ title, description });
+
+  async function advance() {
+    setAdvancing(true); setAdvanceError("");
+    try {
+      const response = await fetch(`/api/studios/${encodeURIComponent(studioId)}/orders/${encodeURIComponent(data.id)}/advance`, { method: "POST" });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error ?? "Nie udało się zmienić etapu.");
+      if (onAdvanced) onAdvanced(); else window.location.reload();
+    } catch (cause) { setAdvanceError(cause instanceof Error ? cause.message : "Nie udało się zmienić etapu."); }
+    finally { setAdvancing(false); }
+  }
 
   return (
     // Pełna szerokość i góra ekranu: wyłamanie z paddingu `main` (layout studia).
@@ -69,7 +82,7 @@ export function MobileOrderDetails({ data }: { data: OrderDetailsData }) {
         <header className="flex flex-col gap-1.5">
           <div className="flex items-center gap-2.5">
             <p className="flex-1 text-df-body font-medium text-df-muted">#{data.number}</p>
-            <Badge variant={data.status} className="h-[25px]" />
+            <Badge variant={data.status} className="h-[25px]">{data.status === "error" ? "Anulowane" : undefined}</Badge>
           </div>
           <h1 className="text-[26px] leading-[1.15] font-bold">{data.vehicle}</h1>
           <p className="text-df-body text-df-muted">
@@ -78,10 +91,14 @@ export function MobileOrderDetails({ data }: { data: OrderDetailsData }) {
         </header>
 
         <div className="flex gap-2">
-          <a href={phoneHref(data.customer.phone)} aria-label={`Zadzwoń do klienta: ${data.customer.name}, ${data.customer.phone}`} className={actionClass}>
+          {data.customer.phone && <a href={phoneHref(data.customer.phone)} aria-label={`Zadzwoń do klienta: ${data.customer.name}, ${data.customer.phone}`} className={actionClass}>
             <MaskIcon name="phone" size={20} className="text-df-lime" />
             Zadzwoń
-          </a>
+          </a>}
+          {data.customer.id && <Link href={`/customers/${data.customer.id}`} className={actionClass}>
+            <MaskIcon name="link" size={20} className="text-df-lime" />
+            Klient
+          </Link>}
           <button
             type="button"
             onClick={() => soon("Link dla klienta — wkrótce", "Link do portalu klienta będzie dostępny razem z portalem. Surowy token pojawi się tylko w adresie URL.")}
@@ -148,17 +165,17 @@ export function MobileOrderDetails({ data }: { data: OrderDetailsData }) {
         </section>
       </div>
 
-      {current && (
+      {current && data.status === "in-progress" && (
         <div className="fixed inset-x-0 bottom-0 z-20 border-t border-df-line bg-df-side px-4 pt-3 pb-[max(1.875rem,env(safe-area-inset-bottom))]">
           <button
             type="button"
-            onClick={() =>
-              soon("Zmiana etapu — wkrótce", `Zakończenie etapu „${current.name}” i przejście dalej będzie dostępne wkrótce. Zmiany etapów nie są jeszcze zapisywane.`)
-            }
+            disabled={advancing}
+            onClick={advance}
             className="h-12 w-full rounded-[14px] bg-df-lime px-[18px] text-df-body font-semibold text-df-bg"
           >
-            Zakończ: {current.name}
+            {advancing ? "Zapisywanie…" : `Zakończ: ${current.name}`}
           </button>
+          {advanceError && <p role="alert" className="mt-2 text-df-body text-df-error">{advanceError}</p>}
         </div>
       )}
 
