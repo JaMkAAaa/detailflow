@@ -2,6 +2,7 @@ import { hashPassword } from "../lib/auth/password";
 import { platformDb } from "../lib/db/client";
 import type { Plan, StudioStatus } from "../lib/db/generated/client";
 import { Prisma } from "../lib/db/generated/client";
+import { DEMO_OCTOBER_COSTS, DEMO_OCTOBER_RECEIPTS } from "../src/server/admin/demo-receipts";
 
 /** Czas lokalny Warszawy → Date. 2026: CEST od 29.03 do 25.10. */
 function waw(local: string): Date {
@@ -108,6 +109,26 @@ export async function seedPlatform() {
   });
   await platformDb.workOrder.createMany({ data: orders });
 
+  const hosts = extras.map((row) => bySlug.get(row.slug)!);
+  await platformDb.subscriptionPayment.createMany({
+    data: DEMO_OCTOBER_RECEIPTS.map((amountNet, index) => {
+      const studio = hosts[index]!;
+      return {
+        studioId: studio.id,
+        stripeInvoiceId: `in_demo_${studio.publicCode}`,
+        amountNet: new Prisma.Decimal(amountNet),
+        paidAt: waw("2026-10-15 12:00"),
+      };
+    }),
+  });
+  for (const cost of DEMO_OCTOBER_COSTS) {
+    await platformDb.platformCost.upsert({
+      where: { year_month_category: { year: 2026, month: 10, category: cost.category } },
+      update: { amountNet: new Prisma.Decimal(cost.amountNet) },
+      create: { year: 2026, month: 10, category: cost.category, amountNet: new Prisma.Decimal(cost.amountNet) },
+    });
+  }
+
   return { operatorId: operator.id };
 }
 
@@ -149,7 +170,8 @@ function buildExtras(now: Date): Extra[] {
   const convertedEnd = waw("2026-09-03 10:00");
   const convertedActivated = waw("2026-09-03 12:00");
   const churnedAt = waw("2026-10-12 10:00");
-  const pastDueAt = waw("2026-10-18 10:00");
+  // Zaległe przed 1 października, więc nie wchodzą do bazy churnu (5 / 118 = 4,2%).
+  const pastDueAt = waw("2026-09-20 10:00");
   const trialEndSoon = waw("2026-10-28 18:00");
   const trialEndLater = waw("2026-11-08 18:00");
   const expiredEnd = waw("2026-09-15 10:00");

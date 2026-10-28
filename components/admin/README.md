@@ -9,7 +9,8 @@ Osobny layout `(platform)`: sidebar 220 px, 7 pozycji, badge roli
 
 A-01 liczy prawdziwe agregaty (`src/server/admin/overview.ts`): MRR tylko
 `active`, konwersja = płatne / zakończone triale, aktywacja przy pełnym oknie
-7 dni. Pozostałe trasy shellu mają nagłówki — treść A-02–A-08 to osobne issue.
+7 dni. A-04 i A-05 są na `/admin/subscriptions` i `/admin/analytics`.
+KSeF TEST nie wchodzi w te wykresy.
 
 Logowanie: `/admin/login`. Seed: `anna.nowak@detailflow.test` /
 `platform-demo-2026`.

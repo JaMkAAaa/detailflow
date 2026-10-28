@@ -3,6 +3,7 @@ import { platformDb } from "@/lib/db/client";
 import type { StudioStatus } from "@/lib/db/generated/client";
 import { pricePlan } from "./plans";
 import { endedSubscription } from "./checkout";
+import { subscriptionInvoiceNet } from "./revenue";
 import { getStripe } from "./stripe";
 
 export const BILLING_EVENTS = new Set([
@@ -85,5 +86,16 @@ export async function processStripeEvent(event: Stripe.Event, stripe = getStripe
       eventId: event.id, subscriptionId: subscription.id, plan, status,
       ...(invoice ? { invoiceId: invoice.id, currency: invoice.currency, amountPaid: String(invoice.amount_paid) } : {}),
     } } });
+    if (event.type === "invoice.paid") {
+      if (!invoice?.id) throw new Error("Brak faktury Stripe przy invoice.paid.");
+      const net = subscriptionInvoiceNet(invoice);
+      if (!net) throw new Error("Brak kwoty netto wpływu abonamentu.");
+      const paidUnix = invoice.status_transitions?.paid_at ?? event.created;
+      await tx.subscriptionPayment.upsert({
+        where: { stripeInvoiceId: invoice.id },
+        create: { studioId, stripeInvoiceId: invoice.id, amountNet: net.toFixed(2), paidAt: new Date(paidUnix * 1000) },
+        update: { studioId, amountNet: net.toFixed(2), paidAt: new Date(paidUnix * 1000) },
+      });
+    }
   }, { timeout: 60000 });
 }

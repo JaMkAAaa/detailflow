@@ -149,8 +149,9 @@ model Studio {
   quoteDecisionMails QuoteDecisionMail[]
   quoteSendMails     QuoteSendMail[]
   orderPhotos        OrderPhoto[]
-  intakeProtocols    IntakeProtocol[]
-  intakeDamages      IntakeDamage[]
+  intakeProtocols      IntakeProtocol[]
+  intakeDamages        IntakeDamage[]
+  subscriptionPayments SubscriptionPayment[]
 
   @@index([status])
 }
@@ -246,6 +247,39 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   @@index([studioId, createdAt])
+}
+
+// Wpływ z Stripe `invoice.paid` (abonament Detailflow, netto PLN).
+// To nie jest faktura KSeF — tabela `Invoice` tu nie wchodzi.
+model SubscriptionPayment {
+  id              String   @id @default(cuid())
+  studioId        String
+  stripeInvoiceId String   @unique
+  amountNet       Decimal  @db.Decimal(12, 2)
+  paidAt          DateTime
+  createdAt       DateTime @default(now())
+  studio          Studio   @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@index([paidAt])
+  @@index([studioId, paidAt])
+}
+
+enum PlatformCostCategory {
+  infrastructure
+  messaging
+  support
+}
+
+// Ręczny koszt działania platformy w danym miesiącu (A-04, v1).
+model PlatformCost {
+  id        String               @id @default(cuid())
+  year      Int
+  month     Int
+  category  PlatformCostCategory
+  amountNet Decimal              @db.Decimal(12, 2)
+  updatedAt DateTime             @updatedAt
+
+  @@unique([year, month, category])
 }
 
 // ─── Tenant (studioId obowiązkowy) ───────────────────────────────────────────

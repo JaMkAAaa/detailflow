@@ -57,6 +57,7 @@ beforeAll(async () => {
   await studioDb(studioId).membership.createMany({ data: [{ studioId, userId: ownerId, role: "owner" }, { studioId, userId: workerId, role: "worker" }] });
 });
 beforeEach(async () => {
+  await platformDb.subscriptionPayment.deleteMany({ where: { OR: [{ studioId }, { stripeInvoiceId: "in_test" }] } });
   await platformDb.studio.update({ where: { id: studioId }, data: { status: "trial", plan: "solo", stripeCustomerId: customerId, stripeSubscriptionId: null, trialEndsAt: new Date(0) } });
 });
 afterAll(async () => {
@@ -82,11 +83,13 @@ describe("billing with Postgres and mocked Stripe transport", () => {
     const failed = event("invoice.payment_failed", invoice);
     await processStripeEvent(failed, asStripe(client(subscription({ status: "past_due" }))));
     expect(await platformDb.studio.findUnique({ where: { id: studioId } })).toMatchObject({ status: "past_due" });
-    const paid = event("invoice.paid", { ...invoice, amount_paid: 18327 });
+    const paid = event("invoice.paid", { ...invoice, amount_paid: 18327, total_excluding_tax: 14900, status_transitions: { paid_at: 1_761_480_000 } });
     const stripe = client(); stripe.invoices.retrieve.mockResolvedValue({ id: "in_test", status: "paid" });
     await processStripeEvent(paid, asStripe(stripe));
     expect(await platformDb.studio.findUnique({ where: { id: studioId } })).toMatchObject({ status: "active" });
     expect(await platformDb.invoice.count({ where: { studioId } })).toBe(0); // nigdy FV KSeF
+    expect((await platformDb.subscriptionPayment.findUnique({ where: { stripeInvoiceId: "in_test" } }))?.amountNet.toFixed(2)).toBe("149.00");
+    expect(await platformDb.subscriptionPayment.count({ where: { studioId: foreignId } })).toBe(0);
     // Stary event failed, gdy faktura jest już paid, nie cofa do past_due.
     await processStripeEvent(event("invoice.payment_failed", invoice), asStripe(stripe));
     expect(await platformDb.studio.findUnique({ where: { id: studioId } })).toMatchObject({ status: "active" });

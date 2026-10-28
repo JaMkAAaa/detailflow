@@ -1,3 +1,7 @@
-export default function AdminAnalyticsPage() {
-  return <h1 className="text-df-headline">Analityka</h1>;
+import { Analytics } from "@/components/admin/Analytics";
+import { getPlatformAnalytics } from "@/src/server/admin/analytics";
+
+export default async function AdminAnalyticsPage() {
+  const data = await getPlatformAnalytics();
+  return <Analytics data={data} />;
 }
