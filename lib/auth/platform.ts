@@ -8,6 +8,7 @@ import { PLATFORM_COOKIE_PREFIX } from "./cookie";
 import { sendAuthMailInBackground } from "./email";
 import { hashPassword, verifyPassword } from "./password";
 import { PASSWORD_MIN_LENGTH } from "./password-policy";
+import { loginLockoutHooks } from "./lockout";
 import { env } from "../env";
 
 async function assertOperator(userId: string) {
@@ -62,6 +63,8 @@ export const platformAuth = betterAuth({
     cookiePrefix: PLATFORM_COOKIE_PREFIX,
     database: { generateId: false },
   },
+
+  hooks: loginLockoutHooks("platform"),
 
   databaseHooks: {
     session: {

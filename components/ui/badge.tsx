@@ -19,6 +19,7 @@ const badgeVariants = cva(
         retry: "gap-1.5 rounded-[20px] bg-df-retry-surface py-[5px] font-semibold leading-[normal] text-df-retry",
         completed: "h-7 gap-1 rounded-md bg-df-success-surface text-df-green",
         test: "h-7 gap-1 rounded-md bg-df-success-surface text-df-green",
+        prod: "h-7 gap-1 rounded-md bg-df-amber-dark font-semibold text-df-amber",
         overdue: "h-7 gap-1 rounded-md bg-df-amber-dark text-df-amber",
         error: "h-7 gap-1 rounded-md bg-df-error-surface text-df-error",
       },
@@ -40,6 +41,7 @@ const badgeLabels = {
   retry: "Ponawiamy",
   completed: "Zakończone",
   test: "TEST",
+  prod: "PROD",
   overdue: "Zaległość",
   error: "Błąd",
 } as const;

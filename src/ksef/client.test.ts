@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { constants, createDecipheriv, privateDecrypt } from "node:crypto";
 import { afterEach, expect, it, vi } from "vitest";
 import { KsefClient, KsefError, hash } from "./client";
-import { encryptTestToken, decryptTestToken } from "./secrets";
+import { decryptToken, encryptTestToken, encryptToken, decryptTestToken, tokenEnvironment } from "./secrets";
 
 const cert = readFileSync(new URL("./fixtures/test-only-cert.pem", import.meta.url), "utf8").replace(/-----[^-]+-----|\s/g, "");
 const privateKey = readFileSync(new URL("./fixtures/test-only-key.pem", import.meta.url), "utf8");
@@ -24,6 +24,30 @@ it("binds encrypted tokens to TEST and their studio, rejects tampering and produ
     expect(() => decryptTestToken("a", encrypted)).toThrow("only TEST");
     expect(() => new KsefClient()).toThrow("only TEST");
   }
+});
+it("refuses to open a TEST token as PROD and keeps the production host off the TEST API", async () => {
+  vi.stubEnv("KSEF_ENV", "test");
+  vi.stubEnv("KSEF_TOKEN_ENCRYPTION_KEY", Buffer.alloc(32, 7).toString("base64"));
+  vi.stubEnv("KSEF_PROD_TOKEN_ENCRYPTION_KEY", Buffer.alloc(32, 9).toString("base64"));
+  const testToken = encryptTestToken("studio", "secret-token");
+  expect(tokenEnvironment(testToken)).toBe("test");
+  expect(testToken).not.toContain("secret-token");
+  expect(() => decryptToken("studio", "production", testToken)).toThrow();
+  const prodToken = encryptToken("studio", "production", "prod-token");
+  expect(prodToken).not.toContain("prod-token");
+  expect(decryptToken("studio", "production", prodToken)).toBe("prod-token");
+  expect(() => decryptToken("studio", "test", prodToken)).toThrow();
+  const urls: string[] = [];
+  const transport = vi.fn(async (url: string | URL | Request) => {
+    urls.push(String(url));
+    return Response.json({ challenge: "c", timestampMs: 1 });
+  });
+  const client = new KsefClient(transport as typeof fetch, async () => undefined, "production");
+  await client.authenticate("1234567890", "prod-token").catch(() => undefined);
+  expect(urls[0]).toBe("https://api.ksef.mf.gov.pl/v2/auth/challenge");
+  expect(urls[0]).not.toContain("api-test");
+  vi.stubEnv("KSEF_PROD_API_URL", "https://api-test.ksef.mf.gov.pl/v2");
+  expect(() => new KsefClient(transport as typeof fetch, async () => undefined, "production")).toThrow("PROD API URL");
 });
 it("rejects a production or arbitrary API host before any network call", () => {
   vi.stubEnv("KSEF_API_URL", "https://api.ksef.mf.gov.pl/v2");

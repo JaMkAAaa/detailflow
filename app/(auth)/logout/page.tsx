@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import { assertActionOrigin } from "@/src/server/action-origin";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ export const metadata: Metadata = { title: "Wylogowanie — Detailflow" };
 // Server Action (POST z kontrolą Origin), żeby link z zewnątrz nie wylogował po GET.
 async function signOut() {
   "use server";
+  await assertActionOrigin();
   await auth.api.signOut({ headers: await headers() });
   redirect(LOGIN_PATH);
 }

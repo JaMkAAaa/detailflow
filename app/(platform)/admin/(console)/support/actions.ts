@@ -3,10 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requirePlatform } from "@/src/server/admin/context";
+import { assertActionOrigin } from "@/src/server/action-origin";
 import { formFailure, type FormState } from "@/src/server/admin/errors";
 import { openTicket, replyToTicket, resolveTicket } from "@/src/server/admin/support";
 
 export async function replyToTicketAction(_prev: FormState, form: FormData): Promise<FormState> {
+  await assertActionOrigin();
   const { user } = await requirePlatform();
   const ticket = String(form.get("ticket") ?? "");
   try {
@@ -19,6 +21,7 @@ export async function replyToTicketAction(_prev: FormState, form: FormData): Pro
 }
 
 export async function openTicketAction(_prev: FormState, form: FormData): Promise<FormState> {
+  await assertActionOrigin();
   const { user } = await requirePlatform();
   const priority = form.get("priority") === "urgent" ? "urgent" : "normal";
   let publicCode: string;
@@ -38,6 +41,7 @@ export async function openTicketAction(_prev: FormState, form: FormData): Promis
 }
 
 export async function resolveTicketAction(_prev: FormState, form: FormData): Promise<FormState> {
+  await assertActionOrigin();
   const { user } = await requirePlatform();
   const ticket = String(form.get("ticket") ?? "");
   try {

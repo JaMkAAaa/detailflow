@@ -2,10 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { requirePlatform } from "@/src/server/admin/context";
+import { assertActionOrigin } from "@/src/server/action-origin";
 import { formFailure, type FormState } from "@/src/server/admin/errors";
 import { startSupportSession, suspendStudio } from "@/src/server/admin/studio-access";
 
 export async function suspendStudioAction(_prev: FormState, form: FormData): Promise<FormState> {
+  await assertActionOrigin();
   const { user } = await requirePlatform();
   const publicCode = String(form.get("publicCode") ?? "");
   try {
@@ -24,6 +26,7 @@ export async function suspendStudioAction(_prev: FormState, form: FormData): Pro
 }
 
 export async function startSupportSessionAction(_prev: FormState, form: FormData): Promise<FormState> {
+  await assertActionOrigin();
   const { user } = await requirePlatform();
   const publicCode = String(form.get("publicCode") ?? "");
   try {

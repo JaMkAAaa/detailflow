@@ -11,7 +11,7 @@ export const FLAG_DEFAULTS = [
   {
     key: "ksef_prod",
     label: "KSeF PROD",
-    description: "Wysyłka na produkcyjne API KSeF. Domyślnie wyłączona. Worker v1 obsługuje tylko TEST.",
+    description: "Pozwala właścicielowi studia przejść na produkcyjne API KSeF. Domyślnie wyłączona. Token TEST nie działa na PROD.",
     enabled: false,
   },
   {
@@ -32,7 +32,7 @@ export async function ensureFeatureFlags() {
   for (const flag of FLAG_DEFAULTS) {
     await platformDb.featureFlag.upsert({
       where: { key: flag.key },
-      update: {},
+      update: flag.key === "ksef_prod" ? { label: flag.label, description: flag.description } : {},
       create: { key: flag.key, label: flag.label, description: flag.description, enabled: flag.enabled },
     });
   }

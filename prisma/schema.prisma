@@ -236,6 +236,16 @@ model Verification {
   @@index([identifier])
 }
 
+// Lockout logowania. subjectHash to SHA-256 realm+e-mail; adresu nie trzymamy.
+model AuthLockout {
+  id          String    @id @default(cuid())
+  subjectHash String    @unique
+  failures    Int       @default(0)
+  windowStart DateTime
+  lockedUntil DateTime?
+  updatedAt   DateTime  @updatedAt
+}
+
 // Idempotencja webhooków Stripe po `event.id`.
 model StripeEvent {
   id          String   @id // evt_...
@@ -265,7 +275,7 @@ model AuditLog {
   @@index([createdAt])
 }
 
-// Flaga platformy. Wyłączenie KSeF PROD jest domyślne; worker i tak wysyła tylko TEST.
+// Flaga platformy. Wyłączenie KSeF PROD jest domyślne i nie przełącza studiów.
 model FeatureFlag {
   key         String   @id
   label       String

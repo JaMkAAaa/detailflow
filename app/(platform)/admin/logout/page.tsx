@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import { assertActionOrigin } from "@/src/server/action-origin";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ export const metadata: Metadata = { title: "Wylogowanie — panel platformy" };
 
 async function signOut() {
   "use server";
+  await assertActionOrigin();
   await platformAuth.api.signOut({ headers: await headers() });
   redirect(PLATFORM_LOGIN_PATH);
 }

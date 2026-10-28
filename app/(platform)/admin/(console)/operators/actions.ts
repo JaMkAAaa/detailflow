@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import type { PlatformRole } from "@/lib/db/generated/client";
 import { requirePlatform } from "@/src/server/admin/context";
+import { assertActionOrigin } from "@/src/server/action-origin";
 import { formFailure, type FormState } from "@/src/server/admin/errors";
 import { beginEnrollment, confirmEnrollment, verifyStepUp } from "@/src/server/admin/mfa";
 import { changeOperatorRole, setFeatureFlag } from "@/src/server/admin/operators";
@@ -13,6 +14,7 @@ function refresh() {
 }
 
 export async function beginMfaAction(_prev: FormState, _form: FormData): Promise<FormState & { secret?: string; otpauthUrl?: string }> {
+  await assertActionOrigin();
   const { user } = await requirePlatform();
   try {
     const enrollment = await beginEnrollment(user.id);
@@ -23,6 +25,7 @@ export async function beginMfaAction(_prev: FormState, _form: FormData): Promise
 }
 
 export async function confirmMfaAction(_prev: FormState, form: FormData): Promise<FormState & { backupCodes?: string[] }> {
+  await assertActionOrigin();
   const { user, sessionId } = await requirePlatform();
   try {
     const result = await confirmEnrollment(user.id, sessionId, String(form.get("code") ?? ""));
@@ -33,6 +36,7 @@ export async function confirmMfaAction(_prev: FormState, form: FormData): Promis
 }
 
 export async function challengeMfaAction(_prev: FormState, form: FormData): Promise<FormState> {
+  await assertActionOrigin();
   const { user, sessionId } = await requirePlatform();
   try {
     await verifyStepUp(user.id, sessionId, String(form.get("code") ?? ""));
@@ -44,6 +48,7 @@ export async function challengeMfaAction(_prev: FormState, form: FormData): Prom
 }
 
 export async function changeRoleAction(_prev: FormState, form: FormData): Promise<FormState> {
+  await assertActionOrigin();
   const actor = await requirePlatform();
   const role = PLATFORM_ROLES.find((item) => item === form.get("role"));
   if (!role) return { message: "Nieznana rola.", tone: "error" };
@@ -61,6 +66,7 @@ export async function changeRoleAction(_prev: FormState, form: FormData): Promis
 }
 
 export async function setFlagAction(_prev: FormState, form: FormData): Promise<FormState> {
+  await assertActionOrigin();
   const actor = await requirePlatform();
   try {
     await setFeatureFlag(
@@ -72,5 +78,5 @@ export async function setFlagAction(_prev: FormState, form: FormData): Promise<F
     return formFailure(error);
   }
   refresh();
-  return { message: "Flaga zapisana. KSeF PROD nadal nie wysyła dokumentów — worker zostaje na TEST.", tone: "ok" };
+  return { message: "Flaga zapisana. PROD wymaga tej flagi, środowiska studia i osobnego tokenu. Token TEST nie przejdzie.", tone: "ok" };
 }
