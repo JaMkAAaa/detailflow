@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import ExcelJS from "exceljs";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { platformDb } from "../../../lib/db/client";
 import { studioDb } from "../../../lib/db/tenant";
@@ -8,10 +9,11 @@ import { POST as importRoute } from "../../../app/api/studios/[studioId]/clients
 import { POST as addVehicleRoute } from "../../../app/api/studios/[studioId]/clients/[clientId]/vehicles/route";
 import {
   PAGE_SIZE, createClient, createVehicle, deleteClient, getClient, importClientsCsv,
-  listClients, updateClient, updateVehicle,
+  importClientsXlsx, listClients, updateClient, updateVehicle,
 } from "./clients";
-import { parseClientCsv } from "./csv";
+import { MAX_CSV_BYTES, parseClientCsv } from "./csv";
 import { normalizePlate } from "./plate";
+import { parseClientXlsx } from "./xlsx";
 
 const mocks = vi.hoisted(() => {
   process.env.SKIP_ENV_VALIDATION = "1";
@@ -19,6 +21,13 @@ const mocks = vi.hoisted(() => {
   return { session: vi.fn() };
 });
 vi.mock("../../../lib/auth", () => ({ auth: { api: { getSession: mocks.session } } }));
+
+async function makeXlsx(rows: string[][], secondSheetRows?: string[][]) {
+  const workbook = new ExcelJS.Workbook();
+  workbook.addWorksheet("Klienci").addRows(rows);
+  if (secondSheetRows) workbook.addWorksheet("Pominięty").addRows(secondSheetRows);
+  return Buffer.from(await workbook.xlsx.writeBuffer());
+}
 
 describe("CSV and plates", () => {
   it("normalizes plates and parses Excel CSV with BOM, quotes and semicolons", () => {
@@ -29,6 +38,25 @@ describe("CSV and plates", () => {
   });
   it("rejects a file without the required columns", () => {
     expect(() => parseClientCsv("a,b\n1,2")).toThrow(/imię, marka, model, tablica/);
+  });
+  it("reads the first XLSX sheet using the CSV aliases and rejects empty or malformed workbooks", async () => {
+    const buffer = await makeXlsx(
+      [["imię", "telefon", "e-mail", "marka", "model", "tablica"], ["Ala", "+48 600 111 222", "ala@example.com", "Audi", "A4", "WA 111AA"]],
+      [["name", "make", "model", "plate"], ["Ignored", "BMW", "M3", "WX 999XX"]],
+    );
+    await expect(parseClientXlsx(buffer)).resolves.toMatchObject({
+      rows: [{ row: 2, name: "Ala", phone: "+48 600 111 222", email: "ala@example.com", make: "Audi", model: "A4", plate: "WA 111AA" }],
+      errors: [],
+    });
+    const empty = new ExcelJS.Workbook();
+    await expect(parseClientXlsx(Buffer.from(await empty.xlsx.writeBuffer()))).rejects.toMatchObject({ status: 400 });
+    await expect(parseClientXlsx(Buffer.from("not an xlsx"))).rejects.toMatchObject({ status: 400 });
+    await expect(parseClientXlsx(Buffer.alloc(MAX_CSV_BYTES + 1))).rejects.toMatchObject({ status: 400 });
+    const tooManyRows = await makeXlsx([
+      ["name", "make", "model", "plate"],
+      ...Array.from({ length: 5_001 }, (_, index) => [`Client ${index}`, "Audi", "A4", `WA${String(index).padStart(5, "0")}`]),
+    ]);
+    await expect(parseClientXlsx(tooManyRows)).rejects.toMatchObject({ status: 400, message: expect.stringContaining("5000") });
   });
 });
 
@@ -102,6 +130,50 @@ describe("clients CRUD, pagination and tenant isolation (Postgres)", () => {
     expect((await getClient(b, inB.id)).name).toBe(`${tag}-b`);
   });
 
+  it("imports XLSX with the same outcome as CSV, only from its first sheet, and isolates studios", async () => {
+    const [a, b] = studios as [string, string];
+    const email = `${tag}@xlsx.example.com`;
+    const plate = `WX ${tag.slice(0, 5).toUpperCase()}`;
+    const rows = [
+      ["imię", "telefon", "e-mail", "marka", "model", "tablica"],
+      [`${tag}-xlsx-a`, "+48 600 111 222", email, "Audi", "A4", plate],
+      [`${tag}-xlsx-b`, "+48 600 111 223", `${tag}-b@xlsx.example.com`, "BMW", "M3", plate],
+    ];
+    const csv = rows.map((row) => row.join(",")).join("\n");
+    const xlsx = await makeXlsx(rows, [
+      ["imię", "telefon", "e-mail", "marka", "model", "tablica"],
+      [`${tag}-ignored`, "", `${tag}-ignored@xlsx.example.com`, "Tesla", "Y", `WX ${tag.slice(0, 4)}Z`],
+    ]);
+
+    const csvResult = await importClientsCsv(a, csv);
+    const xlsxResult = await importClientsXlsx(b, xlsx);
+    expect(xlsxResult).toMatchObject({
+      createdClients: csvResult.createdClients,
+      createdVehicles: csvResult.createdVehicles,
+      unchanged: csvResult.unchanged,
+      invalid: csvResult.invalid,
+    });
+    expect(xlsxResult.warnings.map(({ code, row, plate: warningPlate }) => ({ code, row, plate: warningPlate })))
+      .toEqual(csvResult.warnings.map(({ code, row, plate: warningPlate }) => ({ code, row, plate: warningPlate })));
+    const csvRepeat = await importClientsCsv(a, csv);
+    const xlsxRepeat = await importClientsXlsx(b, xlsx);
+    expect(xlsxRepeat).toMatchObject({
+      createdClients: csvRepeat.createdClients,
+      createdVehicles: csvRepeat.createdVehicles,
+      unchanged: csvRepeat.unchanged,
+      invalid: csvRepeat.invalid,
+    });
+    expect(xlsxRepeat.unchanged).toBe(2);
+    for (const studioId of [a, b]) {
+      expect(await studioDb(studioId).client.count({ where: { email } })).toBe(1);
+      expect(await studioDb(studioId).client.count({ where: { email: `${tag}-ignored@xlsx.example.com` } })).toBe(0);
+      expect(await studioDb(studioId).vehicle.count({ where: { plate } })).toBe(2);
+    }
+    const inA = await studioDb(a).client.findFirst({ where: { email } });
+    const inB = await studioDb(b).client.findFirst({ where: { email } });
+    expect(inA?.id).not.toBe(inB?.id);
+  });
+
   it("blocks delete when the client has an order", async () => {
     const a = studios[0]!;
     const client = await createClient(a, { name: `${tag}-ord`, vehicle: { make: "Kia", model: "Ceed", plate: "WX ORD01" } });
@@ -138,6 +210,29 @@ describe("clients CRUD, pagination and tenant isolation (Postgres)", () => {
     expect((await listed.json()).items.length).toBeLessThanOrEqual(20);
     expect((await importRoute(request("POST", { csv: "imię,marka,model,tablica\nJan,Toyota,Yaris,WX 1" }), context(a))).status).toBe(200);
     expect((await deleteRoute(request("DELETE"), context(a, id))).status).toBe(204);
+  });
+
+  it("accepts XLSX multipart uploads and rejects empty or invalid XLSX files with 400", async () => {
+    const a = studios[0]!;
+    mocks.session.mockResolvedValue({ user: { id: userId } });
+    const workbook = await makeXlsx([
+      ["imię", "marka", "model", "tablica"],
+      [`${tag}-route-xlsx`, "Toyota", "Yaris", `WX ${tag.slice(0, 5).toUpperCase()}`],
+    ]);
+    const requestWithFile = (file: Blob, name: string) => {
+      const form = new FormData();
+      form.append("file", file, name);
+      return new Request("http://localhost:3000/api/import", {
+        method: "POST", headers: { origin: "http://localhost:3000" }, body: form,
+      });
+    };
+    const imported = await importRoute(requestWithFile(new Blob([workbook], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), "clients.xlsx"), context(a));
+    expect(imported.status).toBe(200);
+    expect(await imported.json()).toMatchObject({ createdClients: 1, createdVehicles: 1, invalid: 0 });
+    const empty = await importRoute(requestWithFile(new Blob(), "empty.xlsx"), context(a));
+    expect(empty.status).toBe(400);
+    const invalid = await importRoute(requestWithFile(new Blob(["bad"], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), "bad.xlsx"), context(a));
+    expect(invalid.status).toBe(400);
   });
 
   it("moves a vehicle between clients in the same studio", async () => {
