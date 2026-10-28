@@ -23,6 +23,10 @@ export const env = createEnv({
 
     STRIPE_SECRET_KEY: z.string().startsWith("sk_").optional(),
     STRIPE_WEBHOOK_SECRET: z.string().startsWith("whsec_").optional(),
+    // Atrapa HTTP dla E2E. Puste zostawia api.stripe.com.
+    STRIPE_API_HOST: z.string().min(1).optional(),
+    STRIPE_API_PORT: z.string().regex(/^\d{2,5}$/).optional(),
+    STRIPE_API_PROTOCOL: z.enum(["http", "https"]).optional(),
 
     // TEST i PROD KSeF są rozdzielone; domyślnie zawsze test.
     KSEF_ENV: z.literal("test").default("test"),
