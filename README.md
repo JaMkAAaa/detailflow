@@ -233,7 +233,7 @@ Legenda: **Działa** = realne dane i zapis; **Częściowo** = część przepływ
 | CRUD klientów/aut | **Działa** | dodawanie, edycja, usuwanie, import CSV | import tylko CSV, nie XLSX |
 | Zlecenia D-03 / M-03 | **Demo** | tablica/lista na danych seeda, filtry, DnD wizualne | brak odczytu z DB; brak tworzenia zlecenia |
 | Szczegóły zlecenia D-04 / M-04 | **Demo** | przegląd, zakładki, historia wizualna, wycena | brak zapisu etapu, zdjęć, linku do portalu |
-| Backend zleceń | **Częściowo** | maszyna stanów, historia, numeracja, `canInvoice` | **brak HTTP/UI**, który wywołuje te funkcje |
+| Backend zleceń | **Działa** | HTTP tworzenia i odczytu, maszyna stanów, historia, numeracja, `canInvoice` | UI nadal demo |
 | Wyceny D-06 / M-05 | **Działa** | kreator, katalog, zapis szkicu, wysyłka maila, link portalu | terminy w kreatorze są demonstracyjne, nie rezerwują boksu |
 | Portal P-01/P-02 | **Częściowo** | tokeny, decyzja o wycenie, P-02, mail do właścicieli | P-01 to statyczna makieta dla seeda; brak statusu zlecenia i zdjęć dla dowolnego linku |
 | Faktury D-07/D-10 | **Działa** | lista, filtry, wyszukiwanie, uwaga, płatność, korekta | lista pobiera wszystkie faktury i paginuje po 7 w UI |
@@ -718,7 +718,7 @@ Dane pochodzą z `studioDb`; **nie ma fallbacku na dane demo**, gdy baza jest pu
 
 **Implementacja:** `src/server/zlecenia/state.ts`, `src/server/zlecenia/README.md`.
 
-To najbardziej niedokończona część produktu pod względem połączenia z UI: logika jest gotowa i przetestowana, ale **ekrany D-03/D-04/M-03/M-04 są demo**, a żaden route handler nie wywołuje `transitionOrder`/`advanceStage`.
+Logika i HTTP są gotowe i przetestowane. Route handlery wywołują `transitionOrder`/`advanceStage`; **ekrany D-03/D-04/M-03/M-04 są nadal demo** i wymagają osobnego podłączenia.
 
 Maszyna stanów:
 
@@ -737,7 +737,9 @@ accepted ──▶ in_progress ──▶ ready_for_pickup ──▶ completed
 - `assertInvoiceable` wymaga `completed` + `completedAt`.
 - Numer `DF-####`: `OrderCounter` per studio, atomowy increment; brak licznika startuje od najwyższego istniejącego numeru.
 
-**Brakuje:** endpointów `POST /orders`, `PATCH /orders/:id/status`, `POST /orders/:id/advance`, odczytu listy z DB i podłączenia UI. Do tego czasu zlecenia istnieją tylko z seeda.
+**HTTP** (`/api/studios/:studioId/orders`): `GET` zwraca listę, `POST` tworzy zlecenie (`clientId`, `vehicleId`, `service`, `totalGross` jako tekst dziesiętny, `scheduledFrom`, `scheduledTo`). Daty bez offsetu oznaczają Warszawę; luki i powtórzenia DST wymagają offsetu, jak w kalendarzu. Numer, status `accepted`, etap 1 i zdarzenie utworzenia zapisują się atomowo. Auto musi należeć do wskazanego klienta.
+
+`GET /:id` przyjmuje id albo `DF-####`. `POST /:id/status` przyjmuje `{ "status": "in_progress" }`; `POST /:id/advance` przesuwa etap bez body. Zapis wymaga Origin, wszystkie endpointy wymagają sesji i roli owner/manager/worker (`orders:write` dla odczytu/tworzenia, `orders:update` dla statusu/etapu). Cudze studio/rekord → 404, blokada zapisu przez billing → 403, nielegalny ruch lub konflikt → 409. **Brakuje:** podłączenia UI.
 
 ### 9.7 Wyceny
 
@@ -1071,7 +1073,7 @@ Assety: logo Flowcut w `branding/`, ikony i zdjęcia demo w `public/`; część 
 | `PUT` | `/api/studios/:studioId/bookings/:workOrderId` | sesja + Origin | zmień rezerwację (200) |
 | `DELETE` | `/api/studios/:studioId/bookings/:workOrderId` | sesja + Origin | zwolnij boks (204) |
 
-#### Zlecenia: zdjęcia i protokół
+#### Zlecenia, zdjęcia i protokół
 
 | Metoda | Ścieżka | Dostęp | Opis |
 | --- | --- | --- | --- |
@@ -1081,8 +1083,11 @@ Assety: logo Flowcut w `branding/`, ikony i zdjęcia demo w `public/`; część 
 | `GET` | `/api/studios/:studioId/orders/:workOrderId/protocol` | sesja | protokół + punkty |
 | `PUT` | `/api/studios/:studioId/orders/:workOrderId/protocol` | sesja + Origin | utwórz/zastąp punkty |
 | `POST` | `/api/studios/:studioId/orders/:workOrderId/protocol/accept` | sesja + Origin | akceptacja klienta (flaga) |
-
-Brak endpointów do tworzenia zlecenia i zmiany statusu/etapu.
+| `GET` | `/api/studios/:studioId/orders` | `orders:write` | lista zleceń studia |
+| `POST` | `/api/studios/:studioId/orders` | `orders:write` + Origin | utworzenie z historią (201), kwota jako tekst dziesiętny |
+| `GET` | `/api/studios/:studioId/orders/:workOrderId` | `orders:write` | zlecenie po id lub `DF-####` |
+| `POST` | `/api/studios/:studioId/orders/:workOrderId/status` | `orders:update` + Origin | `{ status }`, maszyna stanów |
+| `POST` | `/api/studios/:studioId/orders/:workOrderId/advance` | `orders:update` + Origin | następny etap, bez body |
 
 #### Wyceny i portal
 
