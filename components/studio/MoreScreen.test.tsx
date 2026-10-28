@@ -45,4 +45,16 @@ it("hides finance and team links from workers", () => {
   expect(
     screen.getByRole("link", { name: "Wyloguj" }).getAttribute("href"),
   ).toBe("/logout");
+  expect(screen.queryByRole("link", { name: "Ustawienia i KSeF" })).toBeNull();
+});
+it("opens studio settings for the owner", () => {
+  render(<MoreScreen {...props} role="owner" />);
+  expect(screen.getByRole("link", { name: "Ustawienia i KSeF" }).getAttribute("href")).toBe("/settings");
+  expect(screen.queryByRole("button", { name: /Ustawienia i KSeF/ })).toBeNull();
+});
+it("keeps studio settings off the manager menu", () => {
+  render(<MoreScreen {...props} role="manager" />);
+  expect(screen.queryByRole("link", { name: "Ustawienia i KSeF" })).toBeNull();
+  expect(screen.queryByRole("button", { name: /Ustawienia i KSeF/ })).toBeNull();
+  expect(screen.getByRole("link", { name: "Zaproś do studia" }).getAttribute("href")).toBe("/team");
 });

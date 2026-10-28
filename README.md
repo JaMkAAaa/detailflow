@@ -651,6 +651,7 @@ Jeśli lokalna baza ma wpis `coating_reminders` pod starą nazwą i migracja si�
 | Uprawnienie | Role |
 | --- | --- |
 | `billing:manage` | owner |
+| `studio:settings` | owner |
 | `studio:select` | owner, manager, worker |
 | `studio:read` | owner, manager, worker |
 | `orders:write` | owner, manager, worker |
@@ -853,13 +854,13 @@ accepted ──▶ in_progress ──▶ ready_for_pickup ──▶ completed
 
 ### 9.10 KSeF 2.0 TEST
 
-**Implementacja:** `src/ksef/`, `src/worker/ksef.ts`, `app/api/studios/[studioId]/ksef/token`.
+**Implementacja:** `src/ksef/`, `src/worker/ksef.ts`, `app/(studio)/settings`, `app/api/studios/[studioId]/ksef/token`.
 
 - Domyślna ścieżka to **TEST**. `assertKsefTest()` odrzuca `KSEF_ENV` inne niż `test` oraz host inny niż `api-test.ksef.mf.gov.pl` (także przy `SKIP_ENV_VALIDATION=1`).
-- PROD jest per studio (`Studio.ksefEnv`) i wymaga flagi `ksef_prod`. Badge w sidebarze i na karcie studia pokazuje TEST albo PROD. Właściciel przełącza środowisko na liście faktur; zmiana kasuje zapisany token.
+- PROD jest per studio (`Studio.ksefEnv`) i wymaga flagi `ksef_prod`. Badge w sidebarze i na karcie studia pokazuje TEST albo PROD. Właściciel przełącza środowisko na liście faktur i w ustawieniach studia. Zmiana kasuje zapisany token i wymaga potwierdzenia.
 - `KsefClient` implementuje: challenge, token RSA-OAEP/SHA-256, sesję FA(3), XML AES-256-CBC, status dokumentu, UPO XML, zamknięcie sesji. Timeout 20 s, bez przekierowań. Host wynika ze środowiska faktury: TEST albo `api.ksef.mf.gov.pl`. Tryb offline nie jest obsługiwany.
 - Token studia jest szyfrowany AES-256-GCM. AAD i prefiks szyfrogramu wiążą go ze `studioId` i środowiskiem. TEST i PROD mają osobne klucze. Szyfrogram TEST nie odszyfruje się kluczem PROD.
-- `PUT /api/studios/:studioId/ksef/token` wymaga `invoices:manage` i Origin. Środowisko bierze z studia, nie z body. Odpowiedź 204 **nie zwraca tokenu**. NIP jest sprawdzany dopiero przy kolejkowaniu faktury.
+- `PUT /api/studios/:studioId/ksef/token` wymaga właściciela (`studio:settings`) i Origin. Środowisko bierze z studia, nie z body. Odpowiedź 204 **nie zwraca tokenu**. NIP jest sprawdzany dopiero przy kolejkowaniu faktury. Dane sprzedawcy (nazwa, nazwa prawna, NIP ze sumą kontrolną, adres, kod, miasto, telefon) zapisuje właściciel na `/settings`.
 - `queueTestInvoice` jest **serwerowym punktem wejścia**: wymaga wystawionej faktury TEST po zakończonym zleceniu, waliduje XML, zapisuje niezmienny snapshot + SHA-256 + status `queued` + event `validated`, dopiero potem enqueue.
 - Kolejka `ksef-test`: 10 prób, backoff 5 s–5 min, respektuje `Retry-After`; payload zawiera tylko `studioId` i `invoiceId`.
 - Worker przed POST zapisuje `sendStartedAt` i referencję sesji; po utracie odpowiedzi szuka dokumentu po hashu w tej samej sesji i **nie wysyła ponownie**.
@@ -869,7 +870,7 @@ accepted ──▶ in_progress ──▶ ready_for_pickup ──▶ completed
 - Nie logujemy treści odpowiedzi MF ani wyjątków z danymi/sekretami.
 - `recoverKsefOutbox()` co 15 s znajduje faktury TEST `queued` z submission i ponawia enqueue po awarii Redisa. Faktury PROD dochodzą tylko przy włączonej fladze.
 - `queueKsefInvoice` bierze środowisko z faktury. Token o prefiksie TEST przy env PROD kończy się 409, zanim powstanie XML.
-- **Brakuje:** publicznego route/akcji, która wywołuje `queueTestInvoice` z UI, oraz ekranu konfiguracji tokenu. Obecnie można zapisać token API, ale nie ma przycisku „Wyślij do KSeF”.
+- **Brakuje:** publicznego route/akcji, która wywołuje `queueTestInvoice` z UI, oraz przycisku „Wyślij do KSeF”.
 - Seed FV/41 jest demonstracją: 10:12:08 → 10:13:08, 60 s, DF-0243; brak `KsefSubmission` i UPO.
 
 ### 9.11 Stripe Billing

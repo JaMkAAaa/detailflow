@@ -12,7 +12,7 @@ używają `studioDb(studioId)` i nie mieszają tenantów. Szczegóły w `klienci
 # Dostęp do studia (#25)
 
 - `authorizeStudio(userId, studioId, permission)` sprawdza membership przy każdym wywołaniu i zwraca `studioDb(studioId)`.
-- `studio:read`: owner, manager, worker. `invoices:manage` i `members:invite`: owner, manager. Każda przyszła mutacja faktury musi wymagać `invoices:manage` po stronie serwera.
+- `studio:read`: owner, manager, worker. `studio:settings`: owner. `invoices:manage` i `members:invite`: owner, manager. Każda przyszła mutacja faktury musi wymagać `invoices:manage` po stronie serwera.
 - API: brak sesji → 401, cudze studio lub brak uprawnienia → 403. Obcy/nieistniejący rekord w dostępnym studiu → ten sam 404.
 - `POST /api/studios/active` (`{ studioId }`) zapisuje wybór w cookie httpOnly dopiero po autoryzacji; cookie nie jest źródłem uprawnień.
 - `POST /api/studios/:studioId/invitations` (`{ email, role: "manager" | "worker" }`) oraz formularz `/team` wysyłają e-mail przez istniejące SMTP. Zaproszenia nie nadają roli owner.

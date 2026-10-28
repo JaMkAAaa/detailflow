@@ -38,8 +38,8 @@ it("shows the five tabs in order and marks the current route", () => {
   expect(within(nav).getByRole("link", { name: "Pulpit" }).getAttribute("aria-current")).toBeNull();
 });
 
-it("highlights Więcej for routes that live under it", () => {
-  pathname.current = "/invoices";
+it.each(["/invoices", "/settings"])("highlights Więcej for %s", (route) => {
+  pathname.current = route;
   render(<TabBar />);
   expect(screen.getByRole("link", { name: "Więcej" }).getAttribute("aria-current")).toBe("page");
 });
