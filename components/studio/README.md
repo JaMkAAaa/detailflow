@@ -17,7 +17,7 @@ kolor pozycji menu. Brand korzysta z istniejącego `LogoMark` i fontu Space Grot
 
 Aktywność obejmuje też podstrony, np. `/orders/DF-0248`.
 „Usługi i cennik” prowadzi do `/services` (owner i manager; pracownik pozycji
-nie widzi). Magazyn, Statystyki oraz Portfolio są natywnie disabled
+nie widzi). Magazyn prowadzi do `/inventory` dla całego zespołu. Statystyki oraz Portfolio są natywnie disabled
 i mają widoczny badge „Wkrótce”. Nie generują nawigacji.
 
 Picker, aktywne studio i rola pochodzą z sesji. Wyszukiwarka ⌘K działa z topbaru
@@ -69,7 +69,7 @@ aktualnym studiem, użytkownikiem i licznikiem faktur wymagających uwagi.
 Licznik korzysta z istniejącego helpera `invoiceAttentionCount(studioId, env)`.
 Pracownik nie ma pozycji faktur, KSeF ani zaproszeń; bezpośrednie trasy zachowują
 swoje dotychczasowe guardy. „Usługi i cennik” prowadzi do katalogu dla ownera
-i managera. Magazyn, Statystyki i Portfolio otwierają komunikat „Wkrótce”.
+i managera. Magazyn prowadzi do `/inventory` dla całego zespołu. Statystyki i Portfolio otwierają komunikat „Wkrótce”.
 Tab bar ustępuje stałym akcjom M-05 i M-08. Widoki używają tego samego progu
 `lg` (1024 px); `useMobile` subskrybuje zmiany szerokości i zachowuje stan wizardu.
 

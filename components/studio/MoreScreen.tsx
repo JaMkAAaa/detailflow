@@ -69,7 +69,7 @@ export function MoreScreen({
     {
       title: "STUDIO",
       items: [
-        { label: "Magazyn", icon: "magazyn" },
+        { label: "Magazyn", icon: "magazyn", href: "/inventory" },
         { label: "Statystyki", icon: "statystyki" },
         { label: "Portfolio", icon: "portfolio" },
       ],

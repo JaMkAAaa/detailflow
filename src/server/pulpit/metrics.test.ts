@@ -251,7 +251,7 @@ describe("dashboard metrics (Postgres)", () => {
     expect(data.featured).toBeNull();
     expect(data.todayOrders).toEqual([]);
     expect(data.plan).toEqual({ bays: [], bookings: [] });
-    expect(data.alerts).toEqual({ coatingClients: 0, rejected: [] });
+    expect(data.alerts).toEqual({ coatingClients: 0, rejected: [], chemicals: [] });
   });
 
   it("follows the studio's selected KSeF environment", async () => {

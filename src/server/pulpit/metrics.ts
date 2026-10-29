@@ -1,5 +1,6 @@
 import { Prisma } from "../../../lib/db/generated/client";
 import { studioDb } from "../../../lib/db/tenant";
+import { lowStock } from "../magazyn/inventory";
 
 export const TIME_ZONE = "Europe/Warsaw";
 const HOUR = 3_600_000;
@@ -62,6 +63,7 @@ export async function getDashboardMetrics(studioId: string, now = new Date()) {
     regular,
     reminders,
     rejected,
+    chemicals,
   ] = await Promise.all([
     db.workOrder.aggregate({
       where: {
@@ -107,6 +109,7 @@ export async function getDashboardMetrics(studioId: string, now = new Date()) {
       select: { id: true, number: true, ksefEnv: true },
       orderBy: [{ issuedAt: "desc" }, { id: "asc" }],
     }),
+    lowStock(studioId),
   ]);
   const count = (status: string) =>
     statuses.find((s) => s.status === status)?._count._all ?? 0;
@@ -196,6 +199,7 @@ export async function getDashboardMetrics(studioId: string, now = new Date()) {
     alerts: {
       coatingClients: new Set(reminders.map((r) => r.vehicle.clientId)).size,
       rejected,
+      chemicals,
     },
     featured: featured
       ? {

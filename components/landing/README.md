@@ -14,7 +14,7 @@ Cennik: `/#pricing`. Wszystkie CTA → `/start`.
 
 - Brak logotypów klientów, gwiazdek i opinii. Zamiast nich „SCENARIUSZ DEMO”.
 - Cennik tylko miesięczny netto 79 / 149 / 279 zł, bez przełącznika roku.
-- Magazyn, statystyki, portfolio i przypomnienia o powłokach (poza v1) są oznaczone „Wkrótce”,
+- Statystyki, portfolio i przypomnienia o powłokach (poza v1) są oznaczone „Wkrótce”,
   bez zmyślonych liczb z makiety.
 - Kalkulator to **estymacja**: założenia są w `lib/landing/savings.ts`, pokazane w UI,
   liczone na `Decimal`. Do akceptacji prawnej przed publikacją.

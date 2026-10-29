@@ -57,7 +57,6 @@ export const mainFeatures: readonly Feature[] = [
 /** Moduły poza v1 — pokazujemy je jako „Wkrótce”, bez fikcyjnych liczb. */
 export const soonFeatures = [
   { title: "Przypomnienia o powłokach", text: "Ceramika po 6 miesiącach? Klient dostanie przypomnienie i zarezerwuje konserwację jednym kliknięciem." },
-  { title: "Magazyn chemii", text: "Zużycie past i powłok na zlecenie i alert, zanim preparat skończy się w trakcie pracy." },
   { title: "Statystyki, które coś mówią", text: "Przychód, najpopularniejsze usługi, obłożenie boksów i powracający klienci. Bez formuł." },
   { title: "Portfolio jednym kliknięciem", text: "Zakończone zlecenia trafią do galerii na stronę studia lub Instagram." },
 ] as const;
@@ -82,7 +81,7 @@ export const comparison: readonly { label: string; cells: [CompareCell, CompareC
   { label: "Wycena wg wielkości auta i stanu lakieru", cells: ["yes", "no", "partial"] },
   { label: "Faktury z wysyłką do KSeF", cells: ["yes", "no", "partial"] },
   { label: "Przypomnienia o konserwacji powłok", cells: ["soon", "no", "partial"] },
-  { label: "Magazyn chemii z alertami", cells: ["soon", "no", "no"] },
+  { label: "Magazyn chemii z alertami", cells: ["yes", "no", "no"] },
 ];
 
 export const steps = [

@@ -131,7 +131,7 @@ Fikcyjne opinie i logotypy klientów **nie idą na produkcję**. Zastępujemy je
 | D-09 | Faktury / Szczegóły i KSeF | Podgląd FV, numer KSeF, historia wysyłki, UPO XML, PDF, korekta |
 | D-10 | Faktury / Wymagają uwagi | Odrzucenia KSeF, zaległości, błędy NIP |
 
-Nawigacja sidebara (IA docelowa): Pulpit, Kalendarz, Zlecenia, Faktury, Klienci i auta, Usługi i cennik, Magazyn, Statystyki, Portfolio. **Usługi i cennik** to katalog studia. Magazyn, Statystyki, Portfolio i pełne Ustawienia/Konto pozostają „wkrótce” albo poza ukończonym zakresem — nie jako puste moduły.
+Nawigacja sidebara (IA docelowa): Pulpit, Kalendarz, Zlecenia, Faktury, Klienci i auta, Usługi i cennik, Magazyn, Statystyki, Portfolio. **Usługi i cennik** to katalog studia. Magazyn chemii jest ekranem `/inventory` (#143). Statystyki, Portfolio i pełne Ustawienia/Konto pozostają „wkrótce” albo poza ukończonym zakresem — nie jako puste moduły.
 
 Akcje globalne pulpitu (wersja po audycie): **Nowa wycena**, **Wystaw fakturę**, **+ Nowe zlecenie**, paleta ⌘K.
 
@@ -359,7 +359,7 @@ Prototyp wprost to oznacza:
 
 ### 6.3 Poza ukończonym zakresem
 
-- Magazyn (alert CarPro w pulpicie może być **statycznym/ręcznym** alertem albo minimalnym progiem SKU — pełny magazyn później).
+- Automatyczne zużycie chemii przy zleceniu (brak wiarygodnych receptur); magazyn z ręczną korektą i rzeczywistym alertem jest wdrożony w #143.
 - Statystyki zaawansowane, Portfolio, pełne Ustawienia i Konto.
 - KSeF offline.
 - Panel właściciela na mobile.
@@ -369,7 +369,7 @@ Prototyp wprost to oznacza:
 
 ### 6.4 Moduły wybrane, wdrażane pojedynczo
 
-Issue #142–#151 są wybrane i wchodzą po technicznych zależnościach, jedno na PR. Katalog usług (#142) jest w aplikacji. Pozostałe pozycje z tej serii nie są przez to ukończone. Stripe Billing zostaje abonamentem Detailflow i nie obsługuje płatności klienta za detailing.
+Issue #142–#151 są wybrane i wchodzą po technicznych zależnościach, jedno na PR. Katalog usług (#142) i magazyn chemii (#143) są w aplikacji. Magazyn przechowuje pełne sztuki lub ml jako Int (0–2 000 000 000), per studioId; bez zaokrągleń i automatycznego zużycia przy zleceniu. Korekta ustawia zmierzony stan i próg, wymaga powodu oraz aktualnej wersji; konflikt współbieżny zwraca 409. Niski stan to ilość ≤ próg, także zero; alert znika po uzupełnieniu. Wszyscy członkowie studia czytają stany, owner/manager zapisuje zgodnie z blokadą billingową. Pozostałe pozycje z tej serii nie są przez to ukończone. Stripe Billing zostaje abonamentem Detailflow i nie obsługuje płatności klienta za detailing.
 
 ---
 
@@ -864,7 +864,7 @@ Budować **pionami wartości**, nie warstwami technicznymi „najpierw cały adm
 | Stripe Invoice ≠ KSeF | księgowość Detailflow | osobna ścieżka na FV za abonament (biuro rachunkowe / KSeF operatora) |
 | Zdjęcia aut to dane biometryczno-podobne / tablice | RODO | umowa, retencja, dostęp portalowy tylko przez token |
 | Landing obiecuje import, KSeF, brak karty | produkt | albo w v1, albo usunąć z L-01 |
-| Magazyn w menu | UX | „Wkrótce”, nie 404. Katalog usług jest osobnym ekranem. |
+| Magazyn w menu | UX | `/inventory` z rzeczywistymi stanami i korektą (#143). Statystyki i Portfolio nadal „Wkrótce”. |
 | Brak kroków 1 i 3 wyceny/faktury w Figmie | UI | zaprojektować w kodzie wg wizardu kroku 2 |
 | Kalkulator i opinie | marketing | nie publikować fikcji |
 
