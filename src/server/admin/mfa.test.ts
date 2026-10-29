@@ -8,7 +8,7 @@ vi.hoisted(() => {
 });
 
 import { platformDb } from "@/lib/db/client";
-import { beginEnrollment, confirmEnrollment, mfaAccess, verifyStepUp } from "./mfa";
+import { beginEnrollment, confirmEnrollment, MFA_STEP_UP_MS, mfaAccess, verifyStepUp } from "./mfa";
 import { demotionBlocked } from "./operator-policy";
 import { changeOperatorRole, setFeatureFlag } from "./operators";
 import { base32Decode, totpCode } from "./totp";
@@ -23,6 +23,10 @@ let ownerCode = "";
 let backup = "";
 
 beforeAll(async () => {
+  // Rejestracja MFA i chronione operacje korzystają z tego samego zegara.
+  // Podmieniamy tylko Date, aby nie zatrzymać timerów połączeń z bazą.
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(at);
   const owner = await platformDb.user.create({ data: { name: `${tag} owner`, email: `${tag}-owner@example.com` } });
   const support = await platformDb.user.create({ data: { name: `${tag} support`, email: `${tag}-support@example.com` } });
   ownerId = owner.id;
@@ -32,6 +36,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  vi.useRealTimers();
   await platformDb.platformMfaStepUp.deleteMany({ where: { operatorId: { in: [ownerOperator, supportOperator] } } });
   await platformDb.auditLog.deleteMany({ where: { actorId: { in: [ownerId, supportId] } } });
   await platformDb.user.deleteMany({ where: { id: { in: [ownerId, supportId] } } });
@@ -57,6 +62,7 @@ describe("MFA administracji", () => {
     backup = enrolled.backupCodes[0]!;
     expect(enrolled.backupCodes).toHaveLength(8);
     expect((await mfaAccess(`${tag}-session`, ownerId, at)).state).toBe("ready");
+    expect((await mfaAccess(`${tag}-session`, ownerId, new Date(at.getTime() + MFA_STEP_UP_MS))).state).toBe("challenge");
     expect((await mfaAccess(`${tag}-other`, ownerId, at)).state).toBe("challenge");
     await expect(verifyStepUp(ownerId, `${tag}-replay`, ownerCode, at)).rejects.toThrow(/Nieprawidłowy kod/);
     await verifyStepUp(ownerId, `${tag}-backup`, backup, at);
