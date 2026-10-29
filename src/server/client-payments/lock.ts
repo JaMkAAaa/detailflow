@@ -1,7 +1,6 @@
 import { studioDb, type StudioDb } from "@/lib/db/tenant";
 import { AccessError } from "../acl";
 import { platformDb } from "@/lib/db/client";
-import { paymentStripe } from "./stripe";
 
 /** Pierwszy UPDATE blokuje wiersz do końca transakcji także dla manual/correction. */
 export async function lockInvoice(db: StudioDb, invoiceId: string) {
@@ -22,6 +21,8 @@ export async function requireNoOnlinePayment(db: StudioDb, studioId: string, inv
   if (invoice.paymentSessionId) {
     const studio = await platformDb.studio.findUniqueOrThrow({ where: { id: studioId } });
     if (!studio.clientPaymentAccountId) throw new AccessError(409, "Brak powiązania konta płatności.");
+    // Zwykłe faktury/manual nie wymagają konfiguracji opcjonalnej integracji.
+    const { paymentStripe } = await import("./stripe");
     const session = await paymentStripe().checkout.sessions.retrieve(invoice.paymentSessionId, {}, { stripeAccount: studio.clientPaymentAccountId });
     if (session.status !== "expired" || session.payment_status !== "unpaid") throw new AccessError(409, "Aktywna lub zakończona płatność online. Anuluj otwartą sesję albo poczekaj na webhook Stripe.");
   }
