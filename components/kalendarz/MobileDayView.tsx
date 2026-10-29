@@ -6,6 +6,7 @@ import { MaskIcon } from "@/components/studio/MaskIcon";
 import { Sheet } from "@/components/studio/Sheet";
 import { cn } from "@/lib/utils";
 import { bookingHref, bookings, bookingsOnDay, formatDuration, freeWindows, timeLabel, type Booking } from "./demo";
+import { ReservationSlotContext, type ReservationSlot } from "./slot";
 
 type CalendarBay = { id: string; name: string; sort: number };
 
@@ -19,7 +20,7 @@ const format = (key: string, options: Intl.DateTimeFormatOptions) => new Intl.Da
 
 type Row =
   | { kind: "booking"; at: number; booking: Booking }
-  | { kind: "free"; at: number; start: number; end: number; bay: number }
+  | { kind: "free"; at: number; start: number; end: number; bay: number; bayId: string }
   | { kind: "now"; at: number };
 
 const navButton = "flex size-11 shrink-0 items-center justify-center rounded-full bg-df-panel text-df-text";
@@ -32,10 +33,12 @@ export function MobileDayView({ events = bookings, bays, today = "2026-10-24", n
   events?: Booking[]; bays?: CalendarBay[]; today?: string; nowMinutes?: number; reservationForm?: ReactNode;
 }) {
   const live = bays !== undefined;
-  const columns = bays?.map((bay) => ({ number: bay.sort, name: bay.name })) ?? [1, 2].map((number) => ({ number, name: `Boks 0${number}` }));
+  const columns = bays?.map((bay) => ({ id: bay.id, number: bay.sort, name: bay.name })) ?? [1, 2].map((number) => ({ id: "", number, name: `Boks 0${number}` }));
   const [selected, setSelected] = useState(today);
   const [bay, setBay] = useState<number | null>(null);
   const [reserving, setReserving] = useState(false);
+  const [slot, setSlot] = useState<ReservationSlot | null>(null);
+  const openReservation = (next: ReservationSlot | null) => { setSlot(next); setReserving(true); };
 
   const matches = (event: Booking) => bay === null || event.bay === bay;
   const dayOf = (key: string) => bookingsOnDay(events, key, { live, today }).filter(matches);
@@ -48,7 +51,7 @@ export function MobileDayView({ events = bookings, bays, today = "2026-10-24", n
   for (const column of columns) {
     if (bay !== null && column.number !== bay) continue;
     for (const window of freeWindows(dayBookings, column.number, isToday ? nowMinutes : undefined)) {
-      rows.push({ kind: "free", at: window.start, ...window, bay: column.number });
+      rows.push({ kind: "free", at: window.start, ...window, bay: column.number, bayId: column.id });
     }
   }
   if (isToday && dayBookings.length > 0 && nowMinutes >= 480 && nowMinutes <= 1080) rows.push({ kind: "now", at: nowMinutes });
@@ -139,7 +142,7 @@ export function MobileDayView({ events = bookings, bays, today = "2026-10-24", n
                 <p className="w-[46px] shrink-0 text-df-strong text-df-muted">{timeLabel(row.start)}</p>
                 <button
                   type="button"
-                  onClick={() => setReserving(true)}
+                  onClick={() => openReservation(live ? { bayId: row.bayId, from: `${selected}T${timeLabel(row.start)}`, to: `${selected}T${timeLabel(row.end)}`, key: Date.now() } : null)}
                   className="flex min-h-14 flex-1 items-center justify-center gap-2 rounded-[14px] border border-dashed border-df-lime/50 bg-df-lime/4 px-3 py-4 text-df-body font-semibold text-df-lime"
                 >
                   <MaskIcon name="plus" size={16} />
@@ -179,7 +182,7 @@ export function MobileDayView({ events = bookings, bays, today = "2026-10-24", n
 
       <button
         type="button"
-        onClick={() => setReserving(true)}
+        onClick={() => openReservation(null)}
         className="flex h-12 items-center justify-center gap-2 rounded-[14px] bg-df-raised text-df-label font-semibold"
       >
         <MaskIcon name="plus" size={16} />
@@ -187,7 +190,7 @@ export function MobileDayView({ events = bookings, bays, today = "2026-10-24", n
       </button>
 
       <Sheet open={reserving} onClose={() => setReserving(false)} title={live ? "Rezerwacja boksu" : "Nowa rezerwacja — wkrótce"}>
-        {reservationForm ?? <p className="text-df-body text-df-muted">Kreator rezerwacji będzie dostępny w kolejnym etapie. Ten widok prezentuje demonstracyjny plan studia.</p>}
+        <ReservationSlotContext.Provider value={slot}>{reservationForm ?? <p className="text-df-body text-df-muted">Kreator rezerwacji będzie dostępny w kolejnym etapie. Ten widok prezentuje demonstracyjny plan studia.</p>}</ReservationSlotContext.Provider>
       </Sheet>
     </div>
   );

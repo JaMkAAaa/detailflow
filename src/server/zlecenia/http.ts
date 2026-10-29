@@ -2,6 +2,7 @@ import { auth } from "../../../lib/auth";
 import { studioDb } from "../../../lib/db/tenant";
 import { AccessError, authorizeStudio } from "../acl";
 import { apiError, limitApiWrite } from "../http";
+import { BookingError } from "../kalendarz/booking";
 import { OrderStateError } from "./state";
 
 /** Conceal studios from non-members without hiding billing's read-only 403. */
@@ -19,5 +20,6 @@ export function orderApiError(error: unknown) {
   if (error instanceof OrderStateError) {
     return Response.json({ error: error.message }, { status: error.code === "not_found" ? 404 : 409 });
   }
+  if (error instanceof BookingError) return Response.json({ error: error.message }, { status: error.status });
   return apiError(error);
 }

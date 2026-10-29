@@ -565,7 +565,7 @@ Jeśli lokalna baza ma wpis `coating_reminders` pod starą nazwą i migracja si�
 | `Vehicle` | `clientId`, `make`, `model`, `plate`, `size` | auto klienta |
 | `Bay` | `name`, `sort` | boks |
 | `Service` | `code`, `name`, `basePrice`, `durationMin`, `sort` | katalog wyceny |
-| `WorkOrder` | `number`, `clientId`, `vehicleId`, `bayId`, `quoteId`, `status`, `stage`, `scheduledFrom/To`, `dueAt`, `completedAt`, `totalGross` | zlecenie |
+| `WorkOrder` | `number`, `clientId`, `vehicleId`, `bayId`, `assigneeId`, `quoteId`, `status`, `stage`, `scheduledFrom/To`, `dueAt`, `completedAt`, `totalGross` | zlecenie |
 | `OrderCounter` | `studioId`, `last` | atomowa numeracja `DF-####` |
 | `WorkOrderEvent` | `fromStatus`, `toStatus`, `fromStage`, `toStage`, `actorId` | historia zlecenia |
 | `OrderPhoto` | `workOrderId`, `no`, `stage`, `key`, `contentType`, `sizeBytes`, `uploadedAt` | zdjęcie w S3 |
@@ -698,7 +698,7 @@ Dane pochodzą z `studioDb`; **nie ma fallbacku na dane demo**, gdy baza jest pu
 - Zakończone zlecenia zachowują historię zajętości, ale nie można ich rezerwować ponownie ani przesuwać.
 - Zapis i sprawdzenie kolizji są w jednej transakcji Serializable z ograniczonym ponowieniem (Prisma P2034 / `TransactionWriteConflict`).
 - `POST` przypisuje boks do zlecenia bez rezerwacji; `PUT` zmienia; `DELETE` zwalnia boks, zachowując zlecenie i daty.
-- UI: widok dnia i tygodnia, pasek tygodnia na mobile, wolne okna ≥ 60 min, formularz rezerwacji. Filtr pracownika pokazuje tylko „Wszystkie osoby”, bo model nie ma przypisania pracownika.
+- UI: widok dnia i tygodnia, pasek tygodnia na mobile, wolne okna ≥ 60 min, formularz rezerwacji. Filtr osób: „Wszystkie osoby”, „Nieprzypisane” i członkowie studia (`WorkOrder.assigneeId` → `Membership`). Wolne okno otwiera „Nowe zlecenie” z boksem i godzinami (`POST /orders` z `bayId`); 409 zostaje w formularzu.
 
 ### 9.5 Klienci i auta
 
@@ -737,7 +737,7 @@ accepted ──▶ in_progress ──▶ ready_for_pickup ──▶ completed
 - `assertInvoiceable` wymaga `completed` + `completedAt`.
 - Numer `DF-####`: `OrderCounter` per studio, atomowy increment; brak licznika startuje od najwyższego istniejącego numeru.
 
-**HTTP** (`/api/studios/:studioId/orders`): `GET` zwraca listę, `POST` tworzy zlecenie (`clientId`, `vehicleId`, `service`, `totalGross` jako tekst dziesiętny, `scheduledFrom`, `scheduledTo`). Daty bez offsetu oznaczają Warszawę; luki i powtórzenia DST wymagają offsetu, jak w kalendarzu. Numer, status `accepted`, etap 1 i zdarzenie utworzenia zapisują się atomowo. Auto musi należeć do wskazanego klienta.
+**HTTP** (`/api/studios/:studioId/orders`): `GET` zwraca listę, `POST` tworzy zlecenie (`clientId`, `vehicleId`, `service`, `totalGross` jako tekst dziesiętny, `scheduledFrom`, `scheduledTo`; opcjonalnie `bayId` — wtedy to rezerwacja boksu z kontrolą kolizji (409) — oraz `assigneeId`, członek tego studia albo `null`). Daty bez offsetu oznaczają Warszawę; luki i powtórzenia DST wymagają offsetu, jak w kalendarzu. Numer, status `accepted`, etap 1 i zdarzenie utworzenia zapisują się atomowo. Auto musi należeć do wskazanego klienta.
 
 `GET /:id` przyjmuje id albo `DF-####`. `POST /:id/status` przyjmuje `{ "status": "in_progress" }`; `POST /:id/advance` przesuwa etap bez body. Zapis wymaga Origin, wszystkie endpointy wymagają sesji i roli owner/manager/worker (`orders:write` dla odczytu/tworzenia, `orders:update` dla statusu/etapu). Cudze studio/rekord → 404, blokada zapisu przez billing → 403, nielegalny ruch lub konflikt → 409. **Brakuje:** podłączenia UI.
 

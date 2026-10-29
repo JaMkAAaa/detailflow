@@ -1,6 +1,6 @@
 /** D-02, UI-only scenario: 24 October 2026, 11:30. No operational queries. */
 export type Booking = {
-  id: string; number?: string; bay: number; from?: string; to?: string; employee: string; vehicle: string; service: string;
+  id: string; number?: string; bay: number; from?: string; to?: string; employee: string; assigneeId?: string | null; vehicle: string; service: string;
   customer: string; start: number; end: number; status: "in-progress" | "scheduled";
 };
 export const bookings: Booking[] = [
@@ -9,6 +9,19 @@ export const bookings: Booking[] = [
   { id: "DF-0249", bay: 2, employee: "Kamil", vehicle: "Audi Q5", service: "Pakiet premium", customer: "Anna Wiśniewska", start: 510, end: 720, status: "in-progress" },
   { id: "DF-0251", bay: 2, employee: "Kamil", vehicle: "Mercedes C", service: "Mycie detailingowe", customer: "Jakub Wójcik", start: 810, end: 960, status: "scheduled" },
 ];
+/** Wartość filtra „Nieprzypisane” (brak członka na zleceniu). */
+export const UNASSIGNED = "__unassigned";
+
+/**
+ * Filtr osób D-02. Tryb live porównuje `assigneeId` (userId członka studia), demo — imię z makiety.
+ * Pusty filtr = wszystkie; `UNASSIGNED` = zlecenia bez przypisanego członka.
+ */
+export function matchesEmployee(event: Booking, filter: string, live: boolean) {
+  if (!filter) return true;
+  if (filter === UNASSIGNED) return !event.assigneeId && (live || !event.employee);
+  return live ? event.assigneeId === filter : event.employee === filter;
+}
+
 export function timeLabel(minutes: number) {
   return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 }

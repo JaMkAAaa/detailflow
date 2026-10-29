@@ -35,9 +35,13 @@ export async function changeMember(actorId: string, studioId: string, membership
   // Chronimy wszystkich ownerów, również przy równoległych żądaniach.
   if (member.role === "owner") throw new AccessError(409, "Nie można zmienić ani usunąć właściciela tą ścieżką.");
   await platformDb.$transaction([
-    nextRole === undefined
-      ? db.membership.delete({ where: { id: membershipId, role: { not: "owner" } } })
-      : db.membership.update({ where: { id: membershipId, role: { not: "owner" } }, data: { role: nextRole } }),
+    // Usunięcie członka zdejmuje jego przypisania do zleceń (klucz (studioId, userId) jest NoAction).
+    // Blokada wiersza sprawia, że równoległe przypisanie do usuwanego członka dostaje 404, nie osierocony klucz.
+    ...nextRole === undefined ? [
+      platformDb.$queryRaw`SELECT "id" FROM "Membership" WHERE "id" = ${membershipId} AND "studioId" = ${studioId} FOR UPDATE`,
+      db.workOrder.updateMany({ where: { assigneeId: member.userId }, data: { assigneeId: null } }),
+      db.membership.delete({ where: { id: membershipId, role: { not: "owner" } } }),
+    ] : [db.membership.update({ where: { id: membershipId, role: { not: "owner" } }, data: { role: nextRole } })],
     platformDb.auditLog.create({ data: { actorId, studioId,
       action: nextRole === undefined ? "studio.member.remove" : "studio.member.role",
       meta: { membershipId, userId: member.userId, previousRole: member.role, ...(nextRole ? { role: nextRole } : {}) },
