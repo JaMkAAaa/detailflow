@@ -223,7 +223,7 @@ Legenda: **Działa** = realne dane i zapis; **Częściowo** = część przepływ
 | Obszar | Status | Co działa | Główne ograniczenie |
 | --- | --- | --- | --- |
 | Landing L-01/L-02/L-03 | **Działa** | responsywny landing, cennik, FAQ, kalkulator, CTA `/start` | treści marketingowe do zatwierdzenia; brak prawdziwych case studies |
-| Logowanie | **Działa** | hasło (Argon2id) i magiczny link, reset hasła, wylogowanie | brak MFA; rate limit w pamięci procesu |
+| Logowanie | **Działa** | hasło (Argon2id) i magiczny link, reset hasła, wylogowanie | brak MFA studia; rate limit współdzielony w Redis |
 | Rejestracja trialu | **Działa** | `/start`, konto + studio + owner + 14 dni, bez karty | brak weryfikacji e-mail przed wejściem |
 | Zaproszenia | **Działa** | `/team`, `/invite/[token]`, role manager/worker | brak listy członków i usuwania |
 | Przełączanie studiów | **Działa** | cookie `df.active_studio`, picker w sidebarze | brak pickera na mobile |
@@ -321,7 +321,7 @@ Izolacja tenantów jest dwuwarstwowa:
 - Sesja: 14 dni, odświeżanie co 24 h, cookie httpOnly z prefiksem `df`.
 - Reset hasła: token 60 min, unieważnia sesje.
 - Magic link: 15 min, token hashowany, tylko istniejące konta, odpowiedź zawsze taka sama.
-- Rate limit: 100 żądań/min, logowanie 5/min, reset 3–5/min; **w pamięci procesu**, więc przy wielu instancjach trzeba przejść na Redis.
+- Rate limit auth: 100 żądań/min, logowanie i magic link 5/min, reset 3–5/min; atomowe liczniki w Redis, osobne dla studia i panelu platformy. Zapis API studia: 60/min na użytkownika, wspólnie dla jego studiów; odczyty i publiczny portal nie zużywają limitu zapisów. Przekroczenie daje ogólne 429, API z `Retry-After`. Awaria Redisa blokuje auth (429) i zapisy API (503), bez awaryjnego limitu w pamięci. `REDIS_URL` jest wymagane przez walidację środowiska.
 
 ### 4.6 Tło i kolejki
 
@@ -1206,14 +1206,14 @@ Suma brutto musi równać się `totalGross` zlecenia; w przeciwnym razie API zwr
 - **Stripe**: weryfikacja podpisu, idempotencja, lock per studio, walidacja tenanta i subskrypcji.
 - **KSeF**: TEST domyślnie; PROD per studio za flagą `ksef_prod`. Token AES-256-GCM z AAD `studioId` i środowiska, osobny klucz PROD. Brak surowych błędów MF w logach.
 - **Nagłówki**: CSP, `X-Frame-Options`, `nosniff`, Permissions-Policy. Portal dodatkowo `no-referrer`, `no-store`, `noindex`.
-- **Lockout logowania**: 5 błędnych haseł w 15 min blokuje ten adres na 15 min. W bazie jest hash, nie e-mail. Rate limit auth w pamięci procesu zostaje (nie jest współdzielony między instancjami).
+- **Lockout logowania**: 5 błędnych haseł w 15 min blokuje ten adres na 15 min. W bazie jest hash, nie e-mail. Rate limit auth jest dodatkowo współdzielony w Redis.
 
 ### 12.2 Czego brakuje
 
 - MFA i osobnej sesji administratora platformy,
 - sesji wsparcia 15 min i audytu dostępu admina,
 - pełnego `AuditLog` dla operacji studia (obecnie tylko billing),
-- rate limitingu API poza auth,
+- limitów API per plan (zapisy studia mają wspólny limit 60/min na użytkownika),
 - szyfrowania backupów,
 - Sentry/monitoringu i alertów,
 - testów E2E i testów obciążeniowych uploadu.
@@ -1247,6 +1247,7 @@ Testy integracyjne wymagają PostgreSQL po migracjach. Testy S3/MinIO i Redis/KS
 | `DATABASE_URL` | wymagane przez większość testów |
 | `S3_TEST_ENDPOINT` | włącza test prawdziwego MinIO |
 | `KSEF_REDIS_TEST_URL` | włącza test prawdziwego BullMQ/Redis |
+| `RATE_LIMIT_REDIS_TEST_URL` | włącza test atomowego limitu między dwoma procesami (CI: DB 14); testy jednostkowe używają fałszywego licznika |
 | `xmllint` w PATH | wymagany do walidacji XSD FA(3) |
 
 ### 13.2 Co jest pokryte
@@ -1359,7 +1360,7 @@ Wymaga `DATABASE_URL`, `REDIS_URL`, `S3_*`, `AUTH_SECRET`, `APP_URL` i konfigura
 ### 14.6 Skalowanie
 
 - Aplikacja jest bezstanowa (poza cookie); można uruchomić wiele instancji web.
-- Rate limit auth jest w pamięci procesu — przy wielu instancjach przenieś do Redisa.
+- Rate limit auth i zapisów API wymaga dostępnego Redisa; obserwuj 429/503 przed skalowaniem.
 - Workerów nie skaluj bez analizy: outbox ma blokady wierszy, ale kolejność locków i idempotencja muszą zostać zachowane.
 - KSeF worker ma `concurrency: 2`; zwiększanie wymaga testów limitów MF.
 - Next dev nie jest produkcyjny; używaj `pnpm build` + `pnpm start`/standalone.
