@@ -843,7 +843,9 @@ model IntakeDamage {
   @@index([studioId, protocolId])
 }
 
-// Mały katalog używany w wycenie; nie samodzielny CMS.
+// Katalog usług studia. QuoteItem trzyma własny snapshot (nazwa, cena, czas)
+// i nie ma klucza obcego do Service, więc ukrycie albo usunięcie usługi
+// nie przepisuje historycznych wycen.
 model Service {
   id          String  @id @default(cuid())
   studioId    String
@@ -852,6 +854,7 @@ model Service {
   description String
   basePrice   Decimal @db.Decimal(12, 2)
   durationMin Int
+  active      Boolean @default(true)
   sort        Int
   studio      Studio  @relation(fields: [studioId], references: [id], onDelete: Cascade)
 

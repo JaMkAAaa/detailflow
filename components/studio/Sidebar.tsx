@@ -9,7 +9,6 @@ import { cn } from "@/lib/utils";
 import { activeStudioItem, studioNavigation } from "./navigation";
 
 const comingSoon = [
-  { label: "Usługi i cennik", icon: "uslugi" },
   { label: "Magazyn", icon: "magazyn" },
   { label: "Statystyki", icon: "statystyki" },
   { label: "Portfolio", icon: "portfolio" },
@@ -114,7 +113,7 @@ export function Sidebar({
         </p>
         <ul className="flex flex-col gap-2">
           {studioNavigation.map((item) => {
-            if (item.href === "/invoices" && current.role === "worker")
+            if ((item.href === "/invoices" || item.href === "/services") && current.role === "worker")
               return null;
             const selected = active?.href === item.href;
             return (

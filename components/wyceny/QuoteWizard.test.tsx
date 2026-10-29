@@ -170,3 +170,30 @@ it("asks for a client with a vehicle when the studio has none", () => {
   render(<QuoteWizard studioId="empty" userId="user" clientChoices={[]} />);
   expect(screen.getByRole("status").textContent).toContain("Dodaj klienta z samochodem");
 });
+
+it("keeps a saved hidden service on the quote and out of new choices", async () => {
+  const user = userEvent.setup();
+  const draft = { ...initialDraft, clientId: "real-client", vehicleId: "real-car", serviceIds: ["hidden", "wash"], step: 2 as const, notes: "" };
+  render(<QuoteWizard
+    studioId="studio-a"
+    userId="user-a"
+    clientChoices={[{ id: "real-client", name: "Klient z bazy", email: "a@example.test", vehicles: [{ id: "real-car", label: "Auto" }] }]}
+    serviceChoices={[{ id: "wash", code: "wash", name: "Mycie detailingowe", description: "Mycie", price: "250.00", hours: "1", durationMin: 50 }]}
+    heldServices={[{ id: "hidden", name: "Stara korekta", description: "", price: "10.00", hours: "1", durationMin: 40, inCatalog: false }]}
+    initialQuote={{
+      id: "11111111-1111-4111-8111-111111111111",
+      revision: 1,
+      status: "draft",
+      pending: false,
+      items: [
+        { serviceId: "hidden", name: "Stara korekta", basePrice: "10.00", durationMin: 40 },
+        { serviceId: "wash", name: "Mycie detailingowe", basePrice: "250.00", durationMin: 50 },
+      ],
+      draft,
+    }}
+  />);
+  expect(screen.getByLabelText("Nazwa: Stara korekta")).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: /Dodaj z katalogu/ }));
+  expect(screen.queryByRole("checkbox", { name: /Stara korekta/ })).toBeNull();
+  expect(screen.getByRole("checkbox", { name: /Mycie detailingowe/ })).toBeTruthy();
+});

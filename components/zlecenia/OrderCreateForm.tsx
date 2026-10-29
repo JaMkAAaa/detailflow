@@ -76,6 +76,7 @@ export function OrderCreateForm({ studioId, clients, services, onCreated, onCanc
           {services.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
         </select>}
       </label>
+      {!quote && services.length === 0 && <p role="status" className="text-df-muted">Brak aktywnych usług w cenniku.</p>}
       <label className="flex flex-col gap-2 text-df-label text-df-muted">Kwota brutto (PLN)
         <input readOnly={!!quote} required inputMode="decimal" aria-label="Kwota brutto" pattern="[0-9]+([.,][0-9]{1,2})?" className={control} value={totalGross} onChange={(event) => setTotalGross(event.target.value)} />
       </label>

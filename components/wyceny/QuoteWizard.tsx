@@ -29,11 +29,12 @@ type InitialQuote = {
   draft: Draft;
 };
 
-export function QuoteWizard({ studioId, userId, clientChoices, serviceChoices, initialQuote }: {
+export function QuoteWizard({ studioId, userId, clientChoices, serviceChoices, heldServices, initialQuote }: {
   studioId: string;
   userId: string;
   clientChoices?: readonly ClientChoice[];
   serviceChoices?: readonly WizardService[];
+  heldServices?: readonly WizardService[];
   initialQuote?: InitialQuote | null;
 }) {
   const mobile = useMobile();
@@ -48,9 +49,14 @@ export function QuoteWizard({ studioId, userId, clientChoices, serviceChoices, i
   const start = initialQuote?.draft ?? blankStart;
   const [draft, setDraft] = useState<Draft>(start);
   const [services, setServices] = useState<WizardService[]>(() => {
-    const base = serviceChoices ?? demoServices;
-    if (!initialQuote) return [...base];
-    return base.map((service) => {
+    const base = [...(serviceChoices ?? demoServices)];
+    const selected = new Set(start.serviceIds);
+    const extras = (heldServices ?? [])
+      .filter((service) => selected.has(service.id) && !base.some((item) => item.id === service.id))
+      .map((service) => ({ ...service, inCatalog: false as const }));
+    const merged = [...base, ...extras];
+    if (!initialQuote) return merged;
+    return merged.map((service) => {
       const snapshot = initialQuote.items.find((item) => item.serviceId === service.id);
       if (!snapshot) return service;
       return {
@@ -79,7 +85,8 @@ export function QuoteWizard({ studioId, userId, clientChoices, serviceChoices, i
   const vehicle = client?.vehicles.find((vehicle) => vehicle.id === draft.vehicleId);
   const slot = slots.find((slot) => slot.id === draft.slotId);
   const validSlot = slot && price.hours.lte(slot.hours);
-  const editingService = services.find((service) => service.id === editingServiceId) ?? services[0];
+  const catalogServices = services.filter((service) => service.inCatalog !== false);
+  const editingService = catalogServices.find((service) => service.id === editingServiceId) ?? catalogServices[0];
 
   useEffect(() => {
     try {
@@ -329,10 +336,11 @@ export function QuoteWizard({ studioId, userId, clientChoices, serviceChoices, i
     <Sheet open={options} onClose={() => setOptions(false)} title="Rozszerzone opcje · v1.1"><p className="text-df-muted">Dodatkowe opcje lakieru i wnętrza na telefonie będą dostępne w wersji 1.1. Możesz teraz kontynuować wycenę.</p><Button onClick={() => setOptions(false)}>Wróć do wyceny</Button></Sheet>
     <Sheet open={catalog} onClose={() => setCatalog(false)} title="Katalog usług">
       <p className="text-df-muted">Zaznacz usługi, które chcesz uwzględnić w wycenie.</p>
-      {services.map((service) => <label key={service.id} className="flex cursor-pointer items-center gap-3 rounded-lg bg-df-raised p-4"><input type="checkbox" className="accent-df-lime" checked={draft.serviceIds.includes(service.id)} onChange={() => toggleService(service.id)} /><span className="flex-1"><span className="block text-df-strong">{service.name}</span><span className="block text-df-label text-df-muted">{service.description}</span></span><span>{pln(service.price)}</span></label>)}
-      {operational && <form className="flex flex-col gap-3" onSubmit={saveService}>
+      {operational && catalogServices.length === 0 && <p role="status">Brak aktywnych usług w cenniku.</p>}
+      {catalogServices.map((service) => <label key={service.id} className="flex cursor-pointer items-center gap-3 rounded-lg bg-df-raised p-4"><input type="checkbox" className="accent-df-lime" checked={draft.serviceIds.includes(service.id)} onChange={() => toggleService(service.id)} /><span className="flex-1"><span className="block text-df-strong">{service.name}</span><span className="block text-df-label text-df-muted">{service.description}</span></span><span>{pln(service.price)}</span></label>)}
+      {operational && editingService && <form className="flex flex-col gap-3" onSubmit={saveService}>
         <h3 className="text-df-strong">Edytuj usługę katalogu</h3>
-        <Field label="Usługa do edycji"><select required name="serviceId" value={editingService?.id ?? ""} onChange={(event) => setEditingServiceId(event.target.value)} className={control}>{services.map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}</select></Field>
+        <Field label="Usługa do edycji"><select required name="serviceId" value={editingService?.id ?? ""} onChange={(event) => setEditingServiceId(event.target.value)} className={control}>{catalogServices.map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}</select></Field>
         <Field label="Nazwa usługi"><input required name="name" defaultValue={editingService?.name} key={`name-${editingService?.id}`} maxLength={120} className={control} /></Field>
         <Field label="Cena bazowa brutto PLN"><input required name="basePrice" defaultValue={editingService?.price} key={`price-${editingService?.id}`} inputMode="decimal" pattern="[0-9]+([.,][0-9]{1,2})?" className={control} /></Field>
         <Field label="Czas bazowy (min)"><input required name="durationMin" defaultValue={editingService?.durationMin ?? 0} key={`duration-${editingService?.id}`} type="number" min={0} max={60000} className={control} /></Field>

@@ -54,7 +54,7 @@ Przed uznaniem prototypu za kompletny wymagane są:
 
 ## Poza zakresem v1
 
-Samodzielne moduły Usługi i cennik, Magazyn, Statystyki, Portfolio oraz pełne Ustawienia i Konto. Ich pozycje w menu przedstawiają docelową architekturę informacji, a nie gotowe przepływy.
+Katalog Usługi i cennik jest ekranem studia (`/services`). Magazyn, Statystyki, Portfolio oraz pełne Ustawienia i Konto pozostają poza ukończonym zakresem i wchodzą osobnymi issue. Ich pozycje w menu przedstawiają docelową architekturę informacji: Magazyn, Statystyki i Portfolio są „Wkrótce”, nie pustym CRUD.
 
 Tryb offline KSeF jest wyłączony i oznaczony jako poza zakresem v1. Przed jego wdrożeniem trzeba zweryfikować oficjalne zasady MF, terminy i przygotować osobny dialog potwierdzenia. W tej iteracji nie projektowano prawnych reguł offline.
 

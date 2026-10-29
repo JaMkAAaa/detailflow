@@ -19,13 +19,14 @@ Czytaj to przed pierwszym commitem. Źródła prawdy:
 ## Twarde reguły produktu
 
 - Multi-tenant: każde zapytanie operacyjne ma `studioId`. Helper `studioDb(studioId)`, nie „pamiętaj where”.
-- **Stripe = abonament Detailflow** (Solo 79 / Studio 149 / Pro 279 zł netto, trial 14 dni bez karty).
+- **Stripe Billing = abonament Detailflow** (Solo 79 / Studio 149 / Pro 279 zł netto, trial 14 dni bez karty). To nie jest płatność klienta studia za detailing.
 - **KSeF = faktura klienta studia** (FA(3), TEST i PROD rozdzielone). To nie jest to samo co Stripe Invoice.
 - Faktury wystawia się **po zakończeniu zlecenia**. FV/41 nie powstaje z `#DF-0248`.
 - Portal klienta: 3 etapy, nie 4. Token hashowany, surowy tylko w URL.
 - Kwoty: `Decimal`, PLN. Nigdy `float`.
-- Poza v1: magazyn, statystyki, portfolio, pełny cennik CMS, KSeF offline, abonament roczny, płatność online klienta za detailing.
-- Menu „Usługi i cennik / Magazyn / Statystyki / Portfolio” = „Wkrótce”, nie 404 i nie pusty CRUD.
+- Moduły po pierwotnym v1 (#142–#151) są wybrane i wchodzą pojedynczo, po technicznych zależnościach. Zamknięcie jednego nie oznacza, że pozostałe są ukończone.
+- Jeszcze bez własnego wdrożenia: magazyn, statystyki, portfolio, KSeF offline, abonament roczny, płatność online klienta za detailing.
+- Menu: „Usługi i cennik” prowadzi do katalogu studia. „Magazyn / Statystyki / Portfolio” = „Wkrótce”, nie 404 i nie pusty CRUD.
 - Seed ma odtwarzać dane makiety (Obsidian Studio, `#DF-0248`, etapy, kwoty), żeby dało się porównać UI.
 
 ## Stack

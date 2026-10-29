@@ -1,5 +1,5 @@
-// Katalog startowy v1, wspólny dla studiów. Edycja nazwy/ceny w wycenie
-// zapisuje snapshot QuoteItem; pełny CMS usług pozostaje poza v1.
+// Katalog demonstracyjny D-06 dla testów i wariantu demo kreatora.
+// Usługi studia pochodzą z tabeli Service, nie z tego pliku.
 export const serviceCatalog = [
   { id: "correction", name: "Korekta lakieru", description: "Dwa etapy · usunięcie mikrorys", price: "2000.00", hours: "8" },
   { id: "ceramic", name: "Powłoka ceramiczna", description: "Ochrona 3 lata · CarPro CQuartz", price: "2000.00", hours: "4" },
