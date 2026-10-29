@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { expect, it } from "vitest";
 import { Decimal } from "@prisma/client/runtime/client";
-import { invoiceFixture } from "../invoices/fixtures/document";
+import { correctionFixture, invoiceFixture } from "../invoices/fixtures/document";
 import { generateFa3 } from "./fa3";
 
 const schema = path.join(process.cwd(), "src/ksef/xsd/FA_3.xsd");
@@ -53,4 +53,39 @@ it("does not round away a half-cent or invent missing seller details", () => {
   expect(() => generateFa3(doc)).toThrow();
   doc.invoice.totalNet = new Decimal("3902.44"); doc.seller.nip = "";
   expect(() => generateFa3(doc)).toThrow(/sprzedawcy/);
+});
+
+it.each(["test", "production"] as const)("exports a negative KOR with source reference and saved deltas (%s)", env => {
+  const doc = correctionFixture();
+  doc.invoice.ksefEnv = doc.corrects!.ksefEnv = doc.seller.env = env;
+  const xml = generateFa3(doc);
+  const result = validate(xml);
+  expect(result.stderr).toContain("validates"); expect(result.status).toBe(0);
+  for (const value of ["<RodzajFaktury>KOR</RodzajFaktury>", "<P_15>-1170.00</P_15>",
+    "<P_13_1>-951.22</P_13_1>", "<P_14_1>-218.78</P_14_1>", "<P_11>-951.22</P_11>",
+    "<NrFaKorygowanej>FV/41/10/2026</NrFaKorygowanej>", "<PrzyczynaKorekty>Rabat na ceramikę</PrzyczynaKorekty>",
+    `<NrKSeFFaKorygowanej>${doc.corrects!.ksefNumber}</NrKSeFFaKorygowanej>`]) expect(xml).toContain(value);
+  expect(xml).not.toContain("<P_9A>"); expect(xml).not.toContain("<P_8B>");
+});
+it("preserves the difference of HALF_UP rounded VAT, rather than rounding VAT of the difference", () => {
+  const doc = correctionFixture();
+  // Before: .03 net -> .01 VAT; after: .02 net -> .00 VAT.
+  const line = doc.invoice.items[1]!;
+  line.unitNet = new Decimal("0.02"); line.net = doc.invoice.totalNet = new Decimal("-0.01");
+  line.vat = doc.invoice.totalVat = new Decimal("-0.01"); line.gross = doc.invoice.totalGross = new Decimal("-0.02");
+  const xml = generateFa3(doc);
+  expect(validate(xml).status).toBe(0);
+  expect(xml).toContain("<P_14_1>-0.01</P_14_1>");
+  expect(xml).toContain("<P_15>-0.02</P_15>");
+});
+it.each(["missing", "correction", "tenant", "env", "buyer", "sum", "reference"])("rejects invalid correction exports: %s", kind => {
+  const doc = correctionFixture();
+  if (kind === "missing") doc.corrects = undefined;
+  if (kind === "correction") doc.corrects!.kind = "correction";
+  if (kind === "tenant") doc.corrects!.studioId = "other";
+  if (kind === "env") doc.corrects!.ksefEnv = "production";
+  if (kind === "buyer") doc.invoice.buyerName = "Other buyer";
+  if (kind === "sum") doc.invoice.totalGross = new Decimal("-1170.01");
+  if (kind === "reference") doc.corrects!.ksefNumber = null;
+  expect(() => generateFa3(doc)).toThrow();
 });

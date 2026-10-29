@@ -4,7 +4,7 @@ import { InvoiceDocumentError, plDate, validateInvoiceDocument, type InvoiceDocu
 
 export const FA3_NAMESPACE = "http://crd.gov.pl/wzor/2025/06/25/13775/";
 
-/** Domestic PLN VAT invoice. Corrections/exemptions require their own explicit mapping. */
+/** Domestic PLN VAT invoice or monetary correction, using persisted amounts. */
 export function generateFa3(document: InvoiceDocument, generatedAt = new Date()): string {
   validateInvoiceDocument(document);
   const { invoice: i, seller } = document;
@@ -44,12 +44,30 @@ export function generateFa3(document: InvoiceDocument, generatedAt = new Date())
   notes.ele("Zwolnienie").ele("P_19N").txt("1");
   notes.ele("NoweSrodkiTransportu").ele("P_22N").txt("1");
   notes.ele("P_23").txt("2"); notes.ele("PMarzy").ele("P_PMarzyN").txt("1");
-  fa.ele("RodzajFaktury").txt("VAT");
+  const correction = i.kind === "correction";
+  fa.ele("RodzajFaktury").txt(correction ? "KOR" : "VAT");
+  if (correction) {
+    const source = document.corrects!;
+    // All corrections created by this API follow KSeF acceptance. Missing reference
+    // is incomplete data, never evidence that the source was issued outside KSeF.
+    if (!source.ksefNumber) throw new InvoiceDocumentError("Brak numeru KSeF faktury korygowanej.");
+    fa.ele("PrzyczynaKorekty").txt(i.correctionReason!);
+    const reference = fa.ele("DaneFaKorygowanej");
+    reference.ele("DataWystFaKorygowanej").txt(plDate(source.issuedAt!));
+    reference.ele("NrFaKorygowanej").txt(source.number);
+    reference.ele("NrKSeF").txt("1");
+    reference.ele("NrKSeFFaKorygowanej").txt(source.ksefNumber);
+  }
   for (const line of i.items) {
     const row = fa.ele("FaWiersz");
     row.ele("NrWierszaFa").txt(String(line.lp)); row.ele("P_7").txt(line.name);
-    row.ele("P_8A").txt(line.unit); row.ele("P_8B").txt(line.quantity.toString());
-    row.ele("P_9A").txt(line.unitNet.toFixed(2)); row.ele("P_11").txt(line.net.toFixed(2));
+    // Quantity/unitNet on a correction store the AFTER state, not a difference.
+    // Export only the stored monetary delta; do not mix these two meanings.
+    if (!correction) {
+      row.ele("P_8A").txt(line.unit); row.ele("P_8B").txt(line.quantity.toString());
+      row.ele("P_9A").txt(line.unitNet.toFixed(2));
+    }
+    row.ele("P_11").txt(line.net.toFixed(2));
     row.ele("P_12").txt(line.vatRate === 0 ? "0 KR" : String(line.vatRate));
   }
   return root.end({ prettyPrint: true });
