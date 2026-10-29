@@ -105,7 +105,9 @@ describe("portal tokens and decisions (Postgres)", () => {
   it.each(["accepted", "rejected"] as const)("records %s once, confirms it, and queues one token-free notification", async (decision) => {
     const f = await fixture();
     expect(renderToStaticMarkup(await page(f.token))).toContain("Akceptuję wycenę");
+    const ordersBefore = await f.db.workOrder.count();
     expect((await decisionRequest(f.token, decision)).status).toBe(303);
+    expect(await f.db.workOrder.count()).toBe(ordersBefore);
     expect(await f.db.quote.findFirstOrThrow({ where: { id: f.quote.id } })).toMatchObject({ status: decision, decidedAt: expect.any(Date) });
     const html = renderToStaticMarkup(await page(f.token));
     expect(html).toContain("Decyzja została zapisana");

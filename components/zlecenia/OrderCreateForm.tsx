@@ -8,6 +8,7 @@ export type OrderServiceChoice = { id: string; name: string; basePrice: string }
 /** Boks i godziny z wolnego okna kalendarza (czas lokalny `YYYY-MM-DDTHH:mm`, Europe/Warsaw). */
 export type OrderSlot = { bayId: string; from: string; to: string };
 type Props = {
+  quote?: { id: string; clientId: string; vehicleId: string; service: string; totalGross: string };
   studioId: string; clients: OrderClientChoice[]; services: OrderServiceChoice[];
   onCreated: (order: unknown) => void; onCancel?: () => void;
   /** Podane z kalendarza: formularz tworzy rezerwację boksu, kolizja 409 zostaje w formularzu. */
@@ -22,16 +23,16 @@ export function localInput(date: Date) {
   }).format(date).replace(" ", "T");
 }
 
-export function OrderCreateForm({ studioId, clients, services, onCreated, onCancel, bays, members, slot }: Props) {
+export function OrderCreateForm({ studioId, clients, services, onCreated, onCancel, bays, members, slot, quote }: Props) {
   const start = new Date(Date.now() + 60 * 60_000);
   const end = new Date(start.getTime() + 2 * 60 * 60_000);
-  const [clientId, setClientId] = useState(clients[0]?.id ?? "");
-  const [vehicleId, setVehicleId] = useState(clients[0]?.vehicles[0]?.id ?? "");
+  const [clientId, setClientId] = useState(quote?.clientId ?? clients[0]?.id ?? "");
+  const [vehicleId, setVehicleId] = useState(quote?.vehicleId ?? clients[0]?.vehicles[0]?.id ?? "");
   const [serviceId, setServiceId] = useState(services[0]?.id ?? "");
-  const [totalGross, setTotalGross] = useState(services[0]?.basePrice ?? "");
-  const [scheduledFrom, setScheduledFrom] = useState(slot?.from ?? localInput(start));
-  const [scheduledTo, setScheduledTo] = useState(slot?.to ?? localInput(end));
-  const [bayId, setBayId] = useState(slot?.bayId ?? bays?.[0]?.id ?? "");
+  const [totalGross, setTotalGross] = useState(quote?.totalGross ?? services[0]?.basePrice ?? "");
+  const [scheduledFrom, setScheduledFrom] = useState(slot?.from ?? (quote ? "" : localInput(start)));
+  const [scheduledTo, setScheduledTo] = useState(slot?.to ?? (quote ? "" : localInput(end)));
+  const [bayId, setBayId] = useState(slot?.bayId ?? (quote ? "" : bays?.[0]?.id) ?? "");
   const [assigneeId, setAssigneeId] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -42,10 +43,10 @@ export function OrderCreateForm({ studioId, clients, services, onCreated, onCanc
     setBusy(true);
     setError("");
     try {
-      const response = await fetch(`/api/studios/${encodeURIComponent(studioId)}/orders`, {
+      const response = await fetch(quote ? `/api/studios/${encodeURIComponent(studioId)}/quotes/${encodeURIComponent(quote.id)}/order` : `/api/studios/${encodeURIComponent(studioId)}/orders`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          clientId, vehicleId, service: services.find((item) => item.id === serviceId)?.name ?? "",
+          clientId, vehicleId, service: quote ? quote.service.slice(0, 200) : services.find((item) => item.id === serviceId)?.name ?? "",
           totalGross: totalGross.trim().replace(",", "."), scheduledFrom, scheduledTo,
           ...(bays ? { bayId } : {}), ...(members ? { assigneeId: assigneeId || null } : {}),
         }),
@@ -61,26 +62,27 @@ export function OrderCreateForm({ studioId, clients, services, onCreated, onCanc
   return (
     <form onSubmit={submit} className="mt-5 flex flex-col gap-4">
       <label className="flex flex-col gap-2 text-df-label text-df-muted">Klient
-        <select required aria-label="Klient" className={control} value={clientId} onChange={(event) => { setClientId(event.target.value); setVehicleId(clients.find((item) => item.id === event.target.value)?.vehicles[0]?.id ?? ""); }}>
+        <select disabled={!!quote} required aria-label="Klient" className={control} value={clientId} onChange={(event) => { setClientId(event.target.value); setVehicleId(clients.find((item) => item.id === event.target.value)?.vehicles[0]?.id ?? ""); }}>
           {clients.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
         </select>
       </label>
       <label className="flex flex-col gap-2 text-df-label text-df-muted">Auto
-        <select required aria-label="Auto" className={control} value={vehicleId} onChange={(event) => setVehicleId(event.target.value)}>
+        <select disabled={!!quote} required aria-label="Auto" className={control} value={vehicleId} onChange={(event) => setVehicleId(event.target.value)}>
           {(client?.vehicles ?? []).map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{vehicle.label}</option>)}
         </select>
       </label>
       <label className="flex flex-col gap-2 text-df-label text-df-muted">Usługa
-        <select required aria-label="Usługa" className={control} value={serviceId} onChange={(event) => { const next = services.find((item) => item.id === event.target.value); setServiceId(event.target.value); if (next) setTotalGross(next.basePrice); }}>
+        {quote ? <input aria-label="Usługa" className={control} readOnly value={quote.service} /> : <select required aria-label="Usługa" className={control} value={serviceId} onChange={(event) => { const next = services.find((item) => item.id === event.target.value); setServiceId(event.target.value); if (next) setTotalGross(next.basePrice); }}>
           {services.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-        </select>
+        </select>}
       </label>
       <label className="flex flex-col gap-2 text-df-label text-df-muted">Kwota brutto (PLN)
-        <input required inputMode="decimal" aria-label="Kwota brutto" pattern="[0-9]+([.,][0-9]{1,2})?" className={control} value={totalGross} onChange={(event) => setTotalGross(event.target.value)} />
+        <input readOnly={!!quote} required inputMode="decimal" aria-label="Kwota brutto" pattern="[0-9]+([.,][0-9]{1,2})?" className={control} value={totalGross} onChange={(event) => setTotalGross(event.target.value)} />
       </label>
       {bays && (
         <label className="flex flex-col gap-2 text-df-label text-df-muted">Boks
           <select required aria-label="Boks" className={control} value={bayId} onChange={(event) => setBayId(event.target.value)}>
+            <option value="">Wybierz boks</option>
             {bays.map((bay) => <option key={bay.id} value={bay.id}>{bay.name}</option>)}
           </select>
         </label>

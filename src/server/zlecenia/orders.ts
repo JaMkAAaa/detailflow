@@ -75,25 +75,46 @@ export async function loadOrderChoices(studioId: string) {
   };
 }
 
-export async function createOrder(db: StudioDb, studioId: string, actorId: string, input: unknown) {
+export async function createOrder(db: StudioDb, studioId: string, actorId: string, input: unknown, quoteId?: string) {
   const data = createOrderSchema.parse(input);
   // Z boksem: Serializable chroni przed dwoma jednoczesnymi zapisami do tego samego wolnego okna.
-  return serializableBooking(db, async (tx) => {
-    const client = await tx.client.findFirst({ where: { id: data.clientId }, select: { id: true } });
-    const vehicle = await tx.vehicle.findFirst({ where: { id: data.vehicleId }, select: { clientId: true } });
-    if (!client || !vehicle) throw new OrderStateError("not_found", "Nie znaleziono klienta lub auta.");
-    if (vehicle.clientId !== client.id) throw new AccessError(400, "Auto nie należy do wybranego klienta.");
-    if (data.bayId) {
-      await assertBayExists(tx, data.bayId);
-      await assertBayFree(tx, data.bayId, data.scheduledFrom, data.scheduledTo);
+  try {
+    return await serializableBooking(db, async (tx) => {
+      let snapshot: Partial<typeof data> & { quoteId?: string } = {};
+      if (quoteId) {
+        const quote = await tx.quote.findFirst({ where: { id: quoteId }, include: { items: { orderBy: { sort: "asc" } } } });
+        if (!quote) throw new OrderStateError("not_found", "Nie znaleziono wyceny.");
+        const existing = await tx.workOrder.findFirst({ where: { quoteId } });
+        if (existing) return existing;
+        if (quote.status !== "accepted") throw new AccessError(409, "Wycena nie jest zaakceptowana.");
+        // Snapshot is authoritative; client-submitted price, client and vehicle cannot change it.
+        snapshot = { quoteId, clientId: quote.clientId, vehicleId: quote.vehicleId,
+          service: quote.items.map((item) => item.name).join(", "), totalGross: quote.totalGross };
+      }
+      const values = { ...data, ...snapshot };
+      const client = await tx.client.findFirst({ where: { id: values.clientId }, select: { id: true } });
+      const vehicle = await tx.vehicle.findFirst({ where: { id: values.vehicleId }, select: { clientId: true } });
+      if (!client || !vehicle) throw new OrderStateError("not_found", "Nie znaleziono klienta lub auta.");
+      if (vehicle.clientId !== client.id) throw new AccessError(400, "Auto nie należy do wybranego klienta.");
+      if (data.bayId) {
+        await assertBayExists(tx, data.bayId);
+        await assertBayFree(tx, data.bayId, data.scheduledFrom, data.scheduledTo);
+      }
+      if (data.assigneeId) await assertAssignee(tx, data.assigneeId);
+      const number = await allocateOrderNumber(tx, studioId);
+      const order = await tx.workOrder.create({ data: { ...values, studioId, number, status: "accepted", stage: 1 } });
+      await tx.workOrderEvent.create({ data: {
+        studioId, workOrderId: order.id, actorId,
+        fromStatus: null, fromStage: null, toStatus: "accepted", toStage: 1,
+      } });
+      return order;
+    }, { serializable: quoteId !== undefined || data.bayId !== undefined });
+  } catch (error) {
+    // The unique (quoteId, studioId) index is the final guard against concurrent creates.
+    if (quoteId && error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      const existing = await db.workOrder.findFirst({ where: { quoteId } });
+      if (existing) return existing;
     }
-    if (data.assigneeId) await assertAssignee(tx, data.assigneeId);
-    const number = await allocateOrderNumber(tx, studioId);
-    const order = await tx.workOrder.create({ data: { ...data, studioId, number, status: "accepted", stage: 1 } });
-    await tx.workOrderEvent.create({ data: {
-      studioId, workOrderId: order.id, actorId,
-      fromStatus: null, fromStage: null, toStatus: "accepted", toStage: 1,
-    } });
-    return order;
-  }, { serializable: data.bayId !== undefined });
+    throw error;
+  }
 }
