@@ -4,7 +4,7 @@ import { AUTH_COOKIE_PREFIX, PLATFORM_COOKIE_PREFIX } from "./lib/auth/cookie";
 import { LOGIN_PATH, PLATFORM_LOGIN_PATH } from "./lib/auth/redirect";
 
 // Ścieżki bez sesji studia. /admin wymaga osobnego cookie operatora.
-const PUBLIC_PATHS = [LOGIN_PATH, PLATFORM_LOGIN_PATH, "/landing", "/start", "/logout", "/forgot-password", "/reset-password", "/invite", "/p/"];
+const PUBLIC_PATHS = [LOGIN_PATH, PLATFORM_LOGIN_PATH, "/landing", "/start", "/logout", "/forgot-password", "/reset-password", "/invite", "/p/", "/payment-result"];
 
 function isPublicPortfolio(pathname: string) {
   return pathname === "/realizacje" || pathname.startsWith("/realizacje/");

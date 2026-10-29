@@ -1,5 +1,6 @@
 "use client";
 
+import { OnlinePaymentActions } from "./OnlinePaymentActions";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -127,6 +128,7 @@ export function InvoiceDetails({ invoice: loaded, seller, studioId }: { invoice:
     </div>
     </div>
     {mobile && feedback}
+    {!isCorrection && invoice.status === "issued" && !invoice.paidAt && <OnlinePaymentActions studioId={studioId} invoiceId={invoice.id} />}
     <Sheet open={more} onClose={() => setMore(false)} title="Akcje faktury"><Button variant="secondary" onClick={() => { setMore(false); void download("pdf"); }}>Pobierz PDF</Button><Button variant="secondary" onClick={() => { setMore(false); setAction("resend"); }}>{invoice.emailedAt ? "Wyślij ponownie" : "Wyślij PDF"}</Button>{!isCorrection && <Button variant="secondary" onClick={() => { setMore(false); setAction("correction"); }}>Wystaw korektę</Button>}<h2 className="text-df-section">Historia wysyłki</h2><ol className="space-y-3">{events.map(event => <li key={event.id}><p>{event.message}</p><time className="text-df-label text-df-muted">{date(event.at, true)}</time></li>)}</ol></Sheet>
     <Sheet open={action !== null} onClose={closeAction} title={action === "paid" ? "Oznacz jako opłaconą" : action === "correction" ? "Wystaw korektę" : "Wyślij ponownie"}><p>{invoice.number} · KSeF {envLabel(invoice.env)}</p>
       {action === "paid" && <p className="text-df-muted">Płatność ręczna (przelew) na kwotę {money(invoice.totalGross)}. Zapisujemy datę dzisiejszą; nie wysyłamy nic do klienta ani do MF.</p>}

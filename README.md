@@ -1793,3 +1793,7 @@ To znany przypadek lokalnej historii migracji. Nie usuwaj tabel. Wykonaj procedu
 ## Podsumowanie
 
 Repozytorium zawiera działającą aplikację v1 na danych z bazy: izolację tenantów, auth, kalendarz, klientów, zlecenia, wyceny, portal klienta, faktury z PDF/FA(3), kolejkę KSeF TEST (PROD za flagą), billing Stripe, backup, Sentry, CI z E2E i panel platformy `/admin` z MFA, audytem i sesją wsparcia. Nie ma natomiast dowodów, które nie mogą pochodzić z repozytorium: wysyłki do prawdziwego MF, zatwierdzenia prawnego dokumentów, testu odtwarzania backupu ani zewnętrznego monitoringu — dlatego README nie deklaruje gotowości produkcyjnej ani prawnej. Szczegóły i ograniczenia: [§3](#3-status-wdrożenia) i [§15](#15-luki-i-plan); szczegóły modułów — w linkowanych dokumentach.
+
+### Płatności klientów studia (#148)
+
+Connect Standard + direct charges, prowizja Detailflow 0%, wyłącznie sandbox. Owner łączy konto w `/settings`, owner/manager tworzy link Checkout na szczegółach faktury (desktop/mobile). Środki, opłaty, zwroty i spory należą do studia. Podpisany webhook Connect ustawia `paidAt` idempotentnie; Billing i KSeF pozostają oddzielne. Otwartą sesję trzeba wygasić w Stripe przed ręcznym oznaczeniem płatności lub korektą. Faktury z korektą rozlicza się ręcznie. [Konfiguracja, testy i ograniczenia bez kluczy](docs/platnosci-klientow.md). Brak potwierdzonego hosted sandbox smoke; live nie jest włączone.

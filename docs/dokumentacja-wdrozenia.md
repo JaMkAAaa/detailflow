@@ -363,13 +363,13 @@ Prototyp wprost to oznacza:
 - Statystyki zaawansowane (rozbicia po pracownikach, klientach, kohorty, eksport) — podstawowe statystyki studia są wdrożone w #144. Publiczna galeria realizacji jest wdrożona w #145 (ręczna publikacja, maska tablicy na pochodnej). Pełne Ustawienia i Konto.
 - KSeF offline — #146 to ukończenie badania/dokumentacji, nie wdrożenie klienta; kod pozostaje przyszłym zakresem.
 - Panel właściciela na mobile.
-- Płatność klienta online za usługę (Stripe Checkout B2C) — autoryzowana do osobnego #148, jeszcze niewdrożona.
-- Abonament roczny (#147) jest zaimplementowany w PR #186; [decyzja i kontrakt](stripe-roczny-przygotowanie.md). Wymaga zakończenia CI i review przed merge.
+- Płatność klienta online za usługę (#148): implementacja sandbox Connect Standard + direct charges, bez prowizji Detailflow; [kontrakt i konfiguracja](platnosci-klientow.md). Bez kluczy nie potwierdzono hosted smoke, live pozostaje wyłączone.
+- Abonament roczny (#147) jest zaimplementowany w PR #186; [decyzja i kontrakt](stripe-roczny-przygotowanie.md). PR #186 został scalony do main (6d15fbb5).
 - Tryb jasny (produkt jest ciemny).
 
 ### 6.4 Moduły wybrane, wdrażane pojedynczo
 
-Issue #142–#151 są wybrane i wchodzą po technicznych zależnościach, jedno na PR. Właściciel produktu autoryzował 29.10.2026 wykonanie wszystkich (z testami i merge po zielonym CI); etykieta „Poza v1” ani `blocked` nie jest już blokadą zakresu, ale zależności techniczne trzeba sprawdzić. Katalog usług (#142), magazyn chemii (#143), statystyki studia (#144) i portfolio realizacji (#145) są w aplikacji (§6.5). Magazyn przechowuje pełne sztuki lub ml jako Int (0–2 000 000 000), per studioId; bez zaokrągleń i automatycznego zużycia przy zleceniu. Korekta ustawia zmierzony stan i próg, wymaga powodu oraz aktualnej wersji; konflikt współbieżny zwraca 409. Niski stan to ilość ≤ próg, także zero; alert znika po uzupełnieniu. Wszyscy członkowie studia czytają stany, owner/manager zapisuje zgodnie z blokadą billingową. Pozostałe pozycje z tej serii (#146–#151) nie są przez to ukończone. Stripe Billing zostaje abonamentem Detailflow i nie obsługuje płatności klienta za detailing.
+Issue #142–#151 są wybrane i wchodzą po technicznych zależnościach, jedno na PR. Właściciel produktu autoryzował 29.10.2026 wykonanie wszystkich (z testami i merge po zielonym CI); etykieta „Poza v1” ani `blocked` nie jest już blokadą zakresu, ale zależności techniczne trzeba sprawdzić. Katalog usług (#142), magazyn chemii (#143), statystyki studia (#144) i portfolio realizacji (#145) są w aplikacji (§6.5). Magazyn przechowuje pełne sztuki lub ml jako Int (0–2 000 000 000), per studioId; bez zaokrągleń i automatycznego zużycia przy zleceniu. Korekta ustawia zmierzony stan i próg, wymaga powodu oraz aktualnej wersji; konflikt współbieżny zwraca 409. Niski stan to ilość ≤ próg, także zero; alert znika po uzupełnieniu. Wszyscy członkowie studia czytają stany, owner/manager zapisuje zgodnie z blokadą billingową. Pozostałe pozycje z tej serii (#146–#151) nie są przez to ukończone. Stripe Billing zostaje abonamentem Detailflow. Płatności klientów #148 mają oddzielny klient SDK i webhook Connect sandbox — [kontrakt](platnosci-klientow.md).
 
 ### 6.5 Statystyki studia (#144) — definicje metryk
 

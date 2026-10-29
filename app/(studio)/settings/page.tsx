@@ -1,3 +1,4 @@
+import { ConnectForm } from "./connect-form";
 import { KsefEnvForm } from "@/components/faktury/KsefEnvForm";
 import { ksefStudioStatus } from "@/src/ksef/submissions";
 import { readStudioProfile } from "@/src/server/studio/profile";
@@ -12,6 +13,7 @@ export default async function SettingsPage() {
     <div className="mx-auto flex max-w-xl flex-col gap-6">
       <h1 className="text-df-section">Ustawienia i KSeF</h1>
       <ProfileForm profile={profile} />
+      <ConnectForm studioId={studioId} />
       <KsefEnvForm env={status.env} prodAllowed={status.prodAllowed} tokenSet={status.tokenSet} />
       <TokenForm studioId={studioId} tokenSet={status.tokenSet} />
     </div>
