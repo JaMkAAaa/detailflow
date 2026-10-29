@@ -158,3 +158,18 @@ jest zablokowany; synchroniczna blokada chroni również przed drugim kliknięci
 Błędy 400/409 zostają przy formularzu i zachowują szkic. API nadal sprawdza
 zakończenie zlecenia, zgodność brutto i brak istniejącej faktury w transakcji.
 Wysyłka do KSeF i mail nie należą do potwierdzenia wystawienia.
+
+## Wysyłka KSeF — #119
+
+D-09/M-08 mają wspólny przycisk „Wyślij do KSeF” dla wystawionej faktury
+`not_sent`. POST `/api/studios/:studioId/invoices/:invoiceId/ksef` wymaga
+owner/manager, poprawnego Origin i zakończonego zlecenia. Środowisko pochodzi
+z faktury; body nie wybiera TEST/PROD ani XML. Token zapisuje właściciel w
+`/settings`; lista i szczegóły zawierają link do ustawień.
+
+Przed kolejką generujemy FA(3) z danych dokumentu i walidujemy lokalnym XSD
+przez `xmllint --nonet`. Docker zawiera walidator i przypięte schematy.
+Snapshot XML i historia powstają w transakcji przed enqueue; istniejący outbox
+odtwarza enqueue przy awarii Redisa. UI pokazuje `queued`, wpis historii i błędy
+409, bez tokenu i diagnostyki XML. Korekty nadal wymagają mapowania #121,
+a ponowienia i mail PDF należą do osobnych issue. Offline nie jest dostępny.

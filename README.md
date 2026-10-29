@@ -1376,7 +1376,7 @@ Wymaga `DATABASE_URL`, `REDIS_URL`, `S3_*`, `AUTH_SECRET`, `APP_URL` i konfigura
 | Brak tworzenia zleceń (API/UI) | nie da się prowadzić nowego auta | endpointy + formularz + podłączenie kalendarza/pulpitu |
 | Brak zapisu statusu/etapu z UI | pracownik nie może przesuwać pracy | podłączyć `transitionOrder`/`advanceStage` do API i D-03/D-04/M-04 |
 | Kreator faktury nie wystawia FV | faktura tylko przez API | wywołać `POST /invoices` z wizarda, obsłużyć 409/400 |
-| Brak enqueue KSeF z UI | brak realnej wysyłki do MF | route/akcja `queueTestInvoice` + ekran tokenu i statusu |
+| Wysyłka KSeF z UI | działa dla wystawionej faktury po zakończeniu zlecenia | POST `/api/studios/:studioId/invoices/:invoiceId/ksef`, walidacja XSD, token w ustawieniach |
 | Brak maila z fakturą | klient nie dostaje PDF | outbox `InvoiceMail` + worker + „Wyślij ponownie” |
 | Panel admina nie istnieje | brak operacji SaaS | A-01–A-10 na agregatach i audycie |
 | Brak MFA/admin sesji | ryzyko bezpieczeństwa | TOTP, role platformy, sesja wsparcia 15 min, audyt |
@@ -1598,7 +1598,7 @@ Dla ścieżki TEST `Studio.ksefEnv` musi być `test`, a `Studio.nip` ustawiony. 
 
 ### KSeF: nie ma przycisku „Wyślij”
 
-To znana luka: `queueTestInvoice` nie jest jeszcze podłączone do route/UI. Można je wywołać tylko z kodu/testów.
+Przycisk „Wyślij do KSeF” jest na szczegółach wystawionej faktury o statusie `not_sent`, na desktopie i mobile. Token zapisuje właściciel w `/settings`; lista faktur i szczegóły mają link do ustawień. Endpoint wybiera środowisko z faktury. Brak tokenu, zły kontekst TEST/PROD lub błąd walidacji dają 409. Walidacja wymaga `xmllint` i lokalnych plików `src/ksef/xsd/`; obraz Docker zawiera oba. Ponowienia odrzuconych dokumentów pozostają osobnym zakresem #138.
 
 ### Portal: link wygasł / P-02
 

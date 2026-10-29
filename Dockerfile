@@ -3,7 +3,7 @@
 FROM node:24-alpine AS base
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
     NEXT_TELEMETRY_DISABLED=1
-RUN apk add --no-cache libc6-compat \
+RUN apk add --no-cache libxml2-utils libc6-compat \
  && corepack enable \
  && corepack prepare pnpm@10.34.9 --activate
 WORKDIR /app
@@ -47,10 +47,12 @@ ENV NODE_ENV=production \
     HOSTNAME=0.0.0.0 \
     PORT=3000
 WORKDIR /app
+RUN apk add --no-cache libxml2-utils
 RUN addgroup -S -g 1001 nodejs && adduser -S -u 1001 -G nodejs nextjs
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/dist ./dist
+COPY --from=builder --chown=nextjs:nodejs /app/src/ksef/xsd ./src/ksef/xsd
 USER nextjs
 EXPOSE 3000
 HEALTHCHECK --interval=15s --timeout=3s --start-period=20s --retries=3 \
