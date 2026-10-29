@@ -1,4 +1,5 @@
 import type { Plan, StudioStatus } from "@/lib/db/generated/client";
+import { plans } from "@/lib/landing/plans";
 import { BILLING_PLANS } from "@/src/server/billing/plans";
 
 /** Cztery rozłączne grupy z A-02. `canceled` wchodzi w Wstrzymane, więc suma filtrów = wszystkie konta. */
@@ -37,9 +38,9 @@ export const FILTER_LABEL: Record<StudioAccountFilter, string> = {
 
 /** Limity z cennika L-01 (Solo 1/1, Studio 5/4, Pro bez limitu). `null` = bez limitu. */
 export const PLAN_LIMITS: Record<Plan, { users: number | null; bays: number | null }> = {
-  solo: { users: 1, bays: 1 },
-  studio: { users: 5, bays: 4 },
-  pro: { users: null, bays: null },
+  solo: { users: 1, bays: plans.find(plan => plan.id === "solo")!.maxBays },
+  studio: { users: 5, bays: plans.find(plan => plan.id === "studio")!.maxBays },
+  pro: { users: null, bays: plans.find(plan => plan.id === "pro")!.maxBays },
 };
 
 export function accountFilterForStatus(status: StudioStatus): StudioAccountBucket {

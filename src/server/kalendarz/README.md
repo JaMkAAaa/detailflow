@@ -38,3 +38,25 @@ Filtr pracownika nie ma danych do przypisania w obecnym modelu.
 Testy: `booking.test.ts` — overlap, walidacja i DST, CRUD/HTTP 409,
 równoległe kolizje, izolacja dwóch tenantów, autoryzacja i Origin.
 Wymagają PostgreSQL z migracjami, jak pozostałe testy repozytorium.
+
+## Tworzenie boksów i limity planu (#130)
+
+`POST /api/studios/:studioId/bays` przyjmuje `{ name }` i zwraca 201.
+Wymaga właściciela (`studio:settings`), aktywnego dostępu do zapisu i Origin.
+Nazwa ma 1–100 znaków po usunięciu skrajnych spacji; sortowanie nadaje serwer.
+Serwis `createBay` jest ścieżką produkcyjnego tworzenia boksów.
+
+Limity pochodzą z `lib/landing/plans.ts`: Solo 1, Studio 4, Pro bez limitu.
+Przekroczenie zwraca 409 z nazwą planu. Obniżenie planu zachowuje wszystkie
+boksy i rezerwacje; nowe boksy można dodać dopiero poniżej limitu lub po
+zmianie planu. Nie egzekwujemy limitów użytkowników, faktur ani zdjęć.
+
+Odczyt planu platformy trzyma współdzieloną blokadę wiersza Studio do końca
+zapisu, aby zmiana planu nie ścigała się z utworzeniem boksu. Wewnątrz działa
+osobna transakcja `studioDb(studioId)` Serializable: liczy boksy i zapisuje
+nowy boks atomowo, z ograniczonym ponowieniem konfliktów. Zajmuje to dwa
+połączenia z bazą. Wszystkie operacyjne odczyty i zapisy pozostają scoped;
+blokada platformy dotyczy tylko metadanych planu danego studia.
+
+`bays.test.ts` sprawdza HTTP 409, izolację Solo/Pro, limit Studio,
+obniżenie planu, równoległe tworzenie oraz autoryzację i walidację.

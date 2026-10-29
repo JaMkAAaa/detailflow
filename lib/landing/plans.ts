@@ -3,7 +3,7 @@ export type LandingPlan = {
   id: "solo" | "studio" | "pro";
   name: string;
   priceNetPln: string;
-  /** Limit boksów z makiety L-01; null = bez limitu. Do zatwierdzenia (docs: otwarte pytanie o limity). */
+  /** Limit boksów wspólny dla landingu i zapisu boksów; null = bez limitu. */
   maxBays: number | null;
 };
 
