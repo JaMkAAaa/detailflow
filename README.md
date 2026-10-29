@@ -809,7 +809,7 @@ accepted ──▶ in_progress ──▶ ready_for_pickup ──▶ completed
 - transakcja Serializable; równoległe wystawienie → 409, nie duplikat,
 - zapis `issued`, pozycji i eventu `issued` w jednej transakcji.
 
-**Kreator D-08 jest nadal demo**: ładuje prawdziwe zakończone zlecenia i nabywcę, ale „Potwierdź wysyłkę (demo)” nie wywołuje POST. Fakturę można wystawić przez API.
+**Kreator D-08 wystawia fakturę** przez `POST /api/studios/:studioId/invoices`: ładuje zakończone zlecenia, pozwala sprawdzić nabywcę i pozycje, pokazuje błędy 400/409 oraz otwiera nowy dokument po zapisie. Środowisko wybiera serwer; przycisk jest blokowany podczas zapisu. Rabat jest wliczany w cenę netto zaokrągloną do grosza, a API sprawdza zgodność brutto ze zleceniem. Wystawienie nie kolejkuje KSeF ani nie wysyła maila.
 
 #### Szczegóły, PDF i XML
 

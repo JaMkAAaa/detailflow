@@ -139,9 +139,22 @@ sprawdzają Origin i działają przez `studioDb(studioId)`.
   Płatność jest niezależna od KSeF i od Stripe Checkout (poza v1).
 
 Poza zakresem: PDF i FA(3) korekty (eksport zwraca 409 z komunikatem, wymaga osobnego
-mapowania), wysyłka korekty do KSeF (#44) oraz podpięcie wizarda D-08 do POST wystawiania
-(wizard nadal jest demonstracją UI).
+mapowania) i wysyłka korekty do KSeF (#44). Podpięcie wizarda D-08 do POST
+wystawiania opisano w #118, niżej.
 
 Testy: `pnpm vitest run src/server/faktury/manage.test.ts` (Postgres: blokada
 niezakończonych zleceń, numeracja TEST/PROD, wyścigi, izolacja studiów) oraz
 `components/faktury/*.test.tsx`.
+
+## Zapis kreatora — #118
+
+D-08 wywołuje istniejący POST wystawiania z `workOrderId`, nabywcą,
+pozycjami i `dueDays: 7`. E-mail pozostaje w szkicu; ten endpoint go nie zapisuje
+ani nie wysyła PDF. Rabat jest składany w cenę jednostkową netto z zaokrągleniem
+HALF_UP do grosza; podgląd i payload używają identycznych cen i Decimal.
+Środowisko bierze serwer z aktywnego studia. Po 201 szkic jest usuwany,
+a nawigacja otwiera otrzymany numer i środowisko. Podczas zapisu formularz
+jest zablokowany; synchroniczna blokada chroni również przed drugim kliknięciem.
+Błędy 400/409 zostają przy formularzu i zachowują szkic. API nadal sprawdza
+zakończenie zlecenia, zgodność brutto i brak istniejącej faktury w transakcji.
+Wysyłka do KSeF i mail nie należą do potwierdzenia wystawienia.
