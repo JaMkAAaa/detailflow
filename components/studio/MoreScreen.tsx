@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { NoticeSheet, type Notice } from "./NoticeSheet";
 import { MaskIcon } from "./MaskIcon";
+import { StudioPicker } from "./StudioPicker";
 import { GlobalSearchTrigger } from "./GlobalSearch";
 
 type MenuItem = { label: string; icon: string; href?: string; count?: number };
@@ -28,7 +29,11 @@ export function MoreScreen({
   location,
   role,
   attentionCount,
+  choices,
+  studioId,
 }: {
+  choices: { studioId: string; studio: { name: string } }[];
+  studioId: string;
   studio: string;
   name: string;
   location: string;
@@ -91,6 +96,7 @@ export function MoreScreen({
         <h1 className="text-[26px] font-bold">Więcej</h1>
         <div className="mt-4"><GlobalSearchTrigger compact /></div>
       </header>
+      <StudioPicker choices={choices} studioId={studioId} />
       <button
         type="button"
         onClick={() => soon("Konto")}

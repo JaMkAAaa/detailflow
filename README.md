@@ -226,7 +226,7 @@ Legenda: **Działa** = realne dane i zapis; **Częściowo** = część przepływ
 | Logowanie | **Działa** | hasło (Argon2id) i magiczny link, reset hasła, wylogowanie | brak MFA studia; rate limit współdzielony w Redis |
 | Rejestracja trialu | **Działa** | `/start`, konto + studio + owner + 14 dni, bez karty | brak weryfikacji e-mail przed wejściem |
 | Zaproszenia | **Działa** | `/team`, `/invite/[token]`, role manager/worker | brak listy członków i usuwania |
-| Przełączanie studiów | **Działa** | cookie `df.active_studio`, picker w sidebarze | brak pickera na mobile |
+| Przełączanie studiów | **Działa** | cookie `df.active_studio`, picker w sidebarze i na ekranie Więcej (mobile); po zmianie pełne przeładowanie kontekstu | — |
 | Pulpit D-01 / M-01 | **Działa** | KPI, plan boksów, lista dnia, alerty z DB | akcje „nowe zlecenie”, „zdjęcie”, „zakończ etap” nadal „Wkrótce” |
 | Kalendarz D-02 / M-02 | **Działa** | rezerwacje boksów, dzień/tydzień, formularz, kolizje | brak przypisania pracownika w modelu; brak tworzenia zlecenia z kalendarza |
 | Klienci D-05 | **Działa** | lista 20/stronę, filtry, karta, wyszukiwanie | brak zdjęcia auta w modelu |
