@@ -126,10 +126,12 @@ export function SiteFooter() {
               <Link href="/start" className="text-[15px] text-df-muted hover:text-df-text">Zacznij 14 dni za darmo</Link>
               <Link href="/login" className="text-[15px] text-df-muted hover:text-df-text">Zaloguj się</Link>
             </nav>
-            <div className="flex flex-col gap-3">
+            <nav aria-label="Dokumenty prawne" className="flex flex-col gap-3">
               <p className="text-[15px] font-semibold text-df-text">Prawne</p>
-              <p className="max-w-[200px] text-[15px] leading-[1.5] text-df-muted">Regulamin i polityka prywatności są w przygotowaniu.</p>
-            </div>
+              <Link href="/regulamin" className="text-[15px] text-df-muted hover:text-df-text">Regulamin</Link>
+              <Link href="/polityka-prywatnosci" className="text-[15px] text-df-muted hover:text-df-text">Polityka prywatności</Link>
+              <Link href="/umowa-powierzenia" className="text-[15px] text-df-muted hover:text-df-text">Umowa powierzenia danych</Link>
+            </nav>
           </div>
         </div>
         <p className="border-t border-df-line pt-6 text-df-body text-df-muted">© 2026 detailflow. Wszystkie prawa zastrzeżone.</p>
