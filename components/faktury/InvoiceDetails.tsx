@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -16,8 +16,14 @@ export function InvoiceDetails({ invoice: loaded, seller, studioId }: { invoice:
   const router = useRouter();
   const [paidAt, setPaidAt] = useState<string | null>(null);
   // Data płatności widać od razu po zapisie, jeszcze przed odświeżeniem danych strony.
+  const [mailQueuedAt, setMailQueuedAt] = useState<string | null | undefined>(undefined);
   const [queued, setQueued] = useState(false);
-  const invoice = paidAt && !loaded.paidAt ? { ...loaded, paidAt } : loaded;
+  const invoice = { ...loaded, paidAt: paidAt ?? loaded.paidAt, mailPending: (mailQueuedAt !== undefined && mailQueuedAt === loaded.emailedAt) || loaded.mailPending };
+  useEffect(() => {
+    if (!invoice.mailPending) return;
+    const timer = setInterval(() => router.refresh(), 5000);
+    return () => clearInterval(timer);
+  }, [invoice.mailPending, router]);
   const isCorrection = invoice.kind === "correction";
   const [more, setMore] = useState(false);
   const [action, setAction] = useState<"paid" | "resend" | "correction" | null>(null);
@@ -76,14 +82,12 @@ export function InvoiceDetails({ invoice: loaded, seller, studioId }: { invoice:
     finally { setBusy(false); }
   }
   async function confirm() {
-    if (action === "resend") {
-      setExtraEvents(current => [{ id: `demo-${current.length}`, kind: "demo", at: new Date().toISOString(), message: "Potwierdzono ponowną wysyłkę (demo)", ref: null }, ...current]);
-      setMessage("Potwierdzono ponowną wysyłkę (demo). Zmiana dotyczy tylko tego podglądu. Nie zapisano danych, nie wysłano wiadomości ani dokumentów do MF.");
-      closeAction(); return;
-    }
     setBusy(true); setError("");
     try {
-      if (action === "paid") {
+      if (action === "resend") {
+        await post("email", { env: invoice.env });
+        setMailQueuedAt(loaded.emailedAt); setMessage("");
+      } else if (action === "paid") {
         const result = await post("paid", {});
         setPaidAt(result.paidAt); setMessage(`Oznaczono ${invoice.number} jako opłaconą.`);
       } else {
@@ -95,7 +99,7 @@ export function InvoiceDetails({ invoice: loaded, seller, studioId }: { invoice:
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Nie udało się zapisać zmiany."); }
     finally { setBusy(false); }
   }
-  const feedback = <p role="status" className="text-df-label text-df-amber print:hidden">{message || "PDF i XML są dostępne do pobrania. Płatność i korekta zapisują się w systemie; ponowna wysyłka PDF działa w trybie demonstracyjnym."}</p>;
+  const feedback = <p role="status" className="text-df-label text-df-amber print:hidden">{(invoice.mailPending ? "PDF oczekuje na wysyłkę. " : "") + (message || "PDF i XML są dostępne do pobrania. Płatność i korekta zapisują się w systemie.")}</p>;
   return <div className="df-invoice-screen space-y-6">
     {invoice.status === "issued" && ksefStatus === "not_sent" && <div className="flex flex-wrap items-center gap-3 print:hidden"><Button disabled={busy} onClick={() => void sendKsef()}>{busy ? "Wysyłanie…" : "Wyślij do KSeF"}</Button><Link href="/settings" className="text-df-label text-df-lime">Ustawienia i token KSeF</Link></div>}
     {mobile && <MobileInvoiceDetails invoice={{ ...invoice, ksefStatus }} label={label} seconds={acceptanceSeconds} copy={() => void copy()} upo={downloadUpo} xml={() => void download("xml")} pdf={() => void download("pdf")} paid={() => setAction("paid")} correction={() => setAction("correction")} resend={() => setAction("resend")} more={() => setMore(true)} />}
@@ -126,13 +130,13 @@ export function InvoiceDetails({ invoice: loaded, seller, studioId }: { invoice:
     <Sheet open={more} onClose={() => setMore(false)} title="Akcje faktury"><Button variant="secondary" onClick={() => { setMore(false); void download("pdf"); }}>Pobierz PDF</Button><Button variant="secondary" onClick={() => { setMore(false); setAction("resend"); }}>{invoice.emailedAt ? "Wyślij ponownie" : "Wyślij PDF"}</Button>{!isCorrection && <Button variant="secondary" onClick={() => { setMore(false); setAction("correction"); }}>Wystaw korektę</Button>}<h2 className="text-df-section">Historia wysyłki</h2><ol className="space-y-3">{events.map(event => <li key={event.id}><p>{event.message}</p><time className="text-df-label text-df-muted">{date(event.at, true)}</time></li>)}</ol></Sheet>
     <Sheet open={action !== null} onClose={closeAction} title={action === "paid" ? "Oznacz jako opłaconą" : action === "correction" ? "Wystaw korektę" : "Wyślij ponownie"}><p>{invoice.number} · KSeF {envLabel(invoice.env)}</p>
       {action === "paid" && <p className="text-df-muted">Płatność ręczna (przelew) na kwotę {money(invoice.totalGross)}. Zapisujemy datę dzisiejszą; nie wysyłamy nic do klienta ani do MF.</p>}
-      {action === "resend" && <><p className="text-df-muted">Tryb demonstracyjny. Potwierdzenie nie zapisuje zmian ani nie wysyła dokumentów lub e-maili.</p><p className="break-all">Odbiorca PDF: {invoice.buyer.email || "brak adresu e-mail"}</p></>}
+      {action === "resend" && <><p className="text-df-muted">PDF zostanie wysłany na poniższy adres. Ostatnia udana wysyłka pozostaje widoczna do czasu przyjęcia kolejnej wiadomości przez serwer pocztowy.</p><p className="break-all">Odbiorca PDF: {invoice.buyer.email || "brak adresu e-mail"}</p></>}
       {action === "correction" && <><p>Korekta jest osobnym dokumentem powiązanym z {invoice.number}. Zmień ilość lub cenę netto pozycji; wartości zostają po korekcie.</p>
         {invoice.current.map(item => <fieldset key={item.lp} className="grid grid-cols-2 gap-2"><legend className="mb-1 text-df-label text-df-muted">{item.lp}. {item.name}</legend>
           <label className="space-y-1 text-df-label">Ilość<input inputMode="decimal" className={control} value={line(item).quantity} onChange={event => setLines(current => ({ ...current, [item.lp]: { ...line(item), quantity: event.target.value } }))} /></label>
           <label className="space-y-1 text-df-label">Cena netto (zł)<input inputMode="decimal" className={control} value={line(item).unitNet} onChange={event => setLines(current => ({ ...current, [item.lp]: { ...line(item), unitNet: event.target.value } }))} /></label></fieldset>)}
         <label className="space-y-2">Powód korekty<textarea className={`${control} h-24 py-2`} maxLength={1000} value={reason} onChange={event => setReason(event.target.value)} /></label></>}
       {error && <p role="alert" className="text-df-label text-df-error">{error}</p>}
-      <div className="flex gap-3"><Button variant="secondary" onClick={closeAction}>Anuluj</Button><Button disabled={busy || (action === "correction" ? !reason.trim() || !changedLines.length : action === "resend" ? !invoice.buyer.email : false)} onClick={() => void confirm()}>{action === "resend" ? "Potwierdź (demo)" : action === "paid" ? "Potwierdź płatność" : "Potwierdź korektę"}</Button></div></Sheet>
+      <div className="flex gap-3"><Button variant="secondary" onClick={closeAction}>Anuluj</Button><Button disabled={busy || (action === "correction" ? !reason.trim() || !changedLines.length : action === "resend" ? !invoice.buyer.email || !!invoice.mailPending : false)} onClick={() => void confirm()}>{action === "resend" ? "Zleć wysyłkę PDF" : action === "paid" ? "Potwierdź płatność" : "Potwierdź korektę"}</Button></div></Sheet>
   </div>;
 }

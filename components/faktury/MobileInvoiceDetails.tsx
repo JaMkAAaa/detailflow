@@ -151,6 +151,7 @@ export function MobileInvoiceDetails({
             ? `PDF wysłano ${date(invoice.emailedAt, true)}`
             : "PDF nie został wysłany"}
           <br />
+          {invoice.mailPending && <>Wysyłka PDF w toku<br /></>}
           {invoice.buyer.email}
         </p>
         <button type="button" onClick={resend} className="min-h-11 text-[13px]">
