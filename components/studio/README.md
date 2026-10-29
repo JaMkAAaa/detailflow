@@ -15,10 +15,9 @@ Aktywny link używa `--df-lime-dark` i `--df-lime`, zgodnie z kryteriami issue.
 Ikony SVG w `public/studio` pochodzą z Figmy (18×18); maska CSS nadaje im
 kolor pozycji menu. Brand korzysta z istniejącego `LogoMark` i fontu Space Grotesk.
 
-Pięć tras zawiera na razie tylko nagłówki dla czytników ekranu, aby można było
-sprawdzić warianty nawigacji. Treść ekranów należy do kolejnych issue.
 Aktywność obejmuje też podstrony, np. `/orders/DF-0248`.
-Usługi i cennik, Magazyn, Statystyki oraz Portfolio są natywnie disabled
+„Usługi i cennik” prowadzi do `/services` (owner i manager; pracownik pozycji
+nie widzi). Magazyn, Statystyki oraz Portfolio są natywnie disabled
 i mają widoczny badge „Wkrótce”. Nie generują nawigacji.
 
 Picker, aktywne studio i rola pochodzą z sesji. Wyszukiwarka ⌘K działa z topbaru
@@ -42,7 +41,7 @@ zleceń, M-03) nadal przewijają się poziomo — dostaną własne issue.
   wycena”. Nowa wycena prowadzi do `/quotes/new`; nowe zlecenie nadal pokazuje „wkrótce”.
 - **Więcej** prowadzi do `/more` (M-06), z linkami do Faktur, Klientów i aut,
   zaproszeń i wylogowania. Pracownik nie widzi Faktur ani zaproszeń, jak w sidebarze.
-  Zakładka świeci się na `/more`, `/invoices`, `/customers`, `/team`.
+  Zakładka świeci się na `/more`, `/invoices`, `/customers`, `/services`, `/team`.
 - Animacja sheetu tylko przy `prefers-reduced-motion: no-preference`.
 
 Pulpit mobilny: `components/pulpit/mobile-dashboard.tsx`, te same dane co D-01
@@ -69,7 +68,8 @@ Zakładka „Więcej” prowadzi do `/more`, z grupami Sprzedaż / Studio / Kont
 aktualnym studiem, użytkownikiem i licznikiem faktur wymagających uwagi.
 Licznik korzysta z istniejącego helpera `invoiceAttentionCount(studioId, env)`.
 Pracownik nie ma pozycji faktur, KSeF ani zaproszeń; bezpośrednie trasy zachowują
-swoje dotychczasowe guardy. Pozycje poza v1 otwierają komunikat „Wkrótce”.
+swoje dotychczasowe guardy. „Usługi i cennik” prowadzi do katalogu dla ownera
+i managera. Magazyn, Statystyki i Portfolio otwierają komunikat „Wkrótce”.
 Tab bar ustępuje stałym akcjom M-05 i M-08. Widoki używają tego samego progu
 `lg` (1024 px); `useMobile` subskrybuje zmiany szerokości i zachowuje stan wizardu.
 

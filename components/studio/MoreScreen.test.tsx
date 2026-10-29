@@ -32,6 +32,7 @@ it("links existing modules, displays attention and keeps future modules inside a
   expect(
     screen.getByRole("link", { name: "Klienci i auta" }).getAttribute("href"),
   ).toBe("/customers");
+  expect(screen.getByRole("link", { name: "Usługi i cennik" }).getAttribute("href")).toBe("/services");
   await user.click(screen.getByRole("button", { name: "Magazyn Wkrótce" }));
   expect(
     screen.getByRole("dialog", { name: "Magazyn · Wkrótce" }),
@@ -40,6 +41,8 @@ it("links existing modules, displays attention and keeps future modules inside a
 it("hides finance and team links from workers", () => {
   render(<MoreScreen {...props} role="worker" />);
   expect(screen.queryByRole("link", { name: /Faktury/ })).toBeNull();
+  expect(screen.queryByRole("link", { name: "Usługi i cennik" })).toBeNull();
+  expect(screen.queryByRole("button", { name: /Usługi i cennik/ })).toBeNull();
   expect(screen.queryByRole("link", { name: "Zaproś do studia" })).toBeNull();
   expect(
     screen.queryByRole("button", { name: /Ustawienia i KSeF/ }),

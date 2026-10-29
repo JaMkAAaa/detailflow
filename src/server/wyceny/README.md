@@ -37,12 +37,22 @@ a każda aktualizacja wycen przechodzi przez `studioDb`.
 
 ## Katalog usług
 
-Katalog startowy jest seedem w `src/domain/service-catalog.ts` (4 usługi D-06).
-`seedServices` inicjalizuje go w seedzie demo i przy pierwszym wejściu do wycen
-danego studia; ponowne seedowanie nie nadpisuje edycji. Prosta edycja nazwy,
-ceny i czasu w katalogu wizarda zapisuje `Service` dla studia, a każda wycena
-zachowuje snapshot `QuoteItem` z chwili zapisu. Menu „Usługi i cennik” pozostaje
-poza zakresem tej implementacji.
+Źródłem katalogu jest tabela `Service`. Ekran `/services` (owner/manager,
+`services:manage`) dodaje, edytuje, ukrywa i usuwa usługi: nazwa, cena bazowa
+brutto jako Decimal PLN, czas i widoczność. Worker nie ma tego uprawnienia.
+Ukryta usługa nie wchodzi do nowych wyborów w kreatorze ani w formularzu
+zlecenia. Pozycja już zapisanej wyceny zostaje w szkicu jako snapshot, ale nie
+wraca do listy „dodaj z katalogu”.
+
+`QuoteItem` nie ma klucza obcego do `Service`. Zmiana ceny i usunięcie usługi
+nie przepisują historycznych pozycji. `seedServices` jest tylko dla seeda demo
+i testów (4 usługi D-06 w `DEFAULT_SERVICES`). Wejście w wyceny albo zlecenia
+nie odtwarza usuniętego katalogu, więc pusta lista zostaje pusta po odświeżeniu.
+Plik `src/domain/service-catalog.ts` zasila wyłącznie wariant demonstracyjny
+kreatora i testy UI.
+
+Prosta edycja nazwy, ceny i czasu w katalogu wizarda nadal zapisuje aktywną
+`Service` studia. Dotyczy to przyszłych wyborów, nie wysłanych wycen.
 
 Strona `/quotes/new` ładuje klientów z pojazdami, katalog usług i najnowszy
 szkic autora przez `studioDb`. Kreator zapisuje ten sam szkic ponownie po tym

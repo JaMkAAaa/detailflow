@@ -77,8 +77,8 @@ Domknąć dzień studia **od przyjęcia auta do faktury KSeF i odbioru przez kli
 | Rola | Dostęp |
 | --- | --- |
 | `owner` | wszystko, w tym billing, KSeF, faktury, zaproszenia |
-| `manager` | operacje, klienci, wyceny, faktury, zaproszenia; bez billingu |
-| `worker` | operacje, kalendarz, zlecenia, zdjęcia, klienci; bez faktur i zaproszeń |
+| `manager` | operacje, klienci, wyceny, faktury, zaproszenia, katalog usług; bez billingu |
+| `worker` | operacje, kalendarz, zlecenia, zdjęcia, klienci; bez faktur, zaproszeń i katalogu usług |
 
 Role są sprawdzane **przy każdym żądaniu** na podstawie `Membership`, a nie tylko w UI. Szczegóły: [`src/server/acl.ts`](src/server/acl.ts).
 
@@ -110,7 +110,6 @@ Role są sprawdzane **przy każdym żądaniu** na podstawie `Membership`, a nie 
 - magazyn i stany chemii,
 - statystyki zaawansowane,
 - portfolio,
-- pełny CMS „Usługi i cennik”,
 - pełne Ustawienia i Konto,
 - KSeF offline,
 - panel właściciela platformy na mobile,
@@ -118,7 +117,7 @@ Role są sprawdzane **przy każdym żądaniu** na podstawie `Membership`, a nie 
 - abonament roczny,
 - tryb jasny.
 
-Pozycje te mogą być widoczne w menu jako **„Wkrótce”**, nigdy jako pusty CRUD albo 404.
+Katalog **Usługi i cennik** jest wdrożony (`/services`). Pozostałe moduły z listy są wybrane i wchodzą pojedynczo — brak jednej pozycji nie oznacza, że cała seria #142–#151 jest ukończona. Płatność klienta za detailing nie jest częścią Stripe Billing. Magazyn, statystyki i portfolio mogą być widoczne w menu jako **„Wkrótce”**, nigdy jako pusty CRUD albo 404.
 
 ---
 
@@ -251,7 +250,8 @@ Status opisuje **kod**, nie gotowość produkcyjną ani prawną. „Działa” z
 | Zlecenia D-03 / M-03 | **Działa** | tablica i lista z DB, filtry, tworzenie zlecenia (`POST /orders`), zmiana statusu przez DnD z cofnięciem przy błędzie | filtry po usłudze i tekście; brak wirtualizacji listy |
 | Szczegóły zlecenia D-04 / M-04 | **Częściowo** | odczyt z DB, zmiana etapu, zdjęcia (presigned upload do S3), protokół przyjęcia z punktami i akceptacją, historia | przycisk „Link dla klienta” na karcie zlecenia nadal otwiera dialog „Wkrótce” (link powstaje z pulpitu przez API); „⋯” na mobile nieaktywne |
 | Backend zleceń | **Działa** | HTTP: tworzenie, odczyt, status, etap; maszyna stanów, historia, numeracja `DF-####`, `canInvoice`, zlecenie z zaakceptowanej wyceny | — |
-| Wyceny D-06 / M-05 | **Działa** | kreator, katalog, zapis szkicu, wysyłka maila z linkiem portalu, lista i karta, zlecenie z zaakceptowanej wyceny, wygaszanie wysłanych wycen w workerze | **terminy w kreatorze są demonstracyjne** i nie rezerwują boksu; menu „Usługi i cennik” poza v1 |
+| Wyceny D-06 / M-05 | **Działa** | kreator, katalog z bazy, zapis szkicu, wysyłka maila z linkiem portalu, lista i karta, zlecenie z zaakceptowanej wyceny, wygaszanie wysłanych wycen w workerze | **terminy w kreatorze są demonstracyjne** i nie rezerwują boksu |
+| Usługi i cennik | **Działa** | `/services`: nazwa, cena bazowa brutto Decimal PLN, czas, aktywna/ukryta; menu desktop i Więcej; pusty stan | owner/manager; worker nie widzi menu; ukryte usługi nie wchodzą do nowych wycen i zleceń |
 | Portal P-01/P-02 | **Działa** | tokeny, decyzja o wycenie, status zlecenia z bazy (3 etapy), zdjęcia zlecenia i akceptacja protokołu, P-02 dla złego/wygasłego/odwołanego linku, mail do właścicieli | `app/p/quote-preview` to placeholder; link samej wyceny nie pokazuje zdjęć ani protokołu |
 | Faktury D-07/D-10 | **Działa** | lista, filtry, wyszukiwanie, „wymagają uwagi”, płatność, korekta, ponowienie wysyłki KSeF i poprawa NIP odrzuconej faktury | lista pobiera wszystkie faktury środowiska i paginuje po 7 w UI; „Eksport JPK” pokazuje tylko komunikat, offline jest wyłączony |
 | Kreator faktury D-08 | **Działa** | kroki, walidacja, podgląd, autosave, `POST /invoices` ze zlecenia `completed`, obsługa 400/409 | wystawienie nie kolejkuje KSeF ani nie wysyła maila (to osobne akcje na szczegółach) |
@@ -834,7 +834,7 @@ accepted ──▶ in_progress ──▶ ready_for_pickup ──▶ completed
 - `POST .../send` ustawia `sent` i tworzy `QuoteSendMail`; wymaga e-maila klienta i pozycji.
 - Worker co 15 s wysyła mail z linkiem portalu; token powstaje w workerze, w bazie tylko SHA-256 i TTL 14 dni. Link z ponownej wysyłki nie unieważnia poprzednich.
 - `Quote.sentAt` = ostatnie skuteczne przekazanie do SMTP; SMTP daje co najmniej raz.
-- Katalog startowy: 4 usługi (`correction`, `ceramic`, `interior`, `wash`); edycja nazwy/ceny/czasu zapisuje `Service` dla studia; każda wycena ma snapshot `QuoteItem`.
+- Katalog usług jest w tabeli `Service` (`/services`, owner/manager). Cena bazowa to Decimal PLN. Ukryta usługa nie pojawia się przy nowym wyborze w wycenie ani zleceniu. `QuoteItem` trzyma snapshot nazwy, ceny i czasu bez klucza obcego, więc zmiana i usunięcie usługi nie przepisują historycznych wycen. Cztery usługi D-06 powstają w seedzie demo, nie przy każdym wejściu do wycen albo zleceń — pusta lista zostaje pusta. Kreator nadal może poprawić aktywną usługę; ten zapis dotyczy katalogu, nie wysłanych wycen.
 - Lista `/quotes` i karta `/quotes/:quoteId` są dostępne dla owner/manager. Zaakceptowana wycena otwiera istniejący formularz zlecenia z klientem, autem, nazwami usług i kwotą snapshotu. Termin i boks wybiera studio.
 - `POST /api/studios/:studioId/quotes/:quoteId/order` wymaga owner/manager, Origin i prawa zapisu w billingu. Serwer kopiuje kwotę Decimal i dane z zaakceptowanej wyceny; nie ufa tym polom z formularza. Unikalność `(quoteId, studioId)` i transakcja chronią także równoległe kliknięcia; retry zwraca istniejące zlecenie.
 - Terminy w kreatorze (`quoteSlots`) są **demonstracyjne** — nie rezerwują boksu i nie są częścią maila.
@@ -1520,7 +1520,7 @@ To nie jest lista blokad „kodowych” — część pozycji wymaga decyzji, dow
 | Metryki A-06 nie mierzą dostępności MF, Stripe ani poczty | operator nie widzi realnego stanu zależności | sondy zewnętrzne i alerty (poza repo) |
 | Backup bez automatycznego testu odtwarzania i PITR | nieznany RTO/RPO | cykliczny restore na kopię, PITR w bazie zarządzanej |
 | Brak limitów planów dla liczby użytkowników; boksy tylko przez API | plany nie są w pełni egzekwowane | UI boksów i egzekwowanie limitów |
-| Poza v1 | — | JPK, KSeF offline, abonament roczny, płatność online klienta, magazyn, statystyki, portfolio, pełny cennik CMS, SMS |
+| Poza ukończonym zakresem | — | JPK, KSeF offline, abonament roczny, płatność online klienta (osobno od Stripe Billing), magazyn, statystyki, portfolio, SMS. Katalog usług jest wdrożony. Moduły #142–#151 wchodzą pojedynczo |
 
 ### 15.3 Znane drobne niedokończenia
 
@@ -1528,13 +1528,13 @@ To nie jest lista blokad „kodowych” — część pozycji wymaga decyzji, dow
 - przycisk „Link dla klienta” na karcie zlecenia jest „Wkrótce” (API i pulpit działają),
 - `app/p/quote-preview` to placeholder,
 - „Cała historia” na karcie klienta jest „Wkrótce”,
-- „Usługi i cennik”, „Magazyn”, „Statystyki”, „Portfolio” to ekrany „Wkrótce” (zgodnie z zakresem v1),
+- „Magazyn”, „Statystyki”, „Portfolio” to ekrany „Wkrótce”; „Usługi i cennik” jest katalogiem `/services`,
 - brak przypomnień o wygasających wycenach, brak wysyłki SMS,
 - brak panelu zgłoszeń po stronie studia i wysyłki odpowiedzi supportu e-mailem.
 
 ### 15.4 Kierunek
 
-Kolejność prac wynika z issue i faz w [`docs/dokumentacja-wdrozenia.md`](docs/dokumentacja-wdrozenia.md). Fundament, operacje studia, obieg wycena → zlecenie → faktura → kolejka KSeF, billing, landing i panel platformy mają implementację; następny etap to **weryfikacja z zewnętrznymi systemami (MF, prawnik, operacje)** i dopiero później funkcje spoza v1.
+Kolejność prac wynika z issue i faz w [`docs/dokumentacja-wdrozenia.md`](docs/dokumentacja-wdrozenia.md). Moduły #142–#151 są wybrane i wchodzą pojedynczo; ten opis nie oznacza, że wszystkie są już ukończone. Stripe Billing zostaje abonamentem Detailflow i nie obsługuje płatności klienta za detailing.
 
 ---
 
@@ -1585,8 +1585,8 @@ Kolejność prac wynika z issue i faz w [`docs/dokumentacja-wdrozenia.md`](docs/
 - Faktury wystawia się po zakończeniu zlecenia; FV/41 nie powstaje z #DF-0248.
 - Portal klienta: 3 etapy, nie 4; token hashowany, surowy tylko w URL.
 - Kwoty: `Decimal`, PLN, nigdy `float`.
-- Poza v1: magazyn, statystyki, portfolio, pełny cennik CMS, KSeF offline, abonament roczny, płatność online klienta.
-- Menu „Usługi i cennik / Magazyn / Statystyki / Portfolio” = „Wkrótce”, nie 404 i nie pusty CRUD.
+- Wybrane moduły #142–#151 wchodzą pojedynczo. Jeszcze bez własnego wdrożenia: magazyn, statystyki, portfolio, KSeF offline, abonament roczny, płatność online klienta. Stripe Billing zostaje abonamentem Detailflow.
+- Menu: „Usługi i cennik” to katalog studia. „Magazyn / Statystyki / Portfolio” = „Wkrótce”, nie 404 i nie pusty CRUD.
 - Seed odtwarza dane makiety, żeby dało się porównać UI.
 
 ### 17.3 Stack — czego nie dodawać

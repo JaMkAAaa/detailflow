@@ -5,7 +5,6 @@ import type { StudioDb } from "../../../lib/db/tenant";
 import { assertAssignee, assertBayExists, assertBayFree, bookingDateSchema, serializableBooking } from "../kalendarz/booking";
 import { allocateOrderNumber, OrderStateError } from "./state";
 import { studioDb } from "../../../lib/db/tenant";
-import { seedServices } from "../wyceny/catalog";
 
 // Money crosses HTTP as a decimal string, never as a JSON floating-point number.
 export const createOrderSchema = z.object({
@@ -58,14 +57,13 @@ export async function getOrder(db: StudioDb, idOrNumber: string) {
 
 /** Choices for the operational order form, scoped to the active studio. */
 export async function loadOrderChoices(studioId: string) {
-  await seedServices(studioId);
   const db = studioDb(studioId);
   const [clients, services] = await Promise.all([
     db.client.findMany({
       where: { vehicles: { some: {} } }, orderBy: { name: "asc" },
       include: { vehicles: { orderBy: { createdAt: "asc" }, select: { id: true, make: true, model: true, plate: true } } },
     }),
-    db.service.findMany({ orderBy: [{ sort: "asc" }, { name: "asc" }] }),
+    db.service.findMany({ where: { active: true }, orderBy: [{ sort: "asc" }, { name: "asc" }] }),
   ]);
   return {
     clients: clients.map(({ id, name, vehicles }) => ({

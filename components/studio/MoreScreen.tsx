@@ -63,7 +63,7 @@ export function MoreScreen({
               },
             ]),
         { label: "Klienci i auta", icon: "klienci", href: "/customers" },
-        { label: "Usługi i cennik", icon: "uslugi" },
+        ...(role === "worker" ? [] : [{ label: "Usługi i cennik", icon: "uslugi", href: "/services" }]),
       ],
     },
     {

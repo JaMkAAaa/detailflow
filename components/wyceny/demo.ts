@@ -21,6 +21,8 @@ export type WizardService = {
   price: string;
   hours: string;
   durationMin?: number;
+  /** false = pozycja już zapisanej wyceny, niedostępna jako nowy wybór. */
+  inCatalog?: boolean;
 };
 export const services: readonly WizardService[] = serviceCatalog;
 export const sizes = [

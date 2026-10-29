@@ -20,11 +20,13 @@ przeznaczone do operacyjnej wyceny rzeczywistych usług.
 
 ## Podłączenie #38
 
-Strona przekazuje klientów, pojazdy, katalog usług i najnowszy szkic autora
+Strona przekazuje klientów, pojazdy, aktywne usługi z bazy i najnowszy szkic autora
 z `studioDb`. Dostęp: owner/manager. Przycisk „Zapisz szkic” utrwala Quote
 i snapshot pozycji. „Wyślij wycenę” zleca mail z linkiem portalu; „Wyślij
 ponownie” używa tego samego ID. Nazwa i cena pozycji są edytowalne, a formularz
-w katalogu zapisuje nazwę, cenę i czas usługi dla studia. Szczegóły:
+w katalogu zapisuje nazwę, cenę i czas aktywnej usługi studia. Ukryte i usunięte
+usługi nie pojawiają się jako nowy wybór; pozycja już będąca na szkicu zostaje
+w tabeli wyceny. Szczegóły:
 `src/server/wyceny/README.md`. Opis demonstracji wyżej dotyczy izolowanego
 wariantu komponentu bez `clientChoices`, używanego przez testy UI. Terminy
 w obu wariantach są demo.

@@ -131,7 +131,7 @@ Fikcyjne opinie i logotypy klientów **nie idą na produkcję**. Zastępujemy je
 | D-09 | Faktury / Szczegóły i KSeF | Podgląd FV, numer KSeF, historia wysyłki, UPO XML, PDF, korekta |
 | D-10 | Faktury / Wymagają uwagi | Odrzucenia KSeF, zaległości, błędy NIP |
 
-Nawigacja sidebara (IA docelowa): Pulpit, Kalendarz, Zlecenia, Faktury, Klienci i auta, Usługi i cennik, Magazyn, Statystyki, Portfolio. **Trzy ostatnie + pełne Ustawienia/Konto są poza v1** — pozycje mogą być widoczne jako „wkrótce”, nie jako puste moduły.
+Nawigacja sidebara (IA docelowa): Pulpit, Kalendarz, Zlecenia, Faktury, Klienci i auta, Usługi i cennik, Magazyn, Statystyki, Portfolio. **Usługi i cennik** to katalog studia. Magazyn, Statystyki, Portfolio i pełne Ustawienia/Konto pozostają „wkrótce” albo poza ukończonym zakresem — nie jako puste moduły.
 
 Akcje globalne pulpitu (wersja po audycie): **Nowa wycena**, **Wystaw fakturę**, **+ Nowe zlecenie**, paleta ⌘K.
 
@@ -357,9 +357,8 @@ Prototyp wprost to oznacza:
 - Portal: ekran akceptacji wyceny i potwierdzenie decyzji.
 - Mobilne rozszerzone opcje wyceny.
 
-### 6.3 Poza v1
+### 6.3 Poza ukończonym zakresem
 
-- Usługi i cennik jako pełny CMS (w v1: seed + prosta edycja w wycenie wystarczy).
 - Magazyn (alert CarPro w pulpicie może być **statycznym/ręcznym** alertem albo minimalnym progiem SKU — pełny magazyn później).
 - Statystyki zaawansowane, Portfolio, pełne Ustawienia i Konto.
 - KSeF offline.
@@ -367,6 +366,10 @@ Prototyp wprost to oznacza:
 - Płatność klienta online za usługę (Stripe Checkout B2C) — można dodać po v1.
 - Abonament roczny.
 - Tryb jasny (produkt jest ciemny).
+
+### 6.4 Moduły wybrane, wdrażane pojedynczo
+
+Issue #142–#151 są wybrane i wchodzą po technicznych zależnościach, jedno na PR. Katalog usług (#142) jest w aplikacji. Pozostałe pozycje z tej serii nie są przez to ukończone. Stripe Billing zostaje abonamentem Detailflow i nie obsługuje płatności klienta za detailing.
 
 ---
 
@@ -861,7 +864,7 @@ Budować **pionami wartości**, nie warstwami technicznymi „najpierw cały adm
 | Stripe Invoice ≠ KSeF | księgowość Detailflow | osobna ścieżka na FV za abonament (biuro rachunkowe / KSeF operatora) |
 | Zdjęcia aut to dane biometryczno-podobne / tablice | RODO | umowa, retencja, dostęp portalowy tylko przez token |
 | Landing obiecuje import, KSeF, brak karty | produkt | albo w v1, albo usunąć z L-01 |
-| Magazyn i cennik w menu | UX | „Wkrótce”, nie 404 |
+| Magazyn w menu | UX | „Wkrótce”, nie 404. Katalog usług jest osobnym ekranem. |
 | Brak kroków 1 i 3 wyceny/faktury w Figmie | UI | zaprojektować w kodzie wg wizardu kroku 2 |
 | Kalkulator i opinie | marketing | nie publikować fikcji |
 
