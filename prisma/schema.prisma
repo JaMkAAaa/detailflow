@@ -779,28 +779,39 @@ model CoatingReminder {
 
 // Zdjęcie zlecenia w prywatnym buckecie S3. Klucz: studios/<studioId>/orders/<workOrderId>/<id>.<ext>.
 // Wiersz powstaje przy wydaniu presigned URL (`uploadedAt` null) i staje się widoczny po potwierdzeniu uploadu.
+// Portfolio (#145): `publishedAt` null znaczy prywatne. `publicKey` to osobna pochodna JPEG, nigdy oryginał.
+// `plateVisible` jest true tylko po świadomej decyzji studia; domyślna publikacja maskuje wskazany obszar tablicy.
 model OrderPhoto {
-  id           String    @id @default(cuid())
-  studioId     String
-  workOrderId  String
-  no           Int // numer zdjęcia w zleceniu (#12)
-  stage        Int // etap studia 1–4 w chwili dodania
-  key          String    @unique
-  contentType  String
-  sizeBytes    Int
-  caption      String?
-  uploadedById String?
-  createdAt    DateTime  @default(now())
-  uploadedAt   DateTime?
-  studio       Studio    @relation(fields: [studioId], references: [id], onDelete: Cascade)
-  workOrder    WorkOrder @relation(fields: [workOrderId, studioId], references: [id, studioId], onDelete: Cascade)
-  uploadedBy   User?     @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  id            String    @id @default(cuid())
+  studioId      String
+  workOrderId   String
+  no            Int // numer zdjęcia w zleceniu (#12)
+  stage         Int // etap studia 1–4 w chwili dodania
+  key           String    @unique
+  contentType   String
+  sizeBytes     Int
+  caption       String?
+  uploadedById  String?
+  createdAt     DateTime  @default(now())
+  uploadedAt    DateTime?
+  publishedAt   DateTime?
+  plateVisible  Boolean   @default(false)
+  maskX         Float?
+  maskY         Float?
+  maskW         Float?
+  maskH         Float?
+  publicKey     String?   @unique
+  publicVersion Int       @default(0)
+  studio        Studio    @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  workOrder     WorkOrder @relation(fields: [workOrderId, studioId], references: [id, studioId], onDelete: Cascade)
+  uploadedBy    User?     @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
 
   damages IntakeDamage[]
 
   @@unique([id, studioId])
   @@unique([workOrderId, no])
   @@index([studioId, workOrderId, uploadedAt])
+  @@index([studioId, publishedAt])
 }
 
 // Protokół przyjęcia: jeden na zlecenie. Po akceptacji klienta jest niezmienny.

@@ -6,6 +6,10 @@ import { LOGIN_PATH, PLATFORM_LOGIN_PATH } from "./lib/auth/redirect";
 // Ścieżki bez sesji studia. /admin wymaga osobnego cookie operatora.
 const PUBLIC_PATHS = [LOGIN_PATH, PLATFORM_LOGIN_PATH, "/landing", "/start", "/logout", "/forgot-password", "/reset-password", "/invite", "/p/"];
 
+function isPublicPortfolio(pathname: string) {
+  return pathname === "/realizacje" || pathname.startsWith("/realizacje/");
+}
+
 function isPublic(pathname: string) {
   return PUBLIC_PATHS.some((p) => (p.endsWith("/") ? pathname.startsWith(p) : pathname === p || pathname.startsWith(`${p}/`)));
 }
@@ -30,6 +34,13 @@ export function middleware(request: NextRequest) {
     response.headers.set("Referrer-Policy", "no-referrer");
     response.headers.set("Cache-Control", "private, no-store");
     response.headers.set("X-Robots-Tag", "noindex, nofollow");
+    return response;
+  }
+  if (isPublicPortfolio(pathname)) {
+    const response = NextResponse.next();
+    response.headers.set("Referrer-Policy", "no-referrer");
+    // Lista realizacji nie zostaje w cache. Cache pochodnej ustawia route mediów.
+    if (!pathname.includes("/media/")) response.headers.set("Cache-Control", "private, no-store");
     return response;
   }
   if (isPublic(pathname)) return NextResponse.next();

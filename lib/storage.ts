@@ -71,3 +71,14 @@ export async function openObject(key: string) {
 export async function deleteObject(key: string) {
   await internalClient().send(new DeleteObjectCommand({ Bucket: env.S3_BUCKET, Key: key }));
 }
+
+/** Zapis po stronie serwera. Bez ACL — bucket zostaje prywatny, obiekt nie dostaje publicznego URL. */
+export async function putObject(key: string, body: Buffer, contentType: string) {
+  await internalClient().send(new PutObjectCommand({
+    Bucket: env.S3_BUCKET,
+    Key: key,
+    Body: body,
+    ContentType: contentType,
+    CacheControl: "private, no-store",
+  }));
+}

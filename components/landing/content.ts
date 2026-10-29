@@ -54,10 +54,9 @@ export const mainFeatures: readonly Feature[] = [
   },
 ];
 
-/** Moduły poza v1 — pokazujemy je jako „Wkrótce”, bez fikcyjnych liczb. */
+/** Moduły jeszcze poza aplikacją — „Wkrótce”, bez fikcyjnych liczb. Galeria realizacji jest w aplikacji (#145); Instagram nie. */
 export const soonFeatures = [
   { title: "Przypomnienia o powłokach", text: "Ceramika po 6 miesiącach? Klient dostanie przypomnienie i zarezerwuje konserwację jednym kliknięciem." },
-  { title: "Portfolio jednym kliknięciem", text: "Zakończone zlecenia trafią do galerii na stronę studia lub Instagram." },
 ] as const;
 
 export const portalPoints = [

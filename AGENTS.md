@@ -25,10 +25,11 @@ Czytaj to przed pierwszym commitem. Źródła prawdy:
 - Portal klienta: 3 etapy, nie 4. Token hashowany, surowy tylko w URL.
 - Kwoty: `Decimal`, PLN. Nigdy `float`.
 - Moduły po pierwotnym v1 (#142–#151) są wybrane i wchodzą pojedynczo, po technicznych zależnościach. Zamknięcie jednego nie oznacza, że pozostałe są ukończone. Właściciel produktu autoryzował 29.10.2026 wykonanie wszystkich #142–#151 („zrób wszystkie poza v1”): jeden moduł = jedno issue = jeden PR, z testami, merge po zielonym CI. Etykieta „Poza v1”/`blocked` w starym issue nie blokuje zakresu, ale zależności techniczne (`Blocked by`) nadal sprawdzaj. Epik #115 zostaje otwarty.
-- Wdrożone moduły po v1: #142 katalog usług, #143 magazyn chemii, #144 statystyki studia. #145–#151 jeszcze bez własnego wdrożenia (portfolio, KSeF offline, abonament roczny, płatność online klienta za detailing, SMS, JPK, pełne konto); wchodzą po jednym.
+- Wdrożone moduły po v1: #142 katalog usług, #143 magazyn chemii, #144 statystyki studia, #145 portfolio realizacji. #146–#151 jeszcze bez własnego wdrożenia (KSeF offline, abonament roczny, płatność online klienta za detailing, SMS, JPK, pełne konto); wchodzą po jednym.
 - Magazyn chemii (#143): pełne sztuki/ml, jawne korekty z kontrolą wersji, bez automatycznego zużycia ze zleceń.
 - Statystyki studia (#144): `/statistics`, tylko owner (`stats:read`), nie platformowy A-05. Definicje metryk są w `docs/dokumentacja-wdrozenia.md` §6.5 — przychód to `WorkOrder.totalGross` zleceń `completed` wg `completedAt` (nie faktury, nie Stripe), brak źródłowych zdarzeń = „Brak danych”, nie 0. Zapytania przez `studioDb(studioId)`.
-- Menu: „Usługi i cennik” prowadzi do katalogu studia. „Magazyn” prowadzi do `/inventory`. „Statystyki” prowadzą do `/statistics` (widoczne tylko dla ownera). „Portfolio” = „Wkrótce”, nie 404 i nie pusty CRUD.
+- Portfolio (#145): `/portfolio` dla zespołu, publikacja tylko owner/manager (`portfolio:manage`). Domyślnie nic nie jest publiczne. Widok `/realizacje/[slug]` nie zawiera danych klienta. Tablica na zdjęciu jest maskowana na osobnej pochodnej JPEG, chyba że studio świadomie ją zostawi. Oryginał S3 i jego krótki podpis nie wchodzą do widoku publicznego. Brak publikacji = pusty stan, nie 404. Odpublikowanie kasuje pochodną i działa też przy wstrzymanym abonamencie.
+- Menu: „Usługi i cennik” prowadzi do katalogu studia. „Magazyn” prowadzi do `/inventory`. „Statystyki” prowadzą do `/statistics` (widoczne tylko dla ownera). „Portfolio” prowadzi do `/portfolio`, nie „Wkrótce” i nie 404.
 - Seed ma odtwarzać dane makiety (Obsidian Studio, `#DF-0248`, etapy, kwoty), żeby dało się porównać UI.
 
 ## Stack

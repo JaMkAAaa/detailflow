@@ -57,7 +57,7 @@ export function PricingSection() {
             </li>
           ))}
         </ul>
-        <p className="text-center text-df-label text-df-muted">Portfolio jest w przygotowaniu — nie wchodzi w zakres planów na start.</p>
+        <p className="text-center text-df-label text-df-muted">Publiczna galeria realizacji jest w aplikacji: studio samo oznacza zdjęcia. Publikacja na Instagramie nie wchodzi w ten zakres.</p>
       </Container>
     </section>
   );

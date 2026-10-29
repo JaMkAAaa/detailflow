@@ -46,6 +46,19 @@ describe("middleware", () => {
     expect(run("/login-x").status).toBe(307);
     expect(run("/portal").status).toBe(307);
     expect(run("/adminer").status).toBe(307);
+    expect(run("/realizacjex").status).toBe(307);
+    expect(run("/portfolio").status).toBe(307);
+  });
+
+  it("lets a guest open a studio gallery and keeps the HTML out of a shared cache", () => {
+    const page = run("/realizacje/obsidian-studio");
+    expect(page.headers.get("location")).toBeNull();
+    expect(page.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(page.headers.get("cache-control")).toBe("private, no-store");
+    const media = run("/realizacje/obsidian-studio/media/photo");
+    expect(media.headers.get("location")).toBeNull();
+    expect(media.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(media.headers.get("cache-control")).toBeNull();
   });
 
   it("prevents portal secrets from leaking through referrers, caches or indexing", () => {

@@ -71,7 +71,7 @@ export function MoreScreen({
       items: [
         { label: "Magazyn", icon: "magazyn", href: "/inventory" },
         ...(role === "owner" ? [{ label: "Statystyki", icon: "statystyki", href: "/statistics" }] : []),
-        { label: "Portfolio", icon: "portfolio" },
+        { label: "Portfolio", icon: "portfolio", href: "/portfolio" },
       ],
     },
     {
