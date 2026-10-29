@@ -40,10 +40,29 @@ test("@smoke nowe zlecenie → zakończenie → faktura → kolejka KSeF TEST", 
       headers, data: { token: "e2e-placeholder-never-valid-at-mf" },
     });
     expect(token.status()).toBe(204);
+    // Katalog nie dosiewa się przy wejściu w zlecenia. Formularz jest tylko wtedy,
+    // gdy studio ma aktywną usługę.
+    const createdService = await page.request.post(`/api/studios/${studioId}/services`, {
+      headers, data: { name: "E2E Korekta", basePrice: "123.00", durationMin: 60 },
+    });
+    expect(createdService.status()).toBe(201);
+    const service = await createdService.json() as { id: string; name: string; basePrice: string; active: boolean };
+    expect(service).toMatchObject({ name: "E2E Korekta", basePrice: "123.00", active: true });
+    const hiddenCreate = await page.request.post(`/api/studios/${studioId}/services`, {
+      headers, data: { name: "E2E Ukryta", basePrice: "50.00", durationMin: 30 },
+    });
+    expect(hiddenCreate.status()).toBe(201);
+    const hiddenId = (await hiddenCreate.json() as { id: string }).id;
+    const hidden = await page.request.patch(`/api/studios/${studioId}/services/${hiddenId}`, {
+      headers, data: { active: false },
+    });
+    expect(hidden.status()).toBe(200);
+    expect(await hidden.json()).toMatchObject({ id: hiddenId, name: "E2E Ukryta", active: false });
 
     await page.goto("/orders");
     await page.getByRole("button", { name: "＋ Nowe zlecenie", exact: true }).first().click();
     const dialog = page.getByRole("dialog", { name: "Nowe zlecenie" });
+    await expect(dialog.getByLabel("Usługa", { exact: true }).locator("option")).toHaveText(["E2E Korekta"]);
     await dialog.getByLabel("Klient", { exact: true }).selectOption(clientId);
     await dialog.getByLabel("Auto", { exact: true }).selectOption(vehicleId);
     await dialog.getByLabel("Kwota brutto", { exact: true }).fill("123.00");
@@ -51,10 +70,11 @@ test("@smoke nowe zlecenie → zakończenie → faktura → kolejka KSeF TEST", 
     await dialog.getByRole("button", { name: "Utwórz zlecenie" }).click();
     const createdResponse = await created;
     expect(createdResponse.status()).toBe(201);
-    const order = await createdResponse.json() as { id: string; number: string; status: string };
+    const order = await createdResponse.json() as { id: string; number: string; status: string; service: string };
     expect(order.number).toMatch(/^DF-\d{4,}$/);
     expect(order.number).not.toBe("DF-0248");
     expect(order.status).toBe("accepted");
+    expect(order.service).toBe("E2E Korekta");
     await expect(dialog).not.toBeVisible();
     await expect(page.getByRole("link", { name: new RegExp(order.number) })).toBeVisible();
 

@@ -6,7 +6,9 @@ Potrzebne są PostgreSQL z migracjami i seedem, Redis oraz `xmllint`
 Adresy można podać przez `DATABASE_URL` i `REDIS_URL`.
 
 `order-invoice-ksef.spec.ts` tworzy osobne studio i członkostwo seedowego
-właściciela, następnie przyjmuje auto przez formularz. Rozpoczęcie i końcowy
+właściciela. Katalog nie dosiewa się przy otwarciu zleceń: test dodaje usługę
+przez API i ukrywa drugą, a formularz pokazuje tylko aktywną. Potem przyjmuje
+auto. Rozpoczęcie i końcowy
 odbiór zapisuje przez uwierzytelnione API statusu, a trzy etapy kończy przyciskami
 na karcie zlecenia. Wystawia fakturę przez wszystkie kroki kreatora i kolejkuje
 ją przyciskiem szczegółów. Sprawdza zapis `completed`, numer FV, status `queued`
