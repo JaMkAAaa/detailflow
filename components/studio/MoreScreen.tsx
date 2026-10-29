@@ -70,7 +70,7 @@ export function MoreScreen({
       title: "STUDIO",
       items: [
         { label: "Magazyn", icon: "magazyn", href: "/inventory" },
-        { label: "Statystyki", icon: "statystyki" },
+        ...(role === "owner" ? [{ label: "Statystyki", icon: "statystyki", href: "/statistics" }] : []),
         { label: "Portfolio", icon: "portfolio" },
       ],
     },

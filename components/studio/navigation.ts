@@ -6,6 +6,7 @@ export const studioNavigation = [
   { label: "Klienci i auta", href: "/customers", icon: "klienci" },
   { label: "Usługi i cennik", href: "/services", icon: "uslugi" },
   { label: "Magazyn", href: "/inventory", icon: "magazyn" },
+  { label: "Statystyki", href: "/statistics", icon: "statystyki" },
 ] as const;
 
 export function activeStudioItem(pathname: string) {

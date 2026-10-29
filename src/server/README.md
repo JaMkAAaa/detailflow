@@ -2,6 +2,10 @@
 
 A-01 i shell `/admin`: `admin/README.md`. Osobna sesja operatora, nie membership.
 
+# Statystyki studia (#144)
+
+`src/server/statystyki/statistics.ts`. Odczyty przez `studioDb(studioId)` i `stats:read` (tylko owner). Definicje metryk (przychód z `WorkOrder.totalGross` zleceń `completed`, udział usług, obłożenie 08–16, zakres dat Europe/Warsaw, „brak danych” zamiast zer) są w `docs/dokumentacja-wdrozenia.md` §6.5. `GET /api/studios/:studioId/statistics`.
+
 # Klienci i auta (#35)
 
 `src/server/klienci`. Lista D-05 (`directory.ts`, 20/stronę w SQL) i CRUD + import CSV (`clients.ts`).
@@ -12,7 +16,7 @@ używają `studioDb(studioId)` i nie mieszają tenantów. Szczegóły w `klienci
 # Dostęp do studia (#25)
 
 - `authorizeStudio(userId, studioId, permission)` sprawdza membership przy każdym wywołaniu i zwraca `studioDb(studioId)`.
-- `studio:read`: owner, manager, worker. `studio:settings`: owner. `invoices:manage`, `members:invite` i `services:manage`: owner, manager. Worker nie prowadzi katalogu usług. Każda przyszła mutacja faktury musi wymagać `invoices:manage` po stronie serwera.
+- `studio:read`: owner, manager, worker. `studio:settings` i `stats:read`: owner. `invoices:manage`, `members:invite` i `services:manage`: owner, manager. Worker nie prowadzi katalogu usług. Każda przyszła mutacja faktury musi wymagać `invoices:manage` po stronie serwera.
 - API: brak sesji → 401, cudze studio lub brak uprawnienia → 403. Obcy/nieistniejący rekord w dostępnym studiu → ten sam 404.
 - `POST /api/studios/active` (`{ studioId }`) zapisuje wybór w cookie httpOnly dopiero po autoryzacji; cookie nie jest źródłem uprawnień.
 - `POST /api/studios/:studioId/invitations` (`{ email, role: "manager" | "worker" }`) oraz formularz `/team` wysyłają e-mail przez istniejące SMTP. Zaproszenia nie nadają roli owner.
