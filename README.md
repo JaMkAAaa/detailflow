@@ -759,6 +759,8 @@ accepted ──▶ in_progress ──▶ ready_for_pickup ──▶ completed
 - Worker co 15 s wysyła mail z linkiem portalu; token powstaje w workerze, w bazie tylko SHA-256 i TTL 14 dni. Link z ponownej wysyłki nie unieważnia poprzednich.
 - `Quote.sentAt` = ostatnie skuteczne przekazanie do SMTP; SMTP daje co najmniej raz.
 - Katalog startowy: 4 usługi (`correction`, `ceramic`, `interior`, `wash`); edycja nazwy/ceny/czasu zapisuje `Service` dla studia; każda wycena ma snapshot `QuoteItem`.
+- Lista `/quotes` i karta `/quotes/:quoteId` są dostępne dla owner/manager. Zaakceptowana wycena otwiera istniejący formularz zlecenia z klientem, autem, nazwami usług i kwotą snapshotu. Termin i boks wybiera studio.
+- `POST /api/studios/:studioId/quotes/:quoteId/order` wymaga owner/manager, Origin i prawa zapisu w billingu. Serwer kopiuje kwotę Decimal i dane z zaakceptowanej wyceny; nie ufa tym polom z formularza. Unikalność `(quoteId, studioId)` i transakcja chronią także równoległe kliknięcia; retry zwraca istniejące zlecenie.
 - Terminy w kreatorze (`quoteSlots`) są **demonstracyjne** — nie rezerwują boksu i nie są częścią maila.
 - `expired` istnieje w enumie, ale **nie ma crona wygasającego wyceny**.
 

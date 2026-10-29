@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Decimal from "decimal.js";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet } from "@/components/studio/Sheet";
@@ -203,6 +204,7 @@ export function QuoteWizard({ studioId, userId, clientChoices, serviceChoices, i
 
   return <fieldset disabled={busy} aria-busy={busy} className="flex min-w-0 flex-col gap-6 border-0 p-0">
     {mobile && draft.step === 2 && !complete ? <MobileQuoteStep draft={draft} client={client.name} vehicle={vehicle.label} update={update} toggle={toggleService} catalog={() => setCatalog(true)} changeClient={() => go(1)} next={() => go(3)} options={() => setOptions(true)} /> : <>
+    {operational && <Link href="/quotes" className="text-df-label text-df-lime">Wszystkie wyceny</Link>}
     <header className="flex min-h-[70px] flex-wrap items-start justify-between gap-3">
       <div><h1 ref={title} tabIndex={-1} className="text-df-headline">Nowa wycena</h1>
         <p className="mt-1 text-df-muted">Od potrzeb klienta do konkretnej ceny. Bez liczenia w Excelu.</p></div>

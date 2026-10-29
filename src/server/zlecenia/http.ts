@@ -6,7 +6,7 @@ import { BookingError } from "../kalendarz/booking";
 import { OrderStateError } from "./state";
 
 /** Conceal studios from non-members without hiding billing's read-only 403. */
-export async function orderApiStudio(request: Request, studioId: string, permission: "orders:write" | "orders:update") {
+export async function orderApiStudio(request: Request, studioId: string, permission: "orders:write" | "orders:update" | "quotes:write") {
   const session = await auth.api.getSession({ headers: request.headers });
   if (!session) throw new AccessError(401, "Zaloguj się.");
   const member = await studioDb(studioId).membership.findFirst({ where: { userId: session.user.id } });
