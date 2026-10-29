@@ -8,6 +8,9 @@ it("blocks framing and keeps production scripts off eval", () => {
   expect(policy).toContain("form-action 'self'");
   expect(policy).not.toContain("unsafe-eval");
   expect(policy).toContain("https://*.ingest.sentry.io");
+  expect(policy).toContain("http://127.0.0.1:9000");
+  expect(policy).toContain("https://*.r2.cloudflarestorage.com");
+  expect(policy).not.toMatch(/connect-src[^;]*\shttps:(?:\s|;)/);
 });
 
 it("allows the dev refresh runtime", () => {

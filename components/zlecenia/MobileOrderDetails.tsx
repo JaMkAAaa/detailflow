@@ -8,8 +8,11 @@ import { formatPln } from "@/lib/format-pln";
 import { MaskIcon } from "@/components/studio/MaskIcon";
 import { NoticeSheet, type Notice } from "@/components/studio/NoticeSheet";
 import { cn } from "@/lib/utils";
+import { currentPhotoStage, displayPhotoSrc } from "./order-media";
 import type { OrderDetailsData, StageState } from "./order-types";
-import { pluralPhotos } from "./panels";
+import { PhotoFileButton } from "./photo-file-button";
+import { IntakeTab, pluralPhotos } from "./panels";
+import { useOrderPhotos } from "./use-order-photos";
 
 const phoneHref = (phone: string) => `tel:${phone.replace(/[^\d+]/g, "")}`;
 
@@ -36,15 +39,18 @@ function StageMarker({ state }: { state: StageState }) {
 
 /**
  * M-04 — szczegóły zlecenia w układzie telefonu. Te same dane co D-04 (`OrderDetailsData`):
- * postęp 4 etapów studia, wycena, kontakt. Zapis etapu, link i zdjęcia otwierają sheet „wkrótce”.
+ * postęp 4 etapów studia, wycena, kontakt. Zdjęcie używa tego samego uploadu co D-04.
  */
 export function MobileOrderDetails({ data, studioId, onAdvanced }: { data: OrderDetailsData; studioId: string; onAdvanced?: () => void }) {
   const [notice, setNotice] = useState<Notice | null>(null);
   const [advancing, setAdvancing] = useState(false);
   const [advanceError, setAdvanceError] = useState("");
+  const { photos, pending, uploading, uploadFiles } = useOrderPhotos(studioId, data.id, data.photos);
   const current = data.stages.find((stage) => stage.state === "current");
   const done = data.stages.filter((stage) => stage.state === "done").length;
-  const cover = [...data.photos].reverse().find((photo) => photo.src);
+  const cover = [...photos].reverse().find((photo) => displayPhotoSrc(photo.src));
+  const coverSrc = displayPhotoSrc(cover?.src);
+  const uploadError = pending.find((item) => item.error);
   const soon = (title: string, description: string) => setNotice({ title, description });
 
   async function advance() {
@@ -62,7 +68,11 @@ export function MobileOrderDetails({ data, studioId, onAdvanced }: { data: Order
     // Pełna szerokość i góra ekranu: wyłamanie z paddingu `main` (layout studia).
     <div className="-mx-4 -mt-4 flex flex-col gap-4">
       <div className="relative h-[300px] overflow-hidden bg-df-raised">
-        {cover?.src && <Image src={cover.src} alt={`${data.vehicle} — ${cover.caption.toLowerCase()}`} fill priority sizes="100vw" className="object-cover" />}
+        {coverSrc?.startsWith("/") && <Image src={coverSrc} alt={`${data.vehicle} — ${cover?.caption.toLowerCase()}`} fill priority sizes="100vw" className="object-cover" />}
+        {coverSrc && !coverSrc.startsWith("/") && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={coverSrc} alt={`${data.vehicle} — ${cover?.caption.toLowerCase()}`} className="absolute inset-0 size-full object-cover" />
+        )}
         <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-b from-df-bg/55 via-df-bg/0 via-45% to-df-bg" />
         <div className="absolute inset-x-0 top-[max(1rem,env(safe-area-inset-top))] flex items-center justify-between px-4">
           <Link href="/orders" aria-label="Wróć do zleceń" className={roundButton}>
@@ -74,8 +84,9 @@ export function MobileOrderDetails({ data, studioId, onAdvanced }: { data: Order
         </div>
         <p className="absolute right-4 bottom-[50px] flex items-center gap-1.5 rounded-full bg-df-bg/70 px-2.5 py-[5px] text-df-label font-semibold">
           <MaskIcon name="camera" size={14} />
-          {pluralPhotos(data.photos.length)}
+          {pluralPhotos(photos.length)}
         </p>
+        {uploadError && <p role="alert" className="absolute inset-x-4 bottom-4 rounded-lg bg-df-bg/90 px-3 py-2 text-df-label text-df-error">{uploadError.error}</p>}
       </div>
 
       <div className="flex flex-col gap-4 px-4">
@@ -107,10 +118,10 @@ export function MobileOrderDetails({ data, studioId, onAdvanced }: { data: Order
             <MaskIcon name="link" size={20} className="text-df-lime" />
             Link
           </button>
-          <button type="button" onClick={() => soon("Zdjęcie — wkrótce", "Dodawanie zdjęć z aparatu będzie dostępne wkrótce.")} className={actionClass}>
+          <PhotoFileButton ariaLabel="Zdjęcie" capture disabled={uploading} onFiles={(files) => void uploadFiles(files, currentPhotoStage(data.stages))} className={cn(actionClass, "cursor-pointer")}>
             <MaskIcon name="camera" size={20} className="text-df-lime" />
-            Zdjęcie
-          </button>
+            {uploading ? "Wgrywanie…" : "Zdjęcie"}
+          </PhotoFileButton>
         </div>
 
         <section aria-labelledby="m-progress" className="rounded-[18px] bg-df-panel p-4">
@@ -163,6 +174,8 @@ export function MobileOrderDetails({ data, studioId, onAdvanced }: { data: Order
             <p className="text-xl font-bold whitespace-nowrap">{formatPln(data.quote.totalGrossPln)}</p>
           </div>
         </section>
+
+        <IntakeTab data={{ ...data, photos }} studioId={studioId} />
       </div>
 
       {current && data.status === "in-progress" && (

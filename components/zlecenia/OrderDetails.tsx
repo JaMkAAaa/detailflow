@@ -3,9 +3,11 @@
 import { useRef, useState, type KeyboardEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { currentPhotoStage } from "./order-media";
 import type { OrderDetailsData } from "./order-types";
 import { HistoryTab, IntakeTab, Overview, PhotosTab } from "./panels";
 import { orderTabs, type OrderTab } from "./tabs";
+import { useOrderPhotos } from "./use-order-photos";
 
 export function OrderDetails({ data, studioId, initialTab = "przeglad", onAdvanced }: { data: OrderDetailsData; studioId: string; initialTab?: OrderTab; onAdvanced?: () => void }) {
   const [tab, setTab] = useState<OrderTab>(initialTab);
@@ -15,7 +17,11 @@ export function OrderDetails({ data, studioId, initialTab = "przeglad", onAdvanc
   const dialog = useRef<HTMLDialogElement>(null);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const current = data.stages.find((stage) => stage.state === "current");
-  const counts: Partial<Record<OrderTab, number>> = { zdjecia: data.photos.length, "stan-auta": data.intake.damages.length };
+  const { photos, pending, uploading, uploadFiles } = useOrderPhotos(studioId, data.id, data.photos);
+  const [intake, setIntake] = useState(data.intake);
+  const view = { ...data, photos, intake };
+  const photoActions = { pending, uploading, onFiles: (files: File[]) => void uploadFiles(files, currentPhotoStage(data.stages)) };
+  const counts: Partial<Record<OrderTab, number>> = { zdjecia: photos.length, "stan-auta": intake.damages.length };
 
   async function advance() {
     setAdvancing(true); setAdvanceError("");
@@ -111,9 +117,9 @@ export function OrderDetails({ data, studioId, initialTab = "przeglad", onAdvanc
 
       {orderTabs.map(({ id }) => (
         <div key={id} role="tabpanel" id={`order-panel-${id}`} aria-labelledby={`order-tab-${id}`} hidden={tab !== id}>
-          {tab === id && id === "przeglad" && <Overview data={data} notice={showNotice} onOpenTab={selectTab} />}
-          {tab === id && id === "zdjecia" && <PhotosTab data={data} notice={showNotice} />}
-          {tab === id && id === "stan-auta" && <IntakeTab data={data} />}
+          {tab === id && id === "przeglad" && <Overview data={view} photos={photoActions} onOpenTab={selectTab} />}
+          {tab === id && id === "zdjecia" && <PhotosTab data={view} photos={photoActions} />}
+          {tab === id && id === "stan-auta" && <IntakeTab data={view} studioId={studioId} onIntake={setIntake} />}
           {tab === id && id === "historia" && <HistoryTab data={data} />}
         </div>
       ))}
