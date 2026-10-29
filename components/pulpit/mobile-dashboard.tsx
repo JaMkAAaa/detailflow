@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Sheet } from "@/components/studio/Sheet";
 import type { DashboardMetrics } from "@/src/server/pulpit/metrics";
+import { useDashboardActions, type DashboardProps } from "./use-dashboard-actions";
 
 type Order = DashboardMetrics["todayOrders"][number];
 
@@ -33,8 +34,9 @@ function Icon({ children, size }: { children: ReactNode; size: number }) {
   );
 }
 
-export function MobileDashboard({ data, name }: { data: DashboardMetrics; name: string }) {
-  const [notice, setNotice] = useState<{ title: string; description: string } | null>(null);
+export function MobileDashboard({ data, name, studioId }: DashboardProps) {
+  const { notice, setNotice, busy, act } = useDashboardActions(studioId);
+  const [notifications, setNotifications] = useState(false);
   const featured = data.featured;
   const date = data.dateLabel.replace(/\s\d{4}$/, "");
   const orders = data.todayOrders.filter((order) => order.number !== featured?.number);
@@ -51,10 +53,9 @@ export function MobileDashboard({ data, name }: { data: DashboardMetrics; name: 
         </div>
         <button
           type="button"
-          disabled
-          title="Powiadomienia — wkrótce"
-          aria-label="Powiadomienia — wkrótce"
-          className="flex size-11 shrink-0 cursor-not-allowed items-center justify-center rounded-full bg-df-panel text-df-text"
+          onClick={() => setNotifications(true)}
+          aria-label="Powiadomienia"
+          className="flex size-11 shrink-0 items-center justify-center rounded-full bg-df-panel text-df-text"
         >
           <Icon size={20}>
             <path d="M6 9a6 6 0 1 1 12 0c0 6 2 7.5 2 7.5H4S6 15 6 9ZM10 20a2 2 0 0 0 4 0" />
@@ -88,7 +89,7 @@ export function MobileDashboard({ data, name }: { data: DashboardMetrics; name: 
               <Badge className="h-[25px]" />
             </div>
             <h2 id="m-featured" className="text-xl font-bold">
-              {featured.vehicle}
+              <Link href={`/orders/${encodeURIComponent(featured.number)}`}>{featured.vehicle}</Link>
             </h2>
             <p className="text-df-body text-df-muted">
               {featured.service} · {featured.customer}
@@ -115,31 +116,21 @@ export function MobileDashboard({ data, name }: { data: DashboardMetrics; name: 
             <div className="flex flex-col gap-2 pt-1">
               <button
                 type="button"
-                onClick={() =>
-                  setNotice({
-                    title: `Zakończ: ${stageName}`,
-                    description: "Zmiana etapu zlecenia będzie dostępna wkrótce. Nic nie zostało zapisane.",
-                  })
-                }
+                disabled={busy}
+                onClick={() => act(featured.id, "advance")}
                 className="h-12 rounded-[14px] bg-df-lime px-[18px] text-df-label font-semibold text-df-bg"
               >
                 Zakończ: {stageName}
               </button>
-              <button
-                type="button"
-                onClick={() =>
-                  setNotice({
-                    title: "Zdjęcie",
-                    description: "Dodawanie zdjęć z aparatu będzie dostępne wkrótce.",
-                  })
-                }
+              <Link
+                href={`/orders/${encodeURIComponent(featured.number)}?tab=zdjecia`}
                 className="flex h-11 items-center justify-center gap-2 rounded-[14px] bg-df-raised px-[18px] text-[15px] font-semibold"
               >
                 <Icon size={18}>
                   <path d="M4 8h3l1.5-2h7L17 8h3v11H4V8ZM12 16.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" />
                 </Icon>
                 Zdjęcie
-              </button>
+              </Link>
             </div>
           </div>
         </section>
@@ -166,7 +157,7 @@ export function MobileDashboard({ data, name }: { data: DashboardMetrics; name: 
                 </Icon>
               </span>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[15px] font-semibold">{order.vehicle}</p>
+                <Link href={`/orders/${encodeURIComponent(order.number)}`} className="block truncate text-[15px] font-semibold">{order.vehicle}</Link>
                 <p className="line-clamp-2 text-df-label text-df-muted">{rowDetail(order)}</p>
               </div>
               <div className="flex shrink-0 flex-col items-end gap-1">
@@ -199,6 +190,12 @@ export function MobileDashboard({ data, name }: { data: DashboardMetrics; name: 
           </span>
         </Link>
       ))}
+
+      <Sheet open={notifications} onClose={() => setNotifications(false)} title="Powiadomienia">
+        {alerts.coatingClients > 0 && <Link href="/customers" onClick={() => setNotifications(false)}>Serwis ceramiki · {alerts.coatingClients} klientów</Link>}
+        {alerts.rejected.map(invoice => <Link key={invoice.id} href="/invoices?filter=attention" onClick={() => setNotifications(false)}>Faktura odrzucona przez KSeF · {invoice.number} · {invoice.ksefEnv === "test" ? "TEST" : "PROD"}</Link>)}
+        {alerts.coatingClients === 0 && alerts.rejected.length === 0 && <p>Brak alertów wymagających uwagi.</p>}
+      </Sheet>
 
       <Sheet open={notice !== null} onClose={() => setNotice(null)} title={notice?.title ?? ""}>
         <p className="text-df-body text-df-muted">{notice?.description}</p>

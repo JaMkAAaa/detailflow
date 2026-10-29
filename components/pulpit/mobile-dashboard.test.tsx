@@ -1,9 +1,12 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeAll, expect, it } from "vitest";
+import { afterEach, beforeAll, expect, it, vi } from "vitest";
 import { MobileDashboard } from "./mobile-dashboard";
 import type { DashboardMetrics } from "@/src/server/pulpit/metrics";
+
+const refresh = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function () {
@@ -14,7 +17,7 @@ beforeAll(() => {
     this.dispatchEvent(new Event("close"));
   };
 });
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.clearAllMocks(); });
 
 const order = (over: Partial<DashboardMetrics["todayOrders"][number]>) => ({
   number: "DF-0000",
@@ -32,6 +35,7 @@ const order = (over: Partial<DashboardMetrics["todayOrders"][number]>) => ({
 });
 
 const featured = {
+  id: "order-a",
   number: "DF-0248",
   vehicle: "Porsche Panamera",
   customer: "Adam Nowak",
@@ -59,7 +63,7 @@ const data = {
 } as unknown as DashboardMetrics;
 
 it("shows the KPIs, date and greeting from the mockup", () => {
-  render(<MobileDashboard data={data} name="Michał Kowalski" />);
+  render(<MobileDashboard studioId="studio-a" canInvoice={false} data={data} name="Michał Kowalski" />);
   expect(screen.getByText("sobota, 24 października")).toBeTruthy();
   expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Dzień dobry, Michał");
   const kpis = within(screen.getByRole("region", { name: "Wskaźniki dnia" }));
@@ -70,18 +74,21 @@ it("shows the KPIs, date and greeting from the mockup", () => {
 
 it("renders the workshop card with the current stage, finish and camera actions", async () => {
   const user = userEvent.setup();
-  render(<MobileDashboard data={data} name="Michał Kowalski" />);
+  render(<MobileDashboard studioId="studio-a" canInvoice={false} data={data} name="Michał Kowalski" />);
   expect(screen.getByText("Na warsztacie · Boks 01")).toBeTruthy();
   expect(screen.getByText("Etap 2 z 4 · Korekta lakieru")).toBeTruthy();
   expect(screen.getByText("Dalej: Aplikacja ceramiki")).toBeTruthy();
   expect(screen.getByRole("progressbar").getAttribute("aria-valuenow")).toBe("2");
-  expect(screen.getByRole("button", { name: "Zdjęcie" })).toBeTruthy();
+  expect(screen.getByRole("link", { name: "Zdjęcie" }).getAttribute("href")).toBe("/orders/DF-0248?tab=zdjecia");
+  const fetcher = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+  vi.stubGlobal("fetch", fetcher);
   await user.click(screen.getByRole("button", { name: "Zakończ: Korekta lakieru" }));
-  expect(screen.getByRole("dialog", { name: "Zakończ: Korekta lakieru" }).textContent).toContain("wkrótce");
+  expect(fetcher).toHaveBeenCalledWith("/api/studios/studio-a/orders/order-a/advance", { method: "POST" });
+  expect(refresh).toHaveBeenCalledOnce();
 });
 
 it("lists the rest of the day without repeating the featured car, in Warsaw time", () => {
-  render(<MobileDashboard data={data} name="Michał Kowalski" />);
+  render(<MobileDashboard studioId="studio-a" canInvoice={false} data={data} name="Michał Kowalski" />);
   const list = within(screen.getByRole("list"));
   expect(list.queryByText("Porsche Panamera")).toBeNull();
   expect(list.getByText("Pakiet premium · Boks 02")).toBeTruthy();
@@ -92,8 +99,23 @@ it("lists the rest of the day without repeating the featured car, in Warsaw time
 });
 
 it("handles a day without a car in progress", () => {
-  render(<MobileDashboard data={{ ...data, featured: null, todayOrders: [] }} name="Michał Kowalski" />);
+  render(<MobileDashboard studioId="studio-a" canInvoice={false} data={{ ...data, featured: null, todayOrders: [] }} name="Michał Kowalski" />);
   expect(screen.getByText("Brak aut w trakcie pracy w boksach na dziś.")).toBeTruthy();
   expect(screen.queryByRole("button", { name: /Zakończ/ })).toBeNull();
   expect(screen.getByText("Na dziś nie ma więcej zaplanowanych zleceń.")).toBeTruthy();
+});
+
+it("shows the same dashboard alerts under the bell and links day rows to orders", async () => {
+  render(<MobileDashboard studioId="studio-a" canInvoice={false} data={data} name="Michał" />);
+  expect(screen.getByRole("link", { name: "Audi Q5" }).getAttribute("href")).toBe("/orders/DF-0249");
+  await userEvent.setup().click(screen.getByRole("button", { name: "Powiadomienia" }));
+  expect(within(screen.getByRole("dialog", { name: "Powiadomienia" })).getByRole("link", { name: /Serwis ceramiki/ }).getAttribute("href")).toBe("/customers");
+});
+
+it("keeps the order context on a failed stage advance", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, json: async () => ({ error: "Zlecenie zmieniono w innej sesji." }) }));
+  render(<MobileDashboard studioId="studio-a" canInvoice={false} data={data} name="Michał" />);
+  await userEvent.setup().click(screen.getByRole("button", { name: "Zakończ: Korekta lakieru" }));
+  expect(await screen.findByText("Zlecenie zmieniono w innej sesji.")).toBeTruthy();
+  expect(refresh).not.toHaveBeenCalled();
 });

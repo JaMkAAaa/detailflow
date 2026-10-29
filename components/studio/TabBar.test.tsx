@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, expect, it, vi } from "vitest";
 import { TabBar } from "./TabBar";
 
@@ -30,7 +29,7 @@ it("shows the five tabs in order and marks the current route", () => {
   expect(items.map((item) => item.textContent || item.getAttribute("aria-label"))).toEqual([
     "Pulpit",
     "Kalendarz",
-    "Nowe zlecenie lub wycena",
+    "Nowe zlecenie",
     "Zlecenia",
     "Więcej",
   ]);
@@ -52,13 +51,10 @@ it("opens the full More screen", () => {
   expect(link.getAttribute("aria-current")).toBe("page");
 });
 
-it("opens a sheet with new order and quote from the + button", async () => {
-  const user = userEvent.setup();
+it("opens the shared order form directly from +", () => {
   render(<TabBar />);
-  await user.click(screen.getByRole("button", { name: "Nowe zlecenie lub wycena" }));
-  const sheet = screen.getByRole("dialog", { name: "Nowe" });
-  expect(within(sheet).getByRole("button", { name: /Nowe zlecenie/ })).toBeTruthy();
-  expect(within(sheet).getByRole("link", { name: /Nowa wycena/ }).getAttribute("href")).toBe("/quotes/new");
+  expect(screen.getByRole("link", { name: "Nowe zlecenie" }).getAttribute("href")).toBe("/orders?new=1");
+  expect(screen.queryByRole("dialog")).toBeNull();
 });
 
 it("gives way to the order action bar on order details (M-04) but not on the list", () => {

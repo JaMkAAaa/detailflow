@@ -1,13 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { MaskIcon } from "./MaskIcon";
-import { Sheet } from "./Sheet";
 
-type Panel = "new" | null;
 
 const tabs = {
   left: [
@@ -53,13 +50,7 @@ function RouteTab({ label, href, icon, active }: { label: string; href: string; 
 
 export function TabBar() {
   const pathname = usePathname();
-  const [panel, setPanel] = useState<Panel>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const moreActive = moreRoutes.some((href) => isUnder(pathname, href));
-  const close = () => {
-    setPanel(null);
-    setNotice(null);
-  };
 
   return (
     <>
@@ -73,17 +64,15 @@ export function TabBar() {
         {tabs.left.map((tab) => (
           <RouteTab key={tab.href} {...tab} active={isUnder(pathname, tab.href)} />
         ))}
-        <button
-          type="button"
-          aria-label="Nowe zlecenie lub wycena"
-          aria-haspopup="dialog"
-          onClick={() => setPanel("new")}
+        <Link
+          href="/orders?new=1"
+          aria-label="Nowe zlecenie"
           className="flex h-12 w-14 shrink-0 items-center justify-center rounded-[18px] bg-df-lime text-df-bg"
         >
           <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <path d="M12 5v14M5 12h14" />
           </svg>
-        </button>
+        </Link>
         {tabs.right.map((tab) => (
           <RouteTab key={tab.href} {...tab} active={isUnder(pathname, tab.href)} />
         ))}
@@ -92,33 +81,6 @@ export function TabBar() {
         </Link>
       </nav>
 
-      <Sheet open={panel === "new"} onClose={close} title="Nowe">
-        <ul className="flex flex-col gap-2">
-          {[
-            { label: "Nowe zlecenie", hint: "Przyjmij auto i otwórz zlecenie", soon: "Przyjmowanie nowych zleceń będzie dostępne wkrótce." },
-            { label: "Nowa wycena", hint: "Przygotuj wycenę dla klienta i auta", href: "/quotes/new", soon: "" },
-          ].map((item) => (
-            <li key={item.label}>
-              {item.href ? <Link href={item.href} onClick={close} className="flex min-h-14 w-full flex-col items-start justify-center rounded-[14px] bg-df-raised px-4 py-2 text-left">
-                <span className="text-df-strong">{item.label}</span>
-                <span className="text-df-label text-df-muted">{item.hint}</span>
-              </Link> : <button
-                type="button"
-                onClick={() => setNotice(item.soon)}
-                className="flex min-h-14 w-full flex-col items-start justify-center rounded-[14px] bg-df-raised px-4 py-2 text-left"
-              >
-                <span className="text-df-strong">{item.label}</span>
-                <span className="text-df-label text-df-muted">{item.hint}</span>
-              </button>}
-            </li>
-          ))}
-        </ul>
-        {notice && (
-          <p role="status" className="text-df-body text-df-muted">
-            {notice}
-          </p>
-        )}
-      </Sheet>
     </>
   );
 }

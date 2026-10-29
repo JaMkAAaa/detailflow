@@ -4,6 +4,8 @@ import { afterEach, expect, it, vi } from "vitest";
 import { OrdersScreen } from "./OrdersScreen";
 import { postOrderStatus } from "./orders-client";
 
+vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }) }));
+
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 const row = {

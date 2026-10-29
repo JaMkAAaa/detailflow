@@ -38,8 +38,14 @@ Alerty:
   wybranym przez studio. TEST i PROD mają osobne oznaczenia i wyniki. Do
   podłączenia integracji E9 wyniki pochodzą z istniejących rekordów/seeda.
 
-Akcje kreatorów i szczegółów nadal otwierają istniejące dialogi „wkrótce”.
-Nie tworzą faktur z aktywnych zleceń ani nie udają wysyłki.
+Pulpit i mobilny „+” otwierają `/orders?new=1`: ten sam `OrderCreateDialog`
+co tablica. Karty i wiersze prowadzą do zlecenia, mobilne zakończenie etapu
+wywołuje API advance i odświeża dane. Link klienta powstaje przez `portal-links`;
+URL jest widoczny tylko do zamknięcia dialogu, bez zapisu w przeglądarce i logach.
+Faktury otwierają istniejący kreator z wyborem wyłącznie zakończonych zleceń;
+worker otrzymuje komunikat o uprawnieniach. Mobilny dzwonek pokazuje alerty
+ceramiki i KSeF z tych samych danych co pulpit. Zdjęcie prowadzi do karty
+zlecenia; interfejs zarządzania zdjęciami pozostaje osobnym issue #136.
 `demo.ts` i stary `schedule.tsx` są scenariuszami testowymi #26, nie źródłem
 produkcyjnych danych pulpitu.
 
