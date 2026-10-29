@@ -1,15 +1,24 @@
 import { beforeEach, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({
-  origin: vi.fn(), context: vi.fn(), authorize: vi.fn(), publish: vi.fn(), unpublish: vi.fn(), revalidate: vi.fn(),
-  studio: vi.fn(),
-}));
+const mocks = vi.hoisted(() => {
+  class PortfolioError extends Error {
+    constructor(public status: 400 | 404 | 409, message: string) { super(message); }
+  }
+  return {
+    origin: vi.fn(), context: vi.fn(), authorize: vi.fn(), publish: vi.fn(), unpublish: vi.fn(), revalidate: vi.fn(),
+    studio: vi.fn(), PortfolioError,
+  };
+});
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidate }));
 vi.mock("@/src/server/action-origin", () => ({ assertActionOrigin: mocks.origin }));
 vi.mock("@/src/server/studio/context", () => ({ requireStudio: mocks.context }));
 vi.mock("@/src/server/acl", () => ({ authorizeStudio: mocks.authorize }));
 vi.mock("@/src/server/portfolio/publish", () => ({ publishPhoto: mocks.publish, unpublishPhoto: mocks.unpublish }));
 vi.mock("@/lib/db/client", () => ({ platformDb: { studio: { findUnique: mocks.studio } } }));
+// Prawdziwy errors.ts importuje http, a ten auth i walidację env. Test akcji tego stosu nie potrzebuje.
+vi.mock("@/src/server/portfolio/errors", () => ({
+  PortfolioError: mocks.PortfolioError, portfolioErrorResponse: vi.fn(),
+}));
 import { publishPortfolioPhoto, unpublishPortfolioPhoto } from "./actions";
 
 beforeEach(() => {
@@ -37,4 +46,12 @@ it("requires a writable subscription to publish, but takedown stays available an
   expect(mocks.authorize).toHaveBeenLastCalledWith("user", "a", "portfolio:manage", false);
   expect(mocks.unpublish).toHaveBeenCalledWith("a", "photo", "user");
   expect(mocks.revalidate.mock.calls).toEqual([["/portfolio"], ["/realizacje/obsidian-studio"]]);
+});
+
+it("maps a portfolio conflict onto the action result and skips revalidation", async () => {
+  mocks.publish.mockRejectedValueOnce(new mocks.PortfolioError(409, "Zdjęcie zmieniło się w międzyczasie. Odśwież i spróbuj ponownie."));
+  expect(await publishPortfolioPhoto("a", "photo", { plateVisible: true })).toEqual({
+    ok: false, error: "Zdjęcie zmieniło się w międzyczasie. Odśwież i spróbuj ponownie.",
+  });
+  expect(mocks.revalidate).not.toHaveBeenCalled();
 });
