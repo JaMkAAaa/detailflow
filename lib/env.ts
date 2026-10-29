@@ -21,6 +21,8 @@ export const env = createEnv({
 
     AUTH_SECRET: z.string().min(32),
 
+    CLIENT_PAYMENTS_STRIPE_SECRET_KEY: z.string().startsWith("sk_test_").optional(),
+    CLIENT_PAYMENTS_WEBHOOK_SECRET: z.string().startsWith("whsec_").optional(),
     STRIPE_SECRET_KEY: z.string().startsWith("sk_").optional(),
     STRIPE_WEBHOOK_SECRET: z.string().startsWith("whsec_").optional(),
     // Atrapa HTTP dla E2E. Puste zostawia api.stripe.com.

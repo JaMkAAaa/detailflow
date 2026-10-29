@@ -27,7 +27,7 @@ export function subscriptionStatus(status: Stripe.Subscription.Status): StudioSt
 
 /** Atomowo zapisuje event i kopię stanu. Błąd = rollback obu; Stripe może ponowić dostarczenie. */
 export async function processStripeEvent(event: Stripe.Event, stripe = getStripe()) {
-  if (!BILLING_EVENTS.has(event.type)) return;
+  if (event.account || !BILLING_EVENTS.has(event.type)) return;
   if (await platformDb.stripeEvent.findUnique({ where: { id: event.id } })) return;
   let subscriptionId: string | undefined;
   let invoice: Stripe.Invoice | undefined;

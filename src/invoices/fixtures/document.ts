@@ -11,6 +11,7 @@ export function invoiceFixture(): InvoiceDocument {
       id: "invoice-test", studioId: "studio-test", number: "FV/41/10/2026", workOrderId: "DF-0243", status: "issued", kind: "invoice", correctsInvoiceId: null, correctionReason: null, ksefEnv: "test", ksefStatus: "accepted",
       ksefNumber: "9512345678-20261024-8F3A21C4B7E0-5D", ksefAcceptedAt: at, ksefUpoXml: null,
       buyerName: "Adam Nowak & Syn", buyerNip: null, buyerStreet: "ul. Puławska 120/4", buyerPostal: "02-620", buyerCity: "Warszawa",
+      paymentPendingAt: null, paymentPending: false, paymentLock: 0, paymentSessionId: null, paymentCustomerId: null, paymentAttempt: 0, paymentIntentId: null,
       issuedAt: at, saleAt: at, dueAt: new Date("2026-10-31T00:00:00Z"), paidAt: null, emailedAt: new Date("2026-10-24T08:13:08Z"), createdAt: at, updatedAt: at,
       totalNet: new Decimal("3902.44"), totalVat: new Decimal("897.56"), totalGross: new Decimal("4800.00"),
       items: ["Korekta lakieru · 2 etapy", "Powłoka ceramiczna 3 lata"].map((name, index) => ({

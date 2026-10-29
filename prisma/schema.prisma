@@ -141,6 +141,7 @@ model Studio {
   // Stripe = abonament Detailflow, nie faktury klientów studia.
   stripeCustomerId     String?      @unique
   stripeSubscriptionId String?      @unique
+  clientPaymentAccountId String? @unique // Connect Standard, sandbox; niezależny od Billing
   ksefEnv              KsefEnv      @default(test)
   ksefTokenEnc         String? // szyfrowane at rest
   createdAt            DateTime     @default(now())
@@ -625,7 +626,15 @@ model Invoice {
   issuedAt          DateTime?
   saleAt            DateTime?
   dueAt             DateTime?
-  paidAt            DateTime? // przelew zaksięgowany ręcznie; brak = nieopłacona
+  paidAt            DateTime? // ręcznie albo potwierdzony direct charge
+  paymentPendingAt  DateTime?
+  paymentPending    Boolean       @default(false) // trwała rezerwacja przed żądaniem Stripe
+  paymentLock       Int           @default(0)
+  paymentSessionId  String?       @unique
+  paymentCustomerId String?
+  paymentAttempt    Int           @default(0)
+  paymentIntentId   String?       @unique
+  paymentEvents     ClientPaymentEvent[]
   emailedAt         DateTime? // data wysyłki PDF; kolejna = „Wyślij ponownie”
   totalNet          Decimal       @db.Decimal(12, 2)
   totalVat          Decimal       @db.Decimal(12, 2)
@@ -932,4 +941,13 @@ model Chemical {
   createdAt      DateTime     @default(now())
 
   @@index([studioId, name, id])
+}
+
+// Deduplikacja odseparowana od Stripe Billing; FK wymusza tenant faktury.
+model ClientPaymentEvent {
+  id String @id
+  studioId String
+  invoiceId String
+  invoice Invoice @relation(fields: [invoiceId, studioId], references: [id, studioId], onDelete: Cascade)
+  @@index([studioId, invoiceId])
 }

@@ -1,3 +1,4 @@
+import { paymentTransaction, requireNoOnlinePayment } from "../client-payments/lock";
 import Decimal from "decimal.js";
 import { z } from "zod";
 import { Prisma, type InvoiceKind, type KsefEnv } from "@/lib/db/generated/client";
@@ -105,6 +106,7 @@ export async function issueInvoice(studioId: string, ksefEnv: KsefEnv, input: un
 export async function correctInvoice(studioId: string, invoiceId: string, input: unknown) {
   const data = correctionInput.parse(input);
   return inTransaction(studioId, async (tx) => {
+    await requireNoOnlinePayment(tx, studioId, invoiceId);
     const source = await tx.invoice.findFirst({ where: { id: invoiceId }, include: {
       items: { where: { studioId }, orderBy: { lp: "asc" } },
       corrections: { where: { studioId }, orderBy: { createdAt: "desc" }, take: 1, include: { items: { where: { studioId }, orderBy: { lp: "asc" } } } },
@@ -148,20 +150,22 @@ export async function correctInvoice(studioId: string, invoiceId: string, input:
   });
 }
 
-/** Płatność ręczna (przelew). Stripe Checkout klienta jest poza v1. */
+/** Płatność ręczna; wykluczona, gdy Stripe nadal może pobrać środki. */
 export async function markInvoicePaid(studioId: string, invoiceId: string, input: unknown) {
   const data = paidInput.parse(input ?? {});
   const now = new Date();
   const paidAt = data.paidAt ? new Date(data.paidAt) : now;
   if (paidAt.getTime() > now.getTime() + 5 * 60_000) throw new AccessError(400, "Data płatności nie może być z przyszłości.");
-  const db = studioDb(studioId);
-  const invoice = await db.invoice.findFirst({ where: { id: invoiceId }, select: { number: true, kind: true, status: true, issuedAt: true, paidAt: true } });
-  if (!invoice) throw new AccessError(404, "Nie znaleziono faktury.");
-  if (invoice.kind !== "invoice") throw new AccessError(409, "Płatność oznacza się na fakturze, nie na korekcie.");
-  if (invoice.status !== "issued") throw new AccessError(409, "Tylko wystawioną fakturę można oznaczyć jako opłaconą.");
-  if (invoice.issuedAt && paidAt < invoice.issuedAt) throw new AccessError(400, "Data płatności nie może być wcześniejsza niż data wystawienia.");
-  // Warunek paidAt: null czyni oznaczenie atomowym: równoległy drugi klik nie nadpisze daty.
-  const updated = await db.invoice.updateMany({ where: { id: invoiceId, kind: "invoice", status: "issued", paidAt: null }, data: { paidAt } });
-  if (!updated.count) throw new AccessError(409, "Faktura jest już oznaczona jako opłacona.");
-  return { id: invoiceId, number: invoice.number, paid: true, paidAt: paidAt.toISOString() };
+  return paymentTransaction(studioId, async db => {
+    await requireNoOnlinePayment(db, studioId, invoiceId);
+    const invoice = await db.invoice.findFirst({ where: { id: invoiceId }, select: { number: true, kind: true, status: true, issuedAt: true, paidAt: true } });
+    if (!invoice) throw new AccessError(404, "Nie znaleziono faktury.");
+    if (invoice.kind !== "invoice") throw new AccessError(409, "Płatność oznacza się na fakturze, nie na korekcie.");
+    if (invoice.status !== "issued") throw new AccessError(409, "Tylko wystawioną fakturę można oznaczyć jako opłaconą.");
+    if (invoice.issuedAt && paidAt < invoice.issuedAt) throw new AccessError(400, "Data płatności nie może być wcześniejsza niż data wystawienia.");
+    // Warunek paidAt: null czyni oznaczenie atomowym: równoległy drugi klik nie nadpisze daty.
+    const updated = await db.invoice.updateMany({ where: { id: invoiceId, kind: "invoice", status: "issued", paidAt: null }, data: { paidAt } });
+    if (!updated.count) throw new AccessError(409, "Faktura jest już oznaczona jako opłacona.");
+    return { id: invoiceId, number: invoice.number, paid: true, paidAt: paidAt.toISOString() };
+  });
 }
