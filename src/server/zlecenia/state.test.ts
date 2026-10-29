@@ -171,10 +171,11 @@ describe("work order state (Postgres)", () => {
     await expect(transitionOrder(da, { orderId: order.id, to: "in_progress" })).rejects.toBeInstanceOf(OrderStateError);
   });
 
-  it("only one of two concurrent moves wins", async () => {
-    const order = await makeOrder();
+  it("only one of two mutually exclusive concurrent moves wins", async () => {
+    const order = await makeOrder("in_progress", 1);
+    // Neither target can follow the other if the database schedules reads sequentially.
     const results = await Promise.allSettled([
-      transitionOrder(da, { orderId: order.id, to: "in_progress" }),
+      transitionOrder(da, { orderId: order.id, to: "ready_for_pickup" }),
       transitionOrder(da, { orderId: order.id, to: "canceled" }),
     ]);
     expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
