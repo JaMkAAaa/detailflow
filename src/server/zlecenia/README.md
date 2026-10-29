@@ -29,8 +29,12 @@ Presigned URL musi być osiągalny z przeglądarki, a podpis obejmuje host. Dlat
 `S3_PUBLIC_ENDPOINT` (domyślnie `S3_ENDPOINT`) służy do podpisywania; w Compose
 `S3_ENDPOINT` to `minio:9000`, więc lokalnie ustaw `S3_PUBLIC_ENDPOINT=http://localhost:9000`.
 
-Niepotwierdzone wiersze (porzucony upload) zostają w bazie z `uploadedAt = null`
-i nie są nigdzie listowane; sprzątanie osieroconych wierszy/obiektów nie jest w tym issue.
+Niepotwierdzone wiersze (`uploadedAt = null`) nie są listowane. Worker co 15 s
+usuwa do 100 takich wierszy na studio, starszych niż 24 h (próg
+`UNCONFIRMED_PHOTO_TTL_MS` w `cleanup-photos.ts`). Najpierw usuwa obiekt S3,
+także gdy go nie ma; błąd S3 zachowuje wiersz do ponowienia. Blokada wiersza
+chroni równoległe potwierdzenie uploadu. Potwierdzone zdjęcia pozostają,
+również po zakończeniu zlecenia — nie ustalono dla nich automatycznej retencji.
 
 ## Protokół przyjęcia (`intake.ts`)
 

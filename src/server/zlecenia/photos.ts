@@ -93,7 +93,10 @@ export async function confirmPhotoUpload(studioId: string, workOrderId: string, 
     await db.orderPhoto.deleteMany({ where: { id: photo.id, uploadedAt: null } });
     throw new OrderError(400, "Wgrany plik nie zgadza się z zapowiedzianym rozmiarem lub typem.");
   }
-  const updated = await db.orderPhoto.update({ where: { id: photo.id }, data: { uploadedAt: new Date() }, select: { ...photoSelect, key: true } });
+  // Cleanup may have removed an abandoned upload while HEAD was in flight.
+  await db.orderPhoto.updateMany({ where: { id: photo.id, uploadedAt: null }, data: { uploadedAt: new Date() } });
+  const updated = await db.orderPhoto.findFirst({ where: { id: photo.id }, select: { ...photoSelect, key: true } });
+  if (!updated) throw new OrderError(404, "Nie znaleziono zdjęcia.");
   return withUrl(updated);
 }
 

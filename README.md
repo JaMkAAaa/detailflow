@@ -929,7 +929,7 @@ accepted ──▶ in_progress ──▶ ready_for_pickup ──▶ completed
 - `GET .../photos` zwraca zdjęcia po numerze z metadanymi i podpisanym GET (5 min).
 - Limity: 20 MB, JPEG/PNG/WebP/HEIC, `stage` 1–4, `caption` do 200 znaków.
 - Klucz spoza prefiksu studia → 403 przed dotknięciem bazy/S3; zły kształt klucza → 400.
-- Porzucone, niepotwierdzone wiersze zostają w bazie; **brak sprzątania** osieroconych obiektów.
+- Worker sprząta niepotwierdzone uploady starsze niż 24 h (wiersz i obiekt S3); potwierdzone zdjęcia nie mają automatycznej retencji.
 - Protokół: jeden na zlecenie, numer `P-0248` z `DF-0248`, maks. 30 punktów, pozycja `x`/`y` jako ułamek 0–1, opcjonalne zdjęcie **tego samego zlecenia**.
 - Po akceptacji protokół jest niezmienny (409), także przy równoległym zapisie; akceptacja jest idempotentna.
 - UI D-04 nadal pokazuje dane demo i dialog „wkrótce”; API jest gotowe.
@@ -1384,7 +1384,6 @@ Wymaga `DATABASE_URL`, `REDIS_URL`, `S3_*`, `AUTH_SECRET`, `APP_URL` i konfigura
 - status zlecenia i zdjęcia w portalu dla dowolnego linku (P-01 jest statyczne),
 - akceptacja protokołu w portalu,
 - wygasanie wycen (`expired`) i przypomnienia,
-- sprzątanie niepotwierdzonych zdjęć,
 - wysyłka SMS,
 - wyszukiwarka ⌘K,
 - limity planów i egzekwowanie liczby użytkowników/boksów,
