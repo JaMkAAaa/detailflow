@@ -26,6 +26,8 @@ it("uses Decimal line rounding and validates a company NIP", () => {
   expect(validBuyer({ ...orders[0]!.buyer, nip: "1234567890" }, true)).toBe(false);
 });
 it("walks through buyer, editable order items and VAT preview, blocking invalid values", async () => {
+  const calls = vi.spyOn(globalThis, "fetch").mockResolvedValue(reply({ number: "FV/42/10/2026", ksefEnv: "test" }, 201));
+  router.push.mockClear();
   const user = userEvent.setup(); render(<InvoiceWizard studioId="a" userId="u" seller={seller} orders={orders} />);
   await user.click(await screen.findByRole("button", { name: /Dalej: pozycje/ }));
   expect(screen.getByText("4 800,00 zł")).toBeTruthy();
@@ -34,10 +36,12 @@ it("walks through buyer, editable order items and VAT preview, blocking invalid 
   await user.type(quantity, "2");
   await user.click(screen.getByRole("button", { name: /Dalej: podgląd/ }));
   expect(screen.getByRole("article", { name: "Podgląd faktury VAT" })).toBeTruthy();
-  expect((screen.getByRole("button", { name: /Potwierdź wysyłkę/ }) as HTMLButtonElement).disabled).toBe(true);
-  await user.click(screen.getByRole("checkbox")); await user.click(screen.getByRole("button", { name: /Potwierdź wysyłkę/ }));
-  expect(screen.getByText(/Nie wystawiono nowej faktury/)).toBeTruthy();
-  expect(JSON.parse(localStorage.getItem(invoiceDraftKey("a", "u", "test"))!).items[0].quantity).toBe("2");
+  expect((screen.getByRole("button", { name: "Wystaw fakturę" }) as HTMLButtonElement).disabled).toBe(true);
+  await user.click(screen.getByRole("checkbox")); await user.click(screen.getByRole("button", { name: "Wystaw fakturę" }));
+  expect(calls).toHaveBeenCalledTimes(1);
+  expect(JSON.parse(String(calls.mock.calls[0]![1]?.body))).toEqual({ workOrderId: "order", buyer: { name: "Adam Nowak", nip: "", street: "Puławska 120/4", postal: "02-620", city: "Warszawa" }, items: orders[0]!.items.map(({ name, unitNet, vatRate }, i) => ({ name, unitNet, vatRate, quantity: i === 0 ? "2" : "1" })), dueDays: 7 });
+  expect(router.push).toHaveBeenCalledWith(invoiceHref("FV/42/10/2026", "test"));
+  expect(localStorage.getItem(invoiceDraftKey("a", "u", "test"))).toBeNull();
   expect(localStorage.getItem(invoiceDraftKey("b", "u", "test"))).toBeNull();
   expect(localStorage.getItem(invoiceDraftKey("a", "u", "production"))).toBeNull();
 });
@@ -94,4 +98,48 @@ it("does not offer payment or corrections on a correction document", () => {
   render(<InvoiceDetails studioId="studio-test" invoice={{ ...invoice, kind: "correction", correctsNumber: "FV/41/10/2026", correctionReason: "Rabat" }} seller={seller} />);
   expect(screen.queryByRole("button", { name: "Oznacz jako opłaconą" })).toBeNull(); expect(screen.queryByRole("button", { name: "Wystaw korektę" })).toBeNull();
   expect(screen.getByRole("link", { name: "FV/41/10/2026" })).toBeTruthy();
+});
+
+it.each([400, 409])("keeps the draft and server validation message after %s", async status => {
+  const user = userEvent.setup(); router.push.mockClear();
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(reply({ error: "Zlecenie ma już fakturę lub kwoty są niezgodne." }, status));
+  render(<InvoiceWizard studioId="a" userId="u" seller={seller} orders={orders} />);
+  await user.click(await screen.findByRole("button", { name: /Dalej: pozycje/ }));
+  await user.click(screen.getByRole("button", { name: /Dalej: podgląd/ }));
+  await user.click(screen.getByRole("checkbox"));
+  await user.click(screen.getByRole("button", { name: "Wystaw fakturę" }));
+  expect((await screen.findByRole("alert")).textContent).toContain("Zlecenie ma już fakturę");
+  expect(router.push).not.toHaveBeenCalled();
+  expect(localStorage.getItem(invoiceDraftKey("a", "u", "test"))).not.toBeNull();
+});
+it("blocks repeated submission while pending and uses the returned environment", async () => {
+  const user = userEvent.setup();
+  let resolve!: (response: Response) => void;
+  const calls = vi.spyOn(globalThis, "fetch").mockReturnValue(new Promise<Response>(done => { resolve = done; }));
+  render(<InvoiceWizard studioId="a" userId="u" seller={seller} orders={orders} />);
+  await user.click(await screen.findByRole("button", { name: /Dalej: pozycje/ }));
+  await user.click(screen.getByRole("button", { name: /Dalej: podgląd/ }));
+  await user.click(screen.getByRole("checkbox"));
+  await user.dblClick(screen.getByRole("button", { name: "Wystaw fakturę" }));
+  expect(calls).toHaveBeenCalledTimes(1);
+  expect((screen.getByRole("button", { name: "Wystawianie…" }) as HTMLButtonElement).disabled).toBe(true);
+  resolve(reply({ number: "FV/1/10/2026", ksefEnv: "production" }, 201));
+  await vi.waitFor(() => expect(router.push).toHaveBeenCalledWith(invoiceHref("FV/1/10/2026", "production")));
+});
+
+it("folds discounts into cent prices matching the preview and keeps the draft on network failure", async () => {
+  const user = userEvent.setup();
+  const calls = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Network"));
+  render(<InvoiceWizard studioId="a" userId="u" seller={seller} orders={orders} />);
+  await user.click(await screen.findByRole("button", { name: /Dalej: pozycje/ }));
+  const discount = screen.getByLabelText("Rabat: Korekta lakieru");
+  await user.clear(discount); await user.type(discount, "10");
+  await user.click(screen.getByRole("button", { name: /Dalej: podgląd/ }));
+  expect(screen.getAllByText("4 560,00 zł").length).toBeGreaterThan(0);
+  expect(screen.queryByText(/Potwierdź wysyłkę.*demo/)).toBeNull();
+  await user.click(screen.getByRole("checkbox"));
+  await user.click(screen.getByRole("button", { name: "Wystaw fakturę" }));
+  expect(JSON.parse(String(calls.mock.calls[0]![1]?.body)).items[0]).toEqual({ name: "Korekta lakieru", quantity: "1", unitNet: "1756.10", vatRate: 23 });
+  expect((await screen.findByRole("alert")).textContent).toContain("Sprawdź listę faktur");
+  expect(localStorage.getItem(invoiceDraftKey("a", "u", "test"))).not.toBeNull();
 });
