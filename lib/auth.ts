@@ -1,3 +1,4 @@
+import { authCounter } from "../src/server/rate-limit";
 import { APIError } from "better-auth/api";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
@@ -48,7 +49,7 @@ export const auth = betterAuth({
   },
 
   rateLimit: {
-    // Pamięć procesu: wystarcza przy jednym kontenerze web. Przy skalowaniu → Redis.
+    customStorage: authCounter("studio"),
     window: 60,
     max: 100,
     customRules: {

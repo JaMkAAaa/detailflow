@@ -60,6 +60,7 @@ jobs:
     env:
       DATABASE_URL: postgresql://detailflow:detailflow@localhost:5432/detailflow
       KSEF_REDIS_TEST_URL: redis://localhost:6379/15
+      RATE_LIMIT_REDIS_TEST_URL: redis://localhost:6379/14
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

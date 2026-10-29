@@ -42,6 +42,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "decimal.js": "^10.6.0",
+    "ioredis": "^6.0.0",
     "next": "^15.5.28",
     "nodemailer": "^10.2.1",
     "pg": "^8.23.1",

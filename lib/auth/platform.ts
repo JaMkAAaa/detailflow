@@ -1,3 +1,4 @@
+import { authCounter } from "../../src/server/rate-limit";
 import { APIError } from "better-auth/api";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
@@ -50,6 +51,7 @@ export const platformAuth = betterAuth({
   },
 
   rateLimit: {
+    customStorage: authCounter("platform"),
     window: 60,
     max: 100,
     customRules: {

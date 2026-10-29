@@ -1,7 +1,7 @@
 import { auth } from "../../../lib/auth";
 import { studioDb } from "../../../lib/db/tenant";
 import { AccessError, authorizeStudio } from "../acl";
-import { apiError } from "../http";
+import { apiError, limitApiWrite } from "../http";
 import { OrderStateError } from "./state";
 
 /** Conceal studios from non-members without hiding billing's read-only 403. */
@@ -10,7 +10,9 @@ export async function orderApiStudio(request: Request, studioId: string, permiss
   if (!session) throw new AccessError(401, "Zaloguj się.");
   const member = await studioDb(studioId).membership.findFirst({ where: { userId: session.user.id } });
   if (!member) throw new AccessError(404, "Nie znaleziono studia.");
-  return { ...await authorizeStudio(session.user.id, studioId, permission, request.method !== "GET"), user: session.user };
+  const access = await authorizeStudio(session.user.id, studioId, permission, !["GET", "HEAD", "OPTIONS"].includes(request.method));
+  await limitApiWrite(request, session.user.id);
+  return { ...access, user: session.user };
 }
 
 export function orderApiError(error: unknown) {
