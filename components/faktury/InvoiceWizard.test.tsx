@@ -165,3 +165,28 @@ it("shows KSeF configuration errors and allows retrying", async () => {
   expect(screen.getByRole("link", { name: "Ustawienia i token KSeF" }).getAttribute("href")).toBe("/settings");
   expect((screen.getByRole("button", { name: "Wyślij do KSeF" }) as HTMLButtonElement).disabled).toBe(false);
 });
+
+it.each([false, true])("requests invoice PDF email, shows pending and preserves last successful date (mobile=%s)", async mobile => {
+  vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: mobile, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+  const calls = vi.spyOn(globalThis, "fetch").mockResolvedValue(reply({ pending: true }, 202));
+  const user = userEvent.setup();
+  const view = render(<InvoiceDetails invoice={invoice} seller={seller} studioId="a" />);
+  await user.click(screen.getByRole("button", { name: /Wyślij ponownie/ }));
+  await user.click(screen.getByRole("button", { name: "Zleć wysyłkę PDF" }));
+  expect(calls.mock.calls[0]![0]).toBe("/api/studios/a/invoices/invoice/email");
+  expect(JSON.parse(String(calls.mock.calls[0]![1]?.body))).toEqual({ env: "test" });
+  expect(screen.getByRole("status").textContent).toContain("oczekuje na wysyłkę");
+  expect(screen.queryByText(/Potwierdź.*demo/)).toBeNull();
+  view.rerender(<InvoiceDetails invoice={{ ...invoice, emailedAt: "2026-10-29T04:00:00Z", mailPending: false }} seller={seller} studioId="a" />);
+  // Nowe dane z serwera kończą stan lokalnej kolejki.
+  expect(screen.queryByText("Wysyłka PDF w toku")).toBeNull();
+  expect(screen.getByRole("status").textContent).not.toContain("oczekuje na wysyłkę");
+});
+it("keeps the send dialog open on server failure and permits retry", async () => {
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(reply({ error: "Uzupełnij poprawny adres e-mail nabywcy." }, 400));
+  const user = userEvent.setup(); render(<InvoiceDetails invoice={invoice} seller={seller} studioId="a" />);
+  await user.click(screen.getByRole("button", { name: "Wyślij ponownie" }));
+  await user.click(screen.getByRole("button", { name: "Zleć wysyłkę PDF" }));
+  expect((await screen.findByRole("alert")).textContent).toContain("Uzupełnij poprawny adres");
+  expect((screen.getByRole("button", { name: "Zleć wysyłkę PDF" }) as HTMLButtonElement).disabled).toBe(false);
+});

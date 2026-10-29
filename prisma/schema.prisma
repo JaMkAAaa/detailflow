@@ -159,6 +159,7 @@ model Studio {
   portalLinks        PortalLink[]
   quoteDecisionMails QuoteDecisionMail[]
   quoteSendMails     QuoteSendMail[]
+  invoiceMails       InvoiceMail[]
   orderPhotos        OrderPhoto[]
   intakeProtocols      IntakeProtocol[]
   intakeDamages        IntakeDamage[]
@@ -628,6 +629,7 @@ model Invoice {
   items       InvoiceItem[]
   events      KsefEvent[]
   submission  KsefSubmission?
+  mails       InvoiceMail[]
 
   @@unique([studioId, ksefEnv, number])
   @@unique([ksefEnv, ksefNumber])
@@ -862,4 +864,21 @@ model QuoteSendMail {
 
   @@unique([quoteId, studioId])
   @@index([studioId, sentAt])
+}
+
+// Każda prośba o ponowne wysłanie ma osobny wpis; adres ustalamy przy zleceniu.
+model InvoiceMail {
+  id            String    @id @default(cuid())
+  studioId      String
+  invoiceId     String
+  recipient     String
+  sentAt        DateTime?
+  attempts      Int       @default(0)
+  nextAttemptAt DateTime  @default(now())
+  createdAt     DateTime  @default(now())
+  studio        Studio    @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  invoice       Invoice   @relation(fields: [invoiceId, studioId], references: [id, studioId], onDelete: Cascade)
+
+  @@index([studioId, sentAt, nextAttemptAt])
+  @@index([invoiceId, studioId])
 }

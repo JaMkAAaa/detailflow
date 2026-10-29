@@ -173,3 +173,23 @@ Snapshot XML i historia powstają w transakcji przed enqueue; istniejący outbox
 odtwarza enqueue przy awarii Redisa. UI pokazuje `queued`, wpis historii i błędy
 409, bez tokenu i diagnostyki XML. Korekty nadal wymagają mapowania #121,
 a ponowienia i mail PDF należą do osobnych issue. Offline nie jest dostępny.
+
+### E-mail z PDF
+
+D-09 i M-08 zlecają `POST /api/studios/:studioId/invoices/:invoiceId/email`
+z `{ env }`. Uprawnienie `invoices:manage`, Origin i zakres studia obowiązują
+jak przy pozostałych akcjach. Adres pochodzi z e-maila klienta powiązanego
+z fakturą i jest zapisywany w outboxie przy zleceniu. Brak poprawnego adresu
+zwraca 400. Korekty czekają na osobny generator PDF (#121).
+
+Worker obsługuje `InvoiceMail` co 15 sekund. Oczekujące kliknięcia współdzielą
+jedno zadanie; po udanej wysyłce „Wyślij ponownie” tworzy kolejny wpis.
+`emailedAt` oznacza przyjęcie przez SMTP, nie potwierdzenie odczytania ani
+ostatecznego doręczenia. Błąd SMTP pozostawia zadanie do retry (do godziny
+odstępu), bez usuwania daty poprzedniej udanej wysyłki. Bez SMTP w dev worker
+loguje samą treść podglądu i pozostawia zadanie jako niewysłane; w produkcji
+czeka na konfigurację. Mail zawiera tylko PDF, bez XML i linku portalu.
+Dokumenty TEST są oznaczone w temacie, treści i nazwie załącznika.
+
+Wysyłka SMTP jest at-least-once: awaria po przyjęciu przez SMTP, przed zapisem
+transakcji może spowodować powtórkę. Każde zadanie zachowuje stały Message-ID.

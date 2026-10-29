@@ -8,7 +8,7 @@ export type Order = { id: string; number: string; vehicle: string; completedAt: 
 export type InvoiceView = {
   id: string; number: string; env: Environment; status: string; ksefStatus: string; ksefNumber: string | null;
   acceptedAt: string | null; issuedAt: string | null; saleAt: string | null; dueAt: string | null;
-  paidAt: string | null; emailedAt: string | null; upoXml: string | null;
+  paidAt: string | null; mailPending?: boolean; emailedAt: string | null; upoXml: string | null;
   kind: "invoice" | "correction"; correctsNumber: string | null; correctionReason: string | null; corrections: { number: string }[]; current: { lp: number; name: string; quantity: string; unitNet: string }[];
   orderNumber: string; buyer: Buyer; items: Item[];
   totalNet: string; totalVat: string; totalGross: string;

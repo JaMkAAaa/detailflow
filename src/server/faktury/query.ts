@@ -9,6 +9,7 @@ export async function invoiceRecord(studioId: string, where: { id: string } | { 
   return studioDb(studioId).invoice.findFirst({ where: { ...where, studioId }, include: {
     items: { where: { studioId }, orderBy: { lp: "asc" } }, events: { where: { studioId }, orderBy: [{ at: "desc" }, { kind: "desc" }] },
     workOrder: { select: { number: true, client: { select: { email: true } } } },
+    mails: { where: { studioId, sentAt: null }, take: 1, select: { id: true } },
     correctsInvoice: { select: { number: true } },
     corrections: { where: { studioId }, orderBy: { createdAt: "asc" }, select: { number: true, items: { where: { studioId }, orderBy: { lp: "asc" }, select: { lp: true, name: true, quantity: true, unitNet: true } } } },
   } });
@@ -20,6 +21,7 @@ export async function invoiceDetail(studioId: string, number: string, env: Envir
     id: invoice.id, number: invoice.number, env: invoice.ksefEnv, status: invoice.status, ksefStatus: invoice.ksefStatus, ksefNumber: invoice.ksefNumber,
     acceptedAt: invoice.ksefAcceptedAt?.toISOString() ?? null, issuedAt: invoice.issuedAt?.toISOString() ?? null, saleAt: invoice.saleAt?.toISOString() ?? null,
     dueAt: invoice.dueAt?.toISOString() ?? null, paidAt: invoice.paidAt?.toISOString() ?? null, emailedAt: invoice.emailedAt?.toISOString() ?? null, upoXml: invoice.ksefUpoXml,
+    mailPending: invoice.mails.length > 0,
     kind: invoice.kind, correctsNumber: invoice.correctsInvoice?.number ?? null, correctionReason: invoice.correctionReason, corrections: invoice.corrections.map(({ number }) => ({ number })),
     // Stan pozycji po ostatniej korekcie: od niego liczy się kolejna korekta.
     current: (invoice.corrections.at(-1)?.items ?? invoice.items).map(item => ({ lp: item.lp, name: item.name, quantity: item.quantity.toString(), unitNet: item.unitNet.toString() })),
