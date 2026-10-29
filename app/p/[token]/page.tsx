@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { PortalExpired, PortalStatus } from "@/components/portal/PortalScreen";
-import { resolvePortalDemo } from "@/components/portal/demo";
 import { LogoMark } from "@/components/brand/Logo";
 import { Button } from "@/components/ui/button";
 import { readPortal } from "@/src/server/portal/links";
@@ -15,17 +14,20 @@ export default async function PortalPage({ params, searchParams }: {
   const { token } = await params;
   const { unavailable } = await searchParams;
   const data = unavailable ? null : await readPortal(token);
-  if (!data) return <PortalExpired knownStudio={false} />;
-  // The static P-01 fixture still requires a valid, non-revoked database link.
-  // Quotes awaiting a decision always use the operational form below.
-  if (resolvePortalDemo(token) === "active" && data.order && data.quote?.status === "accepted") {
-    return <PortalStatus />;
+  if (!data) return <PortalExpired />;
+  if (data.order) {
+    const { studio, order } = data;
+    return <PortalStatus studio={studio} order={{
+      number: order.number, customerName: order.client.name, vehicle: order.vehicle,
+      status: order.status, stage: order.stage, pickupAt: order.dueAt ?? order.scheduledTo,
+      totalGross: order.totalGross.toFixed(2), service: order.service, updatedAt: order.updatedAt,
+    }} />;
   }
-  const { studio, quote, order } = data;
+  const { studio, quote } = data;
   const decided = quote?.status === "accepted" || quote?.status === "rejected";
   return <main className="mx-auto flex min-h-screen max-w-lg flex-col gap-6 p-6">
     <header className="flex items-center gap-3 border-b border-df-line pb-5"><LogoMark /><span className="font-brand text-xl font-bold">{studio.name}</span></header>
-    <p className="text-df-label text-df-muted">Portal klienta{order ? ` · #${order.number}` : ""}</p>
+    <p className="text-df-label text-df-muted">Portal klienta</p>
     <h1 className="text-df-headline">{decided ? "Dziękujemy za decyzję" : "Twoja wycena"}</h1>
     {quote ? <section aria-label="Wycena" className="flex flex-col gap-4 rounded-2xl bg-df-panel p-5">
       <h2 className="text-df-section">{quote.vehicle.make} {quote.vehicle.model} · {quote.vehicle.plate}</h2>

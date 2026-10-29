@@ -43,12 +43,16 @@ export async function readPortal(token: string) {
   const link = await resolvePortalLink(token);
   if (!link) return null;
   const db = studioDb(link.studioId);
-  const order = link.workOrderId ? await db.workOrder.findFirst({ where: { id: link.workOrderId } }) : null;
+  const order = link.workOrderId ? await db.workOrder.findFirst({ where: { id: link.workOrderId }, include: {
+    vehicle: { select: { make: true, model: true, plate: true } },
+    client: { select: { name: true } },
+  } }) : null;
+  if (link.workOrderId && !order) return null;
   const quoteId = link.quoteId ?? order?.quoteId;
   const quote = quoteId ? await db.quote.findFirst({ where: { id: quoteId }, include: {
     items: { orderBy: { sort: "asc" } }, vehicle: { select: { make: true, model: true, plate: true } },
   } }) : null;
-  const studio = await platformDb.studio.findUniqueOrThrow({ where: { id: link.studioId }, select: { name: true, phone: true } });
+  const studio = await platformDb.studio.findUniqueOrThrow({ where: { id: link.studioId }, select: { name: true, phone: true, address: true } });
   return { studio, order, quote };
 }
 

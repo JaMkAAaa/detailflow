@@ -68,14 +68,14 @@ describe("portal tokens and decisions (Postgres)", () => {
     expect(renderToStaticMarkup(await page(token))).toContain("Ten link już wygasł");
   });
 
-  it("keeps the seeded P-01 demo behind database token validation", async () => {
+  it("renders the seeded order using the live P-01", async () => {
     const html = renderToStaticMarkup(await page("obsidian-df-0248-demo"));
     expect(html).toContain("Cześć, ");
     expect(html).toContain("Etapy zlecenia");
     expect(html).toContain("Ceramika i kontrola");
   });
 
-  it("does not bypass token validation for the static P-01 demo", async () => {
+  it("does not bypass token validation for the seeded order", async () => {
     const token = "obsidian-df-0248-demo";
     const link = await platformDb.portalLink.findUniqueOrThrow({ where: { tokenHash: hashPortalToken(token) } });
     const db = studioDb(link.studioId);
@@ -139,6 +139,47 @@ describe("portal tokens and decisions (Postgres)", () => {
     await expect(a.db.portalLink.create({ data: { ...data, quoteId: b.quote.id, tokenHash: hashPortalToken(generatePortalToken()) } })).rejects.toThrow();
     await expect(a.db.portalLink.create({ data: { ...data, tokenHash: hashPortalToken(generatePortalToken()) } })).rejects.toThrow();
     await expect(a.db.portalLink.create({ data: { ...data, quoteId: a.quote.id, workOrderId: order.id, tokenHash: hashPortalToken(generatePortalToken()) } })).rejects.toThrow();
+  });
+
+  it("renders each order token from its tenant, follows updates and keeps GET read-only", async () => {
+    const a = await fixture();
+    const b = await fixture(1);
+    const makeOrder = async (f: typeof a, number: string, service: string) => f.db.workOrder.create({ data: {
+      studioId: f.studioId, number, clientId: f.quote.clientId, vehicleId: f.quote.vehicleId,
+      status: "in_progress", stage: 4, service, totalGross: "1234.56",
+      scheduledFrom: new Date("2026-10-29T08:00:00Z"), scheduledTo: new Date("2026-10-30T10:00:00Z"),
+      dueAt: new Date("2026-10-30T15:00:00Z"),
+    } });
+    const orderA = await makeOrder(a, `DF-A-${++seq}`, "Usługa A");
+    const orderB = await makeOrder(b, `DF-B-${++seq}`, "Usługa B");
+    await b.db.vehicle.update({ where: { id: b.quote.vehicleId }, data: { make: "Volvo", model: "V60", plate: "WB PRIVATE" } });
+    const linkA = await createPortalLink(a.db, a.studioId, { workOrderId: orderA.id });
+    const linkB = await createPortalLink(b.db, b.studioId, { workOrderId: orderB.id });
+    const quoteHtml = renderToStaticMarkup(await page(a.token));
+    expect(quoteHtml).toContain("Akceptuję wycenę");
+    expect(quoteHtml).not.toContain(orderA.number);
+    expect(quoteHtml).not.toContain("Etapy zlecenia");
+    const before = await a.db.workOrder.findFirstOrThrow({ where: { id: orderA.id } });
+    const htmlA = renderToStaticMarkup(await page(tokenFrom(linkA)));
+    const htmlB = renderToStaticMarkup(await page(tokenFrom(linkB)));
+    expect(htmlA).toContain(orderA.number);
+    expect(htmlA).toContain("1234,56 zł");
+    expect(htmlA).toContain("30 października 2026 16:00");
+    expect(htmlA).not.toContain("Volvo");
+    expect(htmlA).not.toContain(orderB.number);
+    expect(htmlA).not.toContain("WB PRIVATE");
+    expect(htmlB).toContain("Volvo");
+    expect(htmlB).not.toContain(orderA.number);
+    expect(htmlA.match(/aria-current="step"/g)).toHaveLength(1);
+    expect(htmlA).not.toContain("Akceptuję wycenę");
+    expect(await a.db.workOrder.findFirstOrThrow({ where: { id: orderA.id } })).toEqual(before);
+    await a.db.workOrder.update({ where: { id: orderA.id }, data: { status: "ready_for_pickup" } });
+    expect(renderToStaticMarkup(await page(tokenFrom(linkA)))).toContain("Do odbioru");
+    await a.db.portalLink.update({ where: { id: linkA.id }, data: { expiresAt: new Date(Date.now() - 1) } });
+    await revokePortalLink(b.db, linkB.id);
+    const unavailable = renderToStaticMarkup(await page("invalid"));
+    expect(renderToStaticMarkup(await page(tokenFrom(linkA)))).toBe(unavailable);
+    expect(renderToStaticMarkup(await page(tokenFrom(linkB)))).toBe(unavailable);
   });
 
   it.each(["draft", "expired"] as const)("refuses a %s quote", async (status) => {
