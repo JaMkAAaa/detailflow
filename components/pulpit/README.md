@@ -29,7 +29,7 @@ Plan i tabela dnia również korzystają z danych studia. Plan pokazuje dziś
 
 Alerty:
 
-- Magazyn ukryty — brak modułu magazynu w v1.
+- Magazyn (#143): rzeczywisty alert chemii przy ilości ≤ progu, także zero; link `/inventory`, odczyt przez `studioDb`, bez fikcyjnego alertu CarPro.
 - Ceramika: jawne `CoatingReminder` dla pojazdu, z `dueAt` i opcjonalnym
   `completedAt`. Niezrealizowane zaległe terminy oraz terminy do końca dnia za
   7 dni. Licznik to unikalni klienci, nie liczba aut ani przypomnień. Nie

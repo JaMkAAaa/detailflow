@@ -204,6 +204,7 @@ export function MobileDashboard({ data, name, studioId }: DashboardProps) {
           <span className="text-df-label text-df-muted">Zaległy termin lub w ciągu 7 dni</span>
         </Link>
       )}
+      {alerts.chemicals.map(item => <Link key={item.id} href="/inventory" className="rounded-[18px] bg-df-amber-dark p-4 text-df-amber">Niski stan chemii · {item.name} · {item.quantity} {item.unit === "ml" ? "ml" : "szt."} · próg: {item.lowThreshold}</Link>)}
       {alerts.rejected.map((invoice) => (
         <Link key={invoice.id} href="/invoices?filter=attention" className="flex flex-col gap-1.5 rounded-[18px] bg-df-error-surface p-4">
           <span className="text-df-strong text-df-error">Faktura odrzucona przez KSeF</span>
@@ -215,8 +216,9 @@ export function MobileDashboard({ data, name, studioId }: DashboardProps) {
 
       <Sheet open={notifications} onClose={() => setNotifications(false)} title="Powiadomienia">
         {alerts.coatingClients > 0 && <Link href="/customers" onClick={() => setNotifications(false)}>Serwis ceramiki · {alerts.coatingClients} klientów</Link>}
+        {alerts.chemicals.map(item => <Link key={item.id} href="/inventory" onClick={() => setNotifications(false)}>Niski stan chemii · {item.name} · {item.quantity} {item.unit === "ml" ? "ml" : "szt."}</Link>)}
         {alerts.rejected.map(invoice => <Link key={invoice.id} href="/invoices?filter=attention" onClick={() => setNotifications(false)}>Faktura odrzucona przez KSeF · {invoice.number} · {invoice.ksefEnv === "test" ? "TEST" : "PROD"}</Link>)}
-        {alerts.coatingClients === 0 && alerts.rejected.length === 0 && <p>Brak alertów wymagających uwagi.</p>}
+        {alerts.coatingClients === 0 && alerts.rejected.length === 0 && alerts.chemicals.length === 0 && <p>Brak alertów wymagających uwagi.</p>}
       </Sheet>
 
       <Sheet open={notice !== null} onClose={() => setNotice(null)} title={notice?.title ?? ""}>

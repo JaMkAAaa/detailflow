@@ -111,7 +111,7 @@ export function Dashboard({ data, name, studioId, canInvoice }: DashboardProps) 
                 Wymaga uwagi
               </h2>
               <span className="text-df-label text-df-muted">
-                {data.alerts.rejected.length +
+                {data.alerts.rejected.length + data.alerts.chemicals.length +
                   (data.alerts.coatingClients > 0 ? 1 : 0)}
               </span>
             </div>
@@ -126,6 +126,12 @@ export function Dashboard({ data, name, studioId, canInvoice }: DashboardProps) 
                 </p>
               </div>
             )}
+            {data.alerts.chemicals.map(item => (
+              <Link key={item.id} href="/inventory" className="border-t border-df-line pt-3">
+                <h3 className="text-df-strong text-df-amber">Niski stan chemii · {item.name}</h3>
+                <p className="mt-1 text-df-label text-df-muted">{item.quantity} {item.unit === "ml" ? "ml" : "szt."} · próg: {item.lowThreshold} · Magazyn ↗</p>
+              </Link>
+            ))}
             {data.alerts.rejected.map((invoice) => (
               <Link
                 key={invoice.id}
@@ -142,7 +148,7 @@ export function Dashboard({ data, name, studioId, canInvoice }: DashboardProps) 
               </Link>
             ))}
             {data.alerts.rejected.length === 0 &&
-              data.alerts.coatingClients === 0 && (
+              data.alerts.coatingClients === 0 && data.alerts.chemicals.length === 0 && (
                 <p className="text-df-label text-df-muted">
                   Brak alertów wymagających uwagi.
                 </p>

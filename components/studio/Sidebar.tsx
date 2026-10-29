@@ -9,7 +9,6 @@ import { cn } from "@/lib/utils";
 import { activeStudioItem, studioNavigation } from "./navigation";
 
 const comingSoon = [
-  { label: "Magazyn", icon: "magazyn" },
   { label: "Statystyki", icon: "statystyki" },
   { label: "Portfolio", icon: "portfolio" },
 ];

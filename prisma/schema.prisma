@@ -150,6 +150,7 @@ model Studio {
   orders             WorkOrder[]
   quotes             Quote[]
   quoteItems         QuoteItem[]
+  chemicals          Chemical[]
   services           Service[]
   invoices           Invoice[]
   invoiceRows        InvoiceItem[]
@@ -891,4 +892,26 @@ model InvoiceMail {
 
   @@index([studioId, sentAt, nextAttemptAt])
   @@index([invoiceId, studioId])
+}
+
+// Pełne sztuki lub ml; korekta stanu wymaga aktualnej wersji rekordu.
+enum ChemicalUnit {
+  piece
+  ml
+}
+
+model Chemical {
+  id             String       @id @default(cuid())
+  studioId       String
+  studio         Studio       @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  name           String
+  unit           ChemicalUnit
+  quantity       Int
+  lowThreshold   Int
+  version        Int          @default(0)
+  lastReason     String
+  updatedAt      DateTime     @updatedAt
+  createdAt      DateTime     @default(now())
+
+  @@index([studioId, name, id])
 }

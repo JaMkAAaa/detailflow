@@ -52,7 +52,7 @@ const data = {
   dateLabel: "sobota, 24 października 2026",
   active: { total: 7, inProgress: 3, ready: 2, accepted: 2 },
   occupancy: { percent: 82, occupiedHours: 13, capacityHours: 16 },
-  alerts: { coatingClients: 3, rejected: [] },
+  alerts: { coatingClients: 3, rejected: [], chemicals: [] },
   featured,
   todayOrders: [
     order({ number: "DF-0248", vehicle: "Porsche Panamera", bay: "Boks 01" }),

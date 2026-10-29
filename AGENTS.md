@@ -25,8 +25,8 @@ Czytaj to przed pierwszym commitem. Źródła prawdy:
 - Portal klienta: 3 etapy, nie 4. Token hashowany, surowy tylko w URL.
 - Kwoty: `Decimal`, PLN. Nigdy `float`.
 - Moduły po pierwotnym v1 (#142–#151) są wybrane i wchodzą pojedynczo, po technicznych zależnościach. Zamknięcie jednego nie oznacza, że pozostałe są ukończone.
-- Jeszcze bez własnego wdrożenia: magazyn, statystyki, portfolio, KSeF offline, abonament roczny, płatność online klienta za detailing.
-- Menu: „Usługi i cennik” prowadzi do katalogu studia. „Magazyn / Statystyki / Portfolio” = „Wkrótce”, nie 404 i nie pusty CRUD.
+- Magazyn chemii (#143): pełne sztuki/ml, jawne korekty z kontrolą wersji, bez automatycznego zużycia ze zleceń. Jeszcze bez własnego wdrożenia: statystyki, portfolio, KSeF offline, abonament roczny, płatność online klienta za detailing.
+- Menu: „Usługi i cennik” prowadzi do katalogu studia. „Magazyn” prowadzi do `/inventory`. „Statystyki / Portfolio” = „Wkrótce”, nie 404 i nie pusty CRUD.
 - Seed ma odtwarzać dane makiety (Obsidian Studio, `#DF-0248`, etapy, kwoty), żeby dało się porównać UI.
 
 ## Stack

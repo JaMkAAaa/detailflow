@@ -33,9 +33,10 @@ it("links existing modules, displays attention and keeps future modules inside a
     screen.getByRole("link", { name: "Klienci i auta" }).getAttribute("href"),
   ).toBe("/customers");
   expect(screen.getByRole("link", { name: "Usługi i cennik" }).getAttribute("href")).toBe("/services");
-  await user.click(screen.getByRole("button", { name: "Magazyn Wkrótce" }));
+  expect(screen.getByRole("link", { name: "Magazyn" }).getAttribute("href")).toBe("/inventory");
+  await user.click(screen.getByRole("button", { name: "Statystyki Wkrótce" }));
   expect(
-    screen.getByRole("dialog", { name: "Magazyn · Wkrótce" }),
+    screen.getByRole("dialog", { name: "Statystyki · Wkrótce" }),
   ).toBeTruthy();
 });
 it("hides finance and team links from workers", () => {

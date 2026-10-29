@@ -14,6 +14,7 @@ export const permissions = {
   "orders:update": ["owner", "manager", "worker"],
   "clients:privacy": ["owner", "manager"],
   "quotes:write": ["owner", "manager"],
+  "inventory:manage": ["owner", "manager"],
   "services:manage": ["owner", "manager"],
   "invoices:manage": ["owner", "manager"],
   "members:invite": ["owner", "manager"],

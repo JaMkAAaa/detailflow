@@ -78,7 +78,7 @@ it("renders database metrics and empty states without demo alerts or cars", asyn
     todayOrders: [],
     plan: { bays: [], bookings: [] },
     featured: null,
-    alerts: { coatingClients: 0, rejected: [] },
+    alerts: { coatingClients: 0, rejected: [], chemicals: [] },
   };
   const { rerender } = render(<Dashboard studioId="studio-a" canInvoice={false} data={data} name="Anna Testowa" />);
   expect(screen.getByText("Dzień dobry, Anna.")).toBeTruthy();

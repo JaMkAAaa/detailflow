@@ -1,0 +1,48 @@
+// @vitest-environment jsdom
+import { cleanup, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, expect, it, vi } from "vitest";
+import { InventoryScreen } from "./InventoryScreen";
+const refresh = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
+afterEach(() => { cleanup(); vi.clearAllMocks(); });
+const item = { id: "chem", name: "Pasta", unit: "ml" as const, quantity: 20, lowThreshold: 20, version: 4, lastReason: "Pomiar" };
+it("submits explicit measured quantities with the displayed version and handles a concurrent edit", async () => {
+  const user = userEvent.setup();
+  const actions = { create: vi.fn(), correct: vi.fn().mockResolvedValue({ ok: false, error: "Stan zmienił się w międzyczasie." }) };
+  render(<InventoryScreen studioId="a" chemicals={[item]} canManage actions={actions} />);
+  expect(screen.getByText("Niski stan")).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "Korekta: Pasta" }));
+  await user.clear(screen.getByLabelText("Nowy stan"));
+  await user.type(screen.getByLabelText("Nowy stan"), "21");
+  await user.type(screen.getByLabelText("Powód wpisu / korekty"), "Dostawa");
+  await user.click(screen.getByRole("button", { name: "Zapisz korektę" }));
+  expect(actions.correct).toHaveBeenCalledWith("a", "chem", { quantity: 21, lowThreshold: 20, reason: "Dostawa", version: 4 });
+  expect(screen.getByRole("alert").textContent).toContain("Stan zmienił się");
+  expect(refresh).not.toHaveBeenCalled();
+  await user.click(screen.getByRole("button", { name: "Odśwież listę" }));
+  expect(refresh).toHaveBeenCalledOnce();
+  expect(screen.queryByRole("button", { name: "Zapisz korektę" })).toBeNull();
+});
+it("creates a measured piece count, refreshes on success and shows read-only/empty states", async () => {
+  const user = userEvent.setup();
+  const actions = { create: vi.fn().mockResolvedValue({ ok: true, value: item }), correct: vi.fn() };
+  const { rerender } = render(<InventoryScreen studioId="a" chemicals={[]} canManage actions={actions} />);
+  expect(screen.getByRole("status").textContent).toContain("Brak chemii");
+  await user.type(screen.getByLabelText("Nazwa"), "Powłoka");
+  await user.selectOptions(screen.getByLabelText("Jednostka"), "piece");
+  await user.clear(screen.getByLabelText("Stan początkowy"));
+  await user.type(screen.getByLabelText("Stan początkowy"), "0.5");
+  await user.type(screen.getByLabelText("Powód wpisu / korekty"), "Spis");
+  await user.click(screen.getByRole("button", { name: "Dodaj pozycję" }));
+  expect(actions.create).not.toHaveBeenCalled();
+  await user.clear(screen.getByLabelText("Stan początkowy"));
+  await user.type(screen.getByLabelText("Stan początkowy"), "2");
+  await user.click(screen.getByRole("button", { name: "Dodaj pozycję" }));
+  expect(actions.create).toHaveBeenCalledWith("a", { name: "Powłoka", unit: "piece", quantity: 2, lowThreshold: 0, reason: "Spis" });
+  expect(refresh).toHaveBeenCalledOnce();
+  rerender(<InventoryScreen studioId="a" chemicals={[{ ...item, quantity: 21 }]} canManage={false} actions={actions} />);
+  expect(screen.queryByRole("button", { name: /Korekta:/ })).toBeNull();
+  expect(screen.queryByText("Niski stan")).toBeNull();
+  expect(screen.getByText(/Dostęp tylko do odczytu/)).toBeTruthy();
+});

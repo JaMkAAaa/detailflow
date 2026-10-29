@@ -54,7 +54,7 @@ Przed uznaniem prototypu za kompletny wymagane są:
 
 ## Poza zakresem v1
 
-Katalog Usługi i cennik jest ekranem studia (`/services`). Magazyn, Statystyki, Portfolio oraz pełne Ustawienia i Konto pozostają poza ukończonym zakresem i wchodzą osobnymi issue. Ich pozycje w menu przedstawiają docelową architekturę informacji: Magazyn, Statystyki i Portfolio są „Wkrótce”, nie pustym CRUD.
+Katalog Usługi i cennik jest ekranem studia (`/services`). Magazyn chemii (#143) jest ekranem `/inventory`: nazwa, jednostka (pełne sztuki/ml), ilość, próg niskiego stanu i jawna korekta z kontrolą wersji; bez automatycznego zużycia przy zleceniu. Alert ilość ≤ próg pojawia się w D-01 i M-01. Wykorzystuje wzorce panelu i katalogu, bez osobnej gotowej ramki magazynu w prototypie. Statystyki, Portfolio oraz pełne Ustawienia i Konto pozostają poza ukończonym zakresem i wchodzą osobnymi issue. Ich pozycje w menu przedstawiają docelową architekturę informacji: Statystyki i Portfolio są „Wkrótce”, nie pustym CRUD.
 
 Tryb offline KSeF jest wyłączony i oznaczony jako poza zakresem v1. Przed jego wdrożeniem trzeba zweryfikować oficjalne zasady MF, terminy i przygotować osobny dialog potwierdzenia. W tej iteracji nie projektowano prawnych reguł offline.
 
