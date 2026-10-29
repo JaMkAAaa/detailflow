@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { Queue } from "bullmq";
-import { AccessError } from "../server/acl";
+import { AccessError } from "../server/access-error";
 import { assertKsefTest } from "./config";
 
 export const KSEF_QUEUE = "ksef-test";
