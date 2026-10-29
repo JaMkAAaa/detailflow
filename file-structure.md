@@ -62,7 +62,7 @@ Tryb offline KSeF pozostaje wyłączony. #146 rozstrzyga najpierw zasady MF: [de
 
 ## Marketing
 
-Fikcyjne opinie, oceny, logotypy klientów i wyniki zastąpiono scenariuszami oraz możliwościami demonstracji. Cennik 79 / 149 / 279 zł jest koncepcją miesięcznej opłaty netto; opcja roczna jest niedostępna. Kalkulator jest estymacją, a nie pomiarem wyników klientów. Pozostałe obietnice oferty i regulaminy trzeba zatwierdzić przed publikacją.
+Fikcyjne opinie, oceny, logotypy klientów i wyniki zastąpiono scenariuszami oraz możliwościami demonstracji. Cennik 79 / 149 / 279 zł jest koncepcją miesięcznej opłaty netto; opcja roczna jest niedostępna. #147 jest autoryzowany, lecz brak zatwierdzonych cen rocznych blokuje ofertę i przełącznik; [przygotowanie i dane do decyzji](docs/stripe-roczny-przygotowanie.md). Kalkulator jest estymacją, a nie pomiarem wyników klientów. Pozostałe obietnice oferty i regulaminy trzeba zatwierdzić przed publikacją.
 
 Szkielety dokumentów prawnych są dostępne pod `/regulamin`, `/polityka-prywatnosci` i `/umowa-powierzenia`. Każda strona jest oznaczona jako projekt do zatwierdzenia prawnego i nie stanowi obowiązującego dokumentu.
 

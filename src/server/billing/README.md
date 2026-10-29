@@ -140,3 +140,11 @@ metryka „Wpływy”. Faktura KSeF (`Invoice`) tam nie trafia.
 Testy #51: `pnpm test src/server/billing src/server/acl.test.ts` na osobnej bazie
 PostgreSQL po migracjach. Obejmują izolację tenantów, CSRF/role portalu, anulowanie
 → odczyt z komunikatem, blokadę zapisów, granicę trialu, MRR, deduplikację i retry maili.
+
+## Abonament roczny (#147) — przygotowanie
+
+Zakres jest autoryzowany decyzją właściciela z 29.10.2026; dawne „Poza v1”
+nie oznacza braku zgody. Brak cen rocznych zatwierdzonych przez człowieka
+w issue uniemożliwia aktywację. [Analiza i plan zmian](../../../docs/stripe-roczny-przygotowanie.md)
+obejmują katalog, Checkout, webhook, projekcję okresu/ceny, MRR i landing.
+Do decyzji cenowej provisioning, portal i oferta pozostają miesięczne.

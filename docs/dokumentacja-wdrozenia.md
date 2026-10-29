@@ -364,7 +364,7 @@ Prototyp wprost to oznacza:
 - KSeF offline — #146 to ukończenie badania/dokumentacji, nie wdrożenie klienta; kod pozostaje przyszłym zakresem.
 - Panel właściciela na mobile.
 - Płatność klienta online za usługę (Stripe Checkout B2C) — autoryzowana do osobnego #148, jeszcze niewdrożona.
-- Abonament roczny.
+- Abonament roczny (#147) — autoryzowany, oczekuje na zatwierdzenie konkretnych cen przez człowieka w issue. [Analiza, brakujące dane i plan](stripe-roczny-przygotowanie.md); bez ceny nie włączamy oferty ani przełącznika.
 - Tryb jasny (produkt jest ciemny).
 
 ### 6.4 Moduły wybrane, wdrażane pojedynczo

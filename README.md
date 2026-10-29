@@ -102,6 +102,7 @@ Role są sprawdzane **przy każdym żądaniu** na podstawie `Membership`, a nie 
 - Trial: **14 dni, bez karty**.
 - Po trialu: Checkout Stripe albo dostęp tylko do odczytu (dane pozostają).
 - Abonament roczny i płatność klienta online **nie są wdrożone** (flagi `annual_billing` i `client_online_pay` w panelu platformy są wyłączone i niczego nie włączają).
+- #147 jest autoryzowany, ale oczekuje na ceny roczne zatwierdzone przez człowieka w issue. [Analiza i plan wdrożenia](docs/stripe-roczny-przygotowanie.md) wskazują brakujące dane; nie przyjmujemy rabatu ani 12× ceny miesięcznej jako oferty.
 - Limity planów: **egzekwowany jest tylko limit boksów** (Solo 1, Studio 4, Pro bez limitu) przy dodawaniu boksu przez `POST /api/studios/:studioId/bays` (tylko API, bez ekranu; owner); istniejące boksy po obniżeniu planu zostają. Limit użytkowników (1 / 5 / bez limitu) jest tylko pokazywany w karcie studia A-03, nie jest egzekwowany przy zaproszeniach.
 - Cennik i obietnice z landingu wymagają zatwierdzenia prawnego przed publikacją.
 
