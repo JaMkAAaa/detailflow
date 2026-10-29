@@ -143,6 +143,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec prisma generate
       - run: pnpm exec playwright install --with-deps chromium
+      - run: sudo apt-get update && sudo apt-get install -y libxml2-utils
       - run: pnpm prisma migrate deploy
       - run: pnpm db:seed
       - run: pnpm build

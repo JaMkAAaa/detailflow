@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import { randomBytes } from "node:crypto";
 import { defineConfig, devices } from "@playwright/test";
 
 if (!process.env.CI && existsSync(".env")) process.loadEnvFile(".env");
@@ -26,6 +27,9 @@ process.env.STRIPE_WEBHOOK_SECRET = "whsec_e2e_detailflow";
 process.env.STRIPE_API_HOST = "127.0.0.1";
 process.env.STRIPE_API_PORT = "12119";
 process.env.STRIPE_API_PROTOCOL = "http";
+// Ephemeral fixture key and TEST only. The E2E server starts Next, never the MF worker.
+process.env.KSEF_ENV = "test";
+process.env.KSEF_TOKEN_ENCRYPTION_KEY = randomBytes(32).toString("base64");
 delete process.env.SKIP_ENV_VALIDATION;
 
 const baseURL = "http://127.0.0.1:3100";
