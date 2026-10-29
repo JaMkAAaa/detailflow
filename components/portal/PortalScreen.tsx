@@ -2,8 +2,9 @@ import type { ReactNode } from "react";
 import type { OrderStatus } from "@/lib/db/generated/client";
 import { LogoMark } from "../brand/Logo";
 import { EmptyState } from "../states";
+import { IntakeSchematic } from "../zlecenia/intake-schematic";
 import { Badge } from "../ui/badge";
-import { buttonVariants } from "../ui/button";
+import { Button, buttonVariants } from "../ui/button";
 
 export type PortalOrder = {
   number: string;
@@ -15,6 +16,12 @@ export type PortalOrder = {
   totalGross: string;
   service: string;
   updatedAt: Date;
+};
+export type PortalPhoto = { no: number; caption: string | null; url: string };
+export type PortalProtocol = {
+  number: string;
+  acceptedAt: Date | null;
+  damages: { no: number; title: string; part: string; size: string | null; x: number; y: number }[];
 };
 type Studio = { name: string; phone: string | null; address: string | null };
 const dateTime = (date: Date) => new Intl.DateTimeFormat("pl-PL", {
@@ -43,7 +50,13 @@ function PortalShell({ children, studio }: { children: ReactNode; studio?: Studi
   );
 }
 
-export function PortalStatus({ studio, order }: { studio: Studio; order: PortalOrder }) {
+export function PortalStatus({ studio, order, photos = [], protocol = null, protocolAction }: {
+  studio: Studio;
+  order: PortalOrder;
+  photos?: PortalPhoto[];
+  protocol?: PortalProtocol | null;
+  protocolAction?: string;
+}) {
   const current = Math.min(3, Math.max(1, order.stage));
   const finished = order.status === "ready_for_pickup" || order.status === "completed";
   const canceled = order.status === "canceled";
@@ -86,6 +99,40 @@ export function PortalStatus({ studio, order }: { studio: Studio; order: PortalO
         </div>
         <p className="text-df-label text-df-muted">{order.service}</p>
       </section>
+      {photos.length > 0 && <section aria-label="Zdjęcia zlecenia" className="flex flex-col gap-3 rounded-xl bg-df-panel p-4">
+        <h2 className="text-df-section">Zdjęcia</h2>
+        <ul className="grid grid-cols-2 gap-3">
+          {photos.map((photo) => {
+            const label = photo.caption?.trim() || `Zdjęcie ${photo.no}`;
+            return <li key={photo.no}>
+              <figure className="flex flex-col gap-1">
+                <div className="relative aspect-[4/3] overflow-hidden rounded-[10px] bg-df-raised">
+                  {/* Podpisany URL portalu. next/image proxuje żądanie i gubi query z podpisem. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={photo.url} alt={`${order.vehicle.make} ${order.vehicle.model} — ${label}`} referrerPolicy="no-referrer" className="absolute inset-0 size-full object-cover" />
+                </div>
+                <figcaption className="text-df-label text-df-muted">{label}</figcaption>
+              </figure>
+            </li>;
+          })}
+        </ul>
+      </section>}
+      {protocol && <section aria-label="Protokół przyjęcia" className="flex flex-col gap-3 rounded-xl bg-df-panel p-4">
+        <h2 className="text-df-section">Protokół #{protocol.number}</h2>
+        {protocol.damages.length > 0 && <>
+          <div className="flex justify-center rounded-lg bg-df-raised py-3">
+            <IntakeSchematic damages={protocol.damages.map((damage) => ({ ...damage, size: damage.size ?? "" }))} />
+          </div>
+          <ol className="flex flex-col gap-3">
+            {protocol.damages.map((damage) => <li key={damage.no}>
+              <p className="text-df-strong"><span aria-hidden="true" className="mr-2">{damage.no}</span>{damage.title}</p>
+              <p className="text-df-label text-df-muted">{damage.part}{damage.size ? ` · ${damage.size}` : ""}</p>
+            </li>)}
+          </ol>
+        </>}
+        {protocol.acceptedAt ? <p className="text-df-label text-df-green">Stan zaakceptowany · {dateTime(protocol.acceptedAt)}</p>
+          : protocolAction ? <form action={protocolAction} method="post"><Button type="submit" className="w-full">Akceptuję stan auta</Button></form> : null}
+      </section>}
       {studio.phone && <a href={`tel:${studio.phone}`} className={buttonVariants({ className: "min-h-11 w-full text-df-label hover:bg-df-green" })}>Zadzwoń do studia</a>}
       <p className="text-df-label text-df-muted">Ostatnia aktualizacja: {dateTime(order.updatedAt)}</p>
     </PortalShell>

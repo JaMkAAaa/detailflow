@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
-import { PortalExpired, PortalStatus, type PortalOrder } from "./PortalScreen";
+import { PortalExpired, PortalStatus, type PortalOrder, type PortalPhoto, type PortalProtocol } from "./PortalScreen";
 
 afterEach(cleanup);
 const studio = { name: "Studio Test", phone: "+48500600700", address: "Testowa 5" };
@@ -35,6 +35,39 @@ it.each(["ready_for_pickup", "completed", "accepted", "canceled"] as const)("doe
   expect(screen.getAllByRole("listitem").every(item => !item.hasAttribute("aria-current"))).toBe(true);
   expect(screen.queryByRole("link")).toBeNull();
   if (status === "canceled") expect(screen.queryByRole("region", { name: "Planowany odbiór" })).toBeNull();
+});
+const photos: PortalPhoto[] = [{ no: 1, caption: "Maska", url: "/p/media/photoa?l=linka&e=1&s=sig" }];
+const protocol: PortalProtocol = {
+  number: "P-1234", acceptedAt: null,
+  damages: [{ no: 1, title: "Rysa na masce", part: "Maska", size: "2 cm", x: 0.2, y: 0.3 }],
+};
+it("hides photos and protocol when the order has neither", () => {
+  render(<PortalStatus studio={studio} order={order} />);
+  expect(screen.queryByRole("region", { name: "Zdjęcia zlecenia" })).toBeNull();
+  expect(screen.queryByRole("region", { name: "Protokół przyjęcia" })).toBeNull();
+  expect(screen.queryByText(/Nie znaleziono|pusty/)).toBeNull();
+  expect(within(screen.getByRole("list", { name: "Etapy zlecenia" })).getAllByRole("listitem")).toHaveLength(3);
+});
+it("shows this order's photos and a one-step protocol acceptance without the portal token", () => {
+  const token = "portal-token-secret";
+  render(<PortalStatus studio={studio} order={order} photos={photos} protocol={protocol} protocolAction={`/p/${token}/protocol`} />);
+  const img = screen.getByRole("img", { name: "Volvo V60 — Maska" });
+  expect(img.getAttribute("src")).toBe(photos[0]!.url);
+  expect(img.getAttribute("referrerpolicy")).toBe("no-referrer");
+  expect(img.getAttribute("src")).not.toContain(token);
+  expect(screen.getByRole("region", { name: "Protokół przyjęcia" }).textContent).toContain("Protokół #P-1234");
+  expect(screen.getByText("Rysa na masce")).toBeTruthy();
+  const form = screen.getByRole("button", { name: "Akceptuję stan auta" }).closest("form");
+  expect(form?.getAttribute("action")).toBe(`/p/${token}/protocol`);
+  expect(form?.getAttribute("method")).toBe("post");
+  expect(form?.querySelector("button")?.getAttribute("type")).toBe("submit");
+  expect(within(screen.getByRole("list", { name: "Etapy zlecenia" })).getAllByRole("listitem")).toHaveLength(3);
+});
+it("keeps an accepted protocol unchanged and hides the form", () => {
+  render(<PortalStatus studio={studio} order={order} photos={photos} protocol={{ ...protocol, acceptedAt: new Date("2026-10-29T09:30:00Z") }} protocolAction="protocol" />);
+  expect(screen.queryByRole("button", { name: "Akceptuję stan auta" })).toBeNull();
+  expect(screen.getByText(/Stan zaakceptowany · 29 października 2026/)).toBeTruthy();
+  expect(screen.getByText("Rysa na masce")).toBeTruthy();
 });
 it("renders an unavailable link without revealing studio or order data", () => {
   render(<PortalExpired />);

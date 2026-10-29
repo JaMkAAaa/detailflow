@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => {
   process.env.SKIP_ENV_VALIDATION = "1";
   process.env.APP_URL = "http://localhost:3000";
   process.env.SMTP_URL = "smtp://localhost:1025";
+  process.env.AUTH_SECRET ??= "test-secret-0123456789abcdef0123456789";
   return { send: vi.fn(), session: vi.fn() };
 });
 vi.mock("nodemailer", () => ({ createTransport: () => ({ sendMail: mocks.send }) }));

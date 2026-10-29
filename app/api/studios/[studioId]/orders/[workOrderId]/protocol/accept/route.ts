@@ -4,7 +4,7 @@ import { acceptProtocol } from "@/src/server/zlecenia/intake";
 
 type Context = { params: Promise<{ studioId: string; workOrderId: string }> };
 
-/** Zapisuje akceptację klienta (np. przy ladzie); portal klienta podłączy tę samą funkcję później. */
+/** Zapisuje akceptację klienta przy ladzie. Portal woła tę samą funkcję z tokenu linku. */
 export async function POST(request: Request, context: Context) {
   try {
     checkOrigin(request);

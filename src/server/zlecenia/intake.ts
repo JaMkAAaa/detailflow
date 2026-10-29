@@ -97,7 +97,7 @@ export async function saveProtocol(studioId: string, workOrderId: string, userId
   return present(protocol!);
 }
 
-/** Akceptacja klienta (flaga). Idempotentna; UI portalu podłączy ją później. */
+/** Akceptacja klienta (flaga). Idempotentna; studio i portal wołają tę samą funkcję. */
 export async function acceptProtocol(studioId: string, workOrderId: string) {
   const db = studioDb(studioId);
   await db.intakeProtocol.updateMany({ where: { workOrderId, acceptedAt: null }, data: { acceptedAt: new Date() } });

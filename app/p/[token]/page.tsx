@@ -16,12 +16,12 @@ export default async function PortalPage({ params, searchParams }: {
   const data = unavailable ? null : await readPortal(token);
   if (!data) return <PortalExpired />;
   if (data.order) {
-    const { studio, order } = data;
+    const { studio, order, photos, protocol } = data;
     return <PortalStatus studio={studio} order={{
       number: order.number, customerName: order.client.name, vehicle: order.vehicle,
       status: order.status, stage: order.stage, pickupAt: order.dueAt ?? order.scheduledTo,
       totalGross: order.totalGross.toFixed(2), service: order.service, updatedAt: order.updatedAt,
-    }} />;
+    }} photos={photos} protocol={protocol} protocolAction={`/p/${encodeURIComponent(token)}/protocol`} />;
   }
   const { studio, quote } = data;
   const decided = quote?.status === "accepted" || quote?.status === "rejected";

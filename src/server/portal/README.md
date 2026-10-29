@@ -40,8 +40,20 @@ Przy wdrożeniu proxy/APM musi również maskować `/p/*` i wyłączać rejestro
 body odpowiedzi API wydającego link. Nie używać loggera maili auth do wysyłki
 linków portalu, ponieważ jego tryb developerski wypisuje treść wiadomości.
 P-01 czyta powiązane zlecenie, auto i klienta przez `studioDb`; dane do widoku
-są przekazywane bez tokenu. Link samej wyceny zachowuje formularz decyzji.
+są przekazywane bez tokenu. Link samej wyceny zachowuje formularz decyzji i nie
+dostaje zdjęć ani protokołu, także gdy z tej wyceny powstało już zlecenie.
 Mapowanie etapów i zakres widoku opisuje `components/portal/README.md`.
+
+Zdjęcia zlecenia (tylko `uploadedAt`) idą przez `GET /p/media/:photoId?l&e&s`.
+Podpis to osobny HMAC (`AUTH_SECRET`, 128 bitów, TTL jak podgląd w studiu),
+nie surowy token portalu. Trasa nie czyta `studioId` z query: studio wynika
+z rekordu linku, a zdjęcie musi należeć do jego zlecenia. Odwołany lub wygasły
+link i zły podpis dają 404 bez treści. `Referrer-Policy` obrazka to `no-referrer`.
+
+`POST /p/:token/protocol` woła `acceptProtocol` (ta sama flaga `acceptedAt`,
+drugi raz bez zmiany treści, potem zapis protokołu zwraca 409). Brak protokołu
+nic nie tworzy i nie pokazuje błędu. Zły, wygasły i odwołany token kończą się
+tym samym P-02 co decyzja wyceny.
 
 Testy `links.test.tsx` wymagają osobnej bazy PostgreSQL z migracjami. Obejmują
 hash/TTL/revoke, P-02, akceptację/odrzucenie, wyścig przez dwa linki, CSRF,
