@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { date, envLabel, invoiceHref, money, type Environment } from "./model";
 import { isOverdue, isUnpaid, matchesInvoiceFilter, matchesInvoiceSearch, requiresKsefAttention, sumInvoices, type InvoiceFilter, type InvoiceRow } from "./list-model";
 import { EnvironmentBanner, Panel } from "./shared";
+import { RetryInvoiceButton } from "./RetryInvoiceButton";
 import { InvoiceStatus } from "./InvoiceStatus";
 
 const filters: { key: InvoiceFilter; label: string }[] = [
@@ -20,7 +21,7 @@ const filters: { key: InvoiceFilter; label: string }[] = [
 ];
 const pageSize = 7;
 
-export function InvoicesScreen({ invoices, env, now }: { invoices: InvoiceRow[]; env: Environment; now: string }) {
+export function InvoicesScreen({ invoices, env, now, studioId }: { studioId: string; invoices: InvoiceRow[]; env: Environment; now: string }) {
   const mobile = useMobile();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<InvoiceFilter>("all");
@@ -64,7 +65,7 @@ export function InvoicesScreen({ invoices, env, now }: { invoices: InvoiceRow[];
           <td className="px-1 py-3.5"><Link href={`/orders/${encodeURIComponent(row.orderNumber)}`} className="hover:text-df-lime">#{row.orderNumber}</Link></td>
           <td className="px-1 py-3.5">{row.status === "draft" ? "szkic" : date(row.issuedAt)}</td>
           <td className="px-1 py-3.5"><p className="whitespace-nowrap">{money(row.totalGross)}</p>{isUnpaid(row) && <Badge variant="overdue" className="mt-1 h-auto px-1.5 py-0.5 text-[10px]">{isOverdue(row, now) ? "Po terminie" : "Nieopłacona"}</Badge>}</td>
-          <td className="px-1 py-3.5"><InvoiceStatus invoice={row} /></td>
+          <td className="px-1 py-3.5"><InvoiceStatus invoice={row} />{requiresKsefAttention(row) && <RetryInvoiceButton studioId={studioId} invoiceId={row.id} />}</td>
           <td className="px-1 py-3.5">{row.ksefNumber ? <div className="flex items-center gap-2"><span title={row.ksefNumber} className="line-clamp-2 min-w-0 break-all text-[11px]">{row.ksefNumber}</span><button type="button" aria-label={`Kopiuj numer KSeF ${row.number}`} onClick={() => void copy(row.ksefNumber!)} className="flex size-8 shrink-0 items-center justify-center rounded-md bg-df-raised text-base text-df-muted">⧉</button></div> : "—"}</td>
         </tr>)}</tbody></table></div>
         <footer className="mt-3 flex flex-wrap items-center justify-between gap-3 text-df-label text-df-muted"><p aria-live="polite">{(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, results.length)} z {results.length} faktur</p><nav aria-label="Strony faktur" className="flex items-center gap-2"><button type="button" aria-label="Poprzednia strona" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)} className="size-8 rounded hover:bg-df-raised disabled:opacity-40">‹</button><span>Strona {currentPage} z {pages}</span><button type="button" aria-label="Następna strona" disabled={currentPage === pages} onClick={() => setPage(currentPage + 1)} className="size-8 rounded hover:bg-df-raised disabled:opacity-40">›</button></nav></footer>
