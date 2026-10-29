@@ -113,11 +113,15 @@ describe("orders HTTP (Postgres)", () => {
     expect(history.every((event) => event.actorId === userId)).toBe(true);
   });
 
-  it("allows exactly one competing status change through HTTP", async () => {
+  it("allows exactly one mutually exclusive status change through HTTP", async () => {
     const order = await newOrder(), ctx = context(studios[0]!, order.id);
-    const responses = await Promise.all(["in_progress", "canceled"].map((target) => status(request("POST", { status: target }), ctx)));
+    expect((await status(request("POST", { status: "in_progress" }), ctx)).status).toBe(200);
+    // Neither target can transition to the other, even if HTTP auth serializes the reads.
+    const responses = await Promise.all(["ready_for_pickup", "canceled"].map((target) => status(request("POST", { status: target }), ctx)));
     expect(responses.map((response) => response.status).sort()).toEqual([200, 409]);
-    expect(await studioDb(studios[0]!).workOrderEvent.count({ where: { workOrderId: order.id } })).toBe(2);
+    const saved = await studioDb(studios[0]!).workOrder.findFirstOrThrow({ where: { id: order.id } });
+    expect(saved.status).toBe((await responses.find((response) => response.status === 200)!.json()).status);
+    expect(await studioDb(studios[0]!).workOrderEvent.count({ where: { workOrderId: order.id } })).toBe(3);
   });
 
   it("validates Decimal strings, Warsaw/DST dates and forbidden fields before writes", async () => {
