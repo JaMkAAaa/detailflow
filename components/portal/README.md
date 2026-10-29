@@ -1,32 +1,29 @@
-# Portal klienta — #39 (UI)
+# Portal klienta — P-01/P-02 (#122)
 
 Źródła: [P-01](https://www.figma.com/design/3pssHgZjGzo0UeyBC8yZ3S?node-id=5-15)
 i [P-02 / S-01](https://www.figma.com/design/3pssHgZjGzo0UeyBC8yZ3S?node-id=17-413).
 
-Trasa `/p/[token]` jest publiczna, poza layoutem studia. Wszystkie tokeny
-przechodzą odczyt PortalLink po hashu oraz kontrolę TTL i odwołania.
+Publiczna trasa `/p/[token]` weryfikuje hash, TTL i odwołanie PortalLink.
+Ważny link zlecenia pokazuje P-01 z jego autem, numerem, usługą, kwotą brutto,
+kontaktem studia i datą odbioru (`dueAt`, a bez niej `scheduledTo`). Daty są
+formatowane w Europe/Warsaw. Kwota pozostaje dziesiętnym stringiem, bez float.
+Brak telefonu ukrywa akcję kontaktu. Zdjęcia należą do osobnego issue;
+portal nie podstawia zdjęcia Porsche z makiety dla innego auta.
 
-- Ważny link demo `/p/obsidian-df-0248-demo` z zaakceptowaną wyceną pokazuje
-  statyczny P-01: #DF-0248, 3 etapy, 4 800 zł brutto.
-- Wygasły, odwołany i nieznany link pokazuje ten sam P-02 bez danych studia.
-- Pozostałe ważne linki pokazują wycenę z formularzem decyzji lub potwierdzeniem.
+Etapy studia 1/2/3/4 mapują się na portal 1/2/3/3: przyjęcie i mycie,
+korekta lakieru, ceramika i kontrola. Przyjęte zlecenie oczekuje; do odbioru
+oraz zakończone mają wszystkie etapy ukończone. Anulowane ma jawny status
+bez aktywnego etapu i obietnicy odbioru. Aktualizacja pochodzi z `updatedAt`.
 
-P-01 pozostaje makietą z zegarem zamrożonym na 24.10.2026, 11:30;
-nie służy do prezentowania innych zleceń. Kwota jest dziesiętnym stringiem PLN.
-`PortalExpired knownStudio` pozostaje wariantem prezentacyjnym z kontaktem demo;
-trasa nie ujawnia kontaktu po wygaśnięciu tokenu. Testy komponentów nie wymagają bazy;
-testy trasy i autoryzacji są w `src/server/portal/links.test.tsx`.
+Link samej wyceny zachowuje formularz decyzji i jej potwierdzenie. Nie wyszukuje
+zlecenia przez auto ani klienta. GET nie zapisuje danych. Wszystkie odczyty
+operacyjne po odkryciu studia przez hash korzystają z `studioDb(studioId)`.
+Zły, wygasły i odwołany link pokazują identyczny P-02, bez kontaktu studia.
+Ekran nie importuje danych demo, również dla seedowego tokenu.
 
-Telefon `+48 500 100 200` oraz adres `obsidian@example.com` są kontaktami demo
-(Figma i seed nie określają telefonu studia). „Poproś o nowy link” otwiera
-wiadomość w aplikacji pocztowej; nie udaje automatycznej wysyłki. Surowy token
-nie trafia do treści wiadomości ani komponentów ekranu. Menu „•••” otwiera
-kontakt za pomocą natywnego `details`, z obsługą klawiatury.
+Układ wykorzystuje LogoMark, Badge, buttonVariants, EmptyState i tokeny
+`--df-*`, maksymalnie 390 px, przyciski minimum 44 px. Brak animacji.
 
-Użyte wspólne komponenty: LogoMark, Badge, buttonVariants, EmptyState oraz
-tokeny `--df-*`. Zdjęcie `/orders/porsche-panamera.jpg` ma identyczny SHA-256
-jak asset P-01. Ikona kłódki `/portal/expired-link.svg` pochodzi z S-01,
-zachowuje rozmiar 28 × 28 px. Układ ma maksymalnie 390 px, zawija treść na
-węższych ekranach. Przyciski mają minimum 44 px wysokości. Brak animacji.
-
-Weryfikacja: `pnpm exec vitest run components/portal/PortalScreen.test.tsx`.
+Testy komponentów: `pnpm exec vitest run components/portal/PortalScreen.test.tsx`.
+Testy Postgres/trasy: `src/server/portal/links.test.tsx` — izolacja dwóch studiów,
+aktualizacja statusu, 3 etapy, GET bez zmian, wygasanie i odwołanie.

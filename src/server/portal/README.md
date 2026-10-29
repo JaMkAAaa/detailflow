@@ -39,7 +39,9 @@ Next dev ma wyłączone logowanie pełnych URL, a seed nie wypisuje tokenów.
 Przy wdrożeniu proxy/APM musi również maskować `/p/*` i wyłączać rejestrowanie
 body odpowiedzi API wydającego link. Nie używać loggera maili auth do wysyłki
 linków portalu, ponieważ jego tryb developerski wypisuje treść wiadomości.
-Pełny ekran statusu P-01 oraz wysyłka linku klientowi należą do #39/#38.
+P-01 czyta powiązane zlecenie, auto i klienta przez `studioDb`; dane do widoku
+są przekazywane bez tokenu. Link samej wyceny zachowuje formularz decyzji.
+Mapowanie etapów i zakres widoku opisuje `components/portal/README.md`.
 
 Testy `links.test.tsx` wymagają osobnej bazy PostgreSQL z migracjami. Obejmują
 hash/TTL/revoke, P-02, akceptację/odrzucenie, wyścig przez dwa linki, CSRF,
