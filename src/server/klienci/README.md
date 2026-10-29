@@ -41,3 +41,11 @@ Obcy identyfikator i brak rekordu → ten sam 404.
 
 Testy: `clients.test.ts` — parser CSV/XLSX, pierwszy arkusz, limity i błędne pliki, 20/stronę, ostrzeżenie tablicy, izolacja dwóch tenantów, HTTP 401/403/Origin.
 Wymagają PostgreSQL z migracjami.
+
+## Dane osobowe (#127)
+
+Owner/manager: `POST /api/studios/:studioId/clients/:clientId/privacy` z `{ action: "export" | "erase" }`, sesja i Origin. UI na karcie klienta; worker nie widzi akcji i dostaje 403 z API. Eksport JSON bez cache zawiera klienta, auta, statusy/daty/kwoty zleceń, wyceny i metadane portalu bez tokenu/hashu.
+
+Usunięcie klienta bez zleceń usuwa także wyceny i auta. Historia zleceń wymaga anonimizacji: nazwa, kontakt, adres, NIP klienta, tablice i notatki wycen. Dokumenty księgowe (snapshot nabywcy, numery FV, zapisany XML KSeF) zostają niezmienione. PDF faktury nie ma pól telefonu/e-maila klienta. Akceptacja i treść protokołu pozostają; model nie zapisuje podpisu ani kontaktu klienta osobno. Usuwamy tylko odnośnik do usuwanego zdjęcia.
+
+Jeśli link PUT zdjęcia może być jeszcze ważny (5 minut + minuta marginesu), API zwraca 409 i prosi o ponowienie za 6 minut, aby upload nie odtworzył obiektu po usunięciu wiersza. Obiekty S3 usuwane przed wierszami, także niepotwierdzone uploady. Błąd S3 wycofuje zmiany DB i pozwala ponowić idempotentne DELETE obiektu. S3 nie jest transakcyjne: wcześniejsze usunięte obiekty mogą już być niedostępne po błędzie kolejnego. Linki portalu są odwoływane, oczekujące maile wycen i przypomnienia powłoki usuwane. Transakcja Serializable zwraca 409 przy konflikcie. AuditLog zawiera tylko identyfikator klienta i wynik operacji; nie zawiera kontaktu, notatek ani tokenów.

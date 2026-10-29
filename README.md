@@ -1215,11 +1215,12 @@ Suma brutto musi równać się `totalGross` zlecenia; w przeciwnym razie API zwr
 - pełnego `AuditLog` dla operacji studia (obecnie tylko billing),
 - rate limitingu API poza auth,
 - szyfrowania backupów,
-- eksportu/usunięcia danych klienta (RODO),
 - Sentry/monitoringu i alertów,
 - testów E2E i testów obciążeniowych uploadu.
 
 ### 12.3 RODO — praktyczne uwagi
+
+- Karta `/customers/[clientId]`: owner/manager eksportuje JSON albo usuwa dane osobowe przez audytowane API `POST .../clients/:clientId/privacy`. Historia zleceń zostaje zanonimizowana, faktury i zapisany XML KSeF pozostają. Zdjęcia są usuwane z S3, linki portalu odwoływane. To narzędzie operacyjne, nie potwierdzenie kompletnej zgodności prawnej.
 
 - Zdjęcia aut mogą zawierać tablice rejestracyjne i elementy otoczenia; to dane osobowe.
 - Konieczna jest umowa powierzenia ze studiem. Retencja zdjęć: prywatny bucket, URL 5 min, prefix per studio; v1 nie kasuje automatycznie zdjęć zakończonych zleceń (okres prawny nie jest ustawiony). Szczegóły w `docs/dokumentacja-wdrozenia.md` §10.1.

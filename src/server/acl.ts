@@ -10,6 +10,7 @@ export const permissions = {
   "studio:read": ["owner", "manager", "worker"],
   "orders:write": ["owner", "manager", "worker"],
   "orders:update": ["owner", "manager", "worker"],
+  "clients:privacy": ["owner", "manager"],
   "quotes:write": ["owner", "manager"],
   "invoices:manage": ["owner", "manager"],
   "members:invite": ["owner", "manager"],
