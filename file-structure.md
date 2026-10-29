@@ -52,11 +52,13 @@ Przed uznaniem prototypu za kompletny wymagane są:
 - Portal: ekran akceptacji wyceny i potwierdzenie decyzji.
 - Mobilne rozszerzone opcje wyceny.
 
-## Poza zakresem v1
+## Moduły po pierwotnym v1 — autoryzowane, wdrażane pojedynczo
+
+Decyzja właściciela produktu z 29.10.2026 obejmuje wszystkie #142–#151. Dawne „Poza v1” nie oznacza braku zgody; zależności techniczne nadal obowiązują. #142–#145 są wdrożone; #146 jest etapem badania MF/dokumentacji, a kod offline i #147–#151 pozostają niewdrożone. #115 pozostaje otwarty.
 
 Katalog Usługi i cennik jest ekranem studia (`/services`). Magazyn chemii (#143) jest ekranem `/inventory`: nazwa, jednostka (pełne sztuki/ml), ilość, próg niskiego stanu i jawna korekta z kontrolą wersji; bez automatycznego zużycia przy zleceniu. Alert ilość ≤ próg pojawia się w D-01 i M-01. Wykorzystuje wzorce panelu i katalogu, bez osobnej gotowej ramki magazynu w prototypie. Statystyki studia (#144) są ekranem `/statistics` tylko dla ownera: przychód z zakończonych zleceń, udział usług i obłożenie boksów w zakresie dat Europe/Warsaw, z „Brak danych” zamiast zer; bez osobnej ramki w prototypie, na wzorcach kart i paneli pulpitu. Portfolio realizacji (#145) jest ekranem `/portfolio` (wzorzec kart studia, bez osobnej ramki w prototypie) i publiczną galerią `/realizacje/[slug]`. Studio samo oznacza zdjęcie; domyślnie nic nie jest publiczne, a brak zdjęć to pusty stan, nie 404. Pełne Ustawienia i Konto pozostają poza ukończonym zakresem i wchodzą osobnymi issue.
 
-Tryb offline KSeF jest wyłączony i oznaczony jako poza zakresem v1. Przed jego wdrożeniem trzeba zweryfikować oficjalne zasady MF, terminy i przygotować osobny dialog potwierdzenia. W tej iteracji nie projektowano prawnych reguł offline.
+Tryb offline KSeF pozostaje wyłączony. #146 rozstrzyga najpierw zasady MF: [decyzja z 29.10.2026, źródła i plan](docs/ksef-offline-decyzja-mf.md). W tym issue nie powstaje klient, przycisk ani dialog. Implementacja wymaga osobnego późniejszego PR po komentarzu MF i zdjęciu `blocked`; ukończenie badania nie oznacza działającego offline.
 
 ## Marketing
 

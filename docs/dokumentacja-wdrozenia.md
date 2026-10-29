@@ -19,7 +19,7 @@ Detailflow to **polski SaaS operacyjny dla studiów detailingowych**. Zastępuje
 - klient śledzi auto na żywo przez link, bez konta,
 - platforma Detailflow rozlicza studia abonamentem (Stripe) i nadzoruje zdrowie produktu.
 
-Hasło oferty z landingu: **„Twoje studio detailingu. Bez Excela. Bez chaosu.”** Okres próbny: **14 dni, bez karty**. Cennik miesięczny netto: **Solo 79 zł · Studio 149 zł · Pro 279 zł**. Opcja roczna jest poza v1.
+Hasło oferty z landingu: **„Twoje studio detailingu. Bez Excela. Bez chaosu.”** Okres próbny: **14 dni, bez karty**. Cennik miesięczny netto: **Solo 79 zł · Studio 149 zł · Pro 279 zł**. Opcja roczna nie jest wdrożona; została autoryzowana do osobnego #147 w serii #142–#151 (§6.4).
 
 Aplikacja ma **cztery powierzchnie**:
 
@@ -303,7 +303,7 @@ v1: **sesja online**, kolejka, retry, historia zdarzeń jak na D-09:
 5. Przyjęcie + numer KSeF + UPO (XML)
 6. PDF dla klienta z datą wysyłki; kolejna akcja = **„Wyślij ponownie”**
 
-**Poza v1:** tryb offline KSeF. Nie pokazywać go jako włączalnej opcji. Przed ewentualnym v2: weryfikacja zasad MF i osobny dialog prawny.
+**Offline KSeF jest autoryzowany, lecz niewdrożony.** #146 obejmuje decyzję MF i dokumentację, bez klienta/przycisku/dialogu. [Ustalenia z 29.10.2026 i plan](ksef-offline-decyzja-mf.md) rozstrzygają dopuszczalność prawną; osobny późniejszy PR wdroży kod po komentarzu i zdjęciu `blocked`. Do tego czasu opcja pozostaje wyłączona.
 
 Korekta: osobny dokument powiązany z fakturą źródłową (`Wystaw korektę`).
 
@@ -361,9 +361,9 @@ Prototyp wprost to oznacza:
 
 - Automatyczne zużycie chemii przy zleceniu (brak wiarygodnych receptur); magazyn z ręczną korektą i rzeczywistym alertem jest wdrożony w #143.
 - Statystyki zaawansowane (rozbicia po pracownikach, klientach, kohorty, eksport) — podstawowe statystyki studia są wdrożone w #144. Publiczna galeria realizacji jest wdrożona w #145 (ręczna publikacja, maska tablicy na pochodnej). Pełne Ustawienia i Konto.
-- KSeF offline.
+- KSeF offline — #146 to ukończenie badania/dokumentacji, nie wdrożenie klienta; kod pozostaje przyszłym zakresem.
 - Panel właściciela na mobile.
-- Płatność klienta online za usługę (Stripe Checkout B2C) — można dodać po v1.
+- Płatność klienta online za usługę (Stripe Checkout B2C) — autoryzowana do osobnego #148, jeszcze niewdrożona.
 - Abonament roczny.
 - Tryb jasny (produkt jest ciemny).
 

@@ -25,6 +25,7 @@ Czytaj to przed pierwszym commitem. Źródła prawdy:
 - Portal klienta: 3 etapy, nie 4. Token hashowany, surowy tylko w URL.
 - Kwoty: `Decimal`, PLN. Nigdy `float`.
 - Moduły po pierwotnym v1 (#142–#151) są wybrane i wchodzą pojedynczo, po technicznych zależnościach. Zamknięcie jednego nie oznacza, że pozostałe są ukończone. Właściciel produktu autoryzował 29.10.2026 wykonanie wszystkich #142–#151 („zrób wszystkie poza v1”): jeden moduł = jedno issue = jeden PR, z testami, merge po zielonym CI. Etykieta „Poza v1”/`blocked` w starym issue nie blokuje zakresu, ale zależności techniczne (`Blocked by`) nadal sprawdzaj. Epik #115 zostaje otwarty.
+- #146 jest etapem decyzji MF i dokumentacji: [ustalenia offline](docs/ksef-offline-decyzja-mf.md). Nie dodawaj w nim klienta ani UI offline; kod wymaga osobnego późniejszego zakresu/PR po komentarzu MF i zdjęciu `blocked`. Ukończenie #146 nie oznacza wdrożenia offline.
 - Wdrożone moduły po v1: #142 katalog usług, #143 magazyn chemii, #144 statystyki studia, #145 portfolio realizacji. #146–#151 jeszcze bez własnego wdrożenia (KSeF offline, abonament roczny, płatność online klienta za detailing, SMS, JPK, pełne konto); wchodzą po jednym.
 - Magazyn chemii (#143): pełne sztuki/ml, jawne korekty z kontrolą wersji, bez automatycznego zużycia ze zleceń.
 - Statystyki studia (#144): `/statistics`, tylko owner (`stats:read`), nie platformowy A-05. Definicje metryk są w `docs/dokumentacja-wdrozenia.md` §6.5 — przychód to `WorkOrder.totalGross` zleceń `completed` wg `completedAt` (nie faktury, nie Stripe), brak źródłowych zdarzeń = „Brak danych”, nie 0. Zapytania przez `studioDb(studioId)`.
@@ -41,6 +42,6 @@ Nie dodawaj Clerk, GraphQL, Nest, Kafka „przy okazji”.
 ## PR
 
 - Tytuł: `feat(zlecenia): …` / `ui(pulpit): …` / `fix(ksef): …`
-- W opisie: `Closes #n`, link do Figmy, checklista z issue.
+- W opisie: `Closes #n` tylko po spełnieniu pełnych kryteriów tego issue (inaczej `Refs #n`), link do Figmy, checklista z issue.
 - Test izolacji tenantów, jeśli ruszasz zapytania.
 - `prefers-reduced-motion` przy animacjach.
