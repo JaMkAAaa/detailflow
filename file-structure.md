@@ -62,6 +62,8 @@ Tryb offline KSeF jest wyłączony i oznaczony jako poza zakresem v1. Przed jego
 
 Fikcyjne opinie, oceny, logotypy klientów i wyniki zastąpiono scenariuszami oraz możliwościami demonstracji. Cennik 79 / 149 / 279 zł jest koncepcją miesięcznej opłaty netto; opcja roczna jest niedostępna. Kalkulator jest estymacją, a nie pomiarem wyników klientów. Pozostałe obietnice oferty i regulaminy trzeba zatwierdzić przed publikacją.
 
+Szkielety dokumentów prawnych są dostępne pod `/regulamin`, `/polityka-prywatnosci` i `/umowa-powierzenia`. Każda strona jest oznaczona jako projekt do zatwierdzenia prawnego i nie stanowi obowiązującego dokumentu.
+
 ## Interakcje i implementacja
 
 - Neutralne zaznaczenia filtrów, limonka dla głównych akcji i prac w toku, zieleń dla przyjętych dokumentów testowych.

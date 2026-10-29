@@ -1344,7 +1344,8 @@ Wymaga `DATABASE_URL`, `REDIS_URL`, `S3_*`, `AUTH_SECRET`, `APP_URL` i konfigura
 - [ ] `pnpm backup` przechodzi, a serwis `backup` zostawia dumpy w `BACKUP_S3_PREFIX` i kasuje starsze niż `BACKUP_RETENTION_DAYS`. Odtworzenie: `pg_restore` na kopię.
 - [ ] Alerty na 503 z `/api/health` i na nowe issue w Sentry (poza repo).
 - [ ] Reverse proxy maskuje `/p/*` w logach i body odpowiedzi.
-- [ ] Regulamin, polityka prywatności, DPA, zgody.
+- [ ] Przejrzeć `/regulamin`, `/polityka-prywatnosci` i `/umowa-powierzenia`; uzupełnić zweryfikowane dane stron i uzgodnienia.
+- [ ] Uzyskać zatwierdzenie prawne wszystkich trzech dokumentów i przygotować wymagane zgody. Strony są wyłącznie szkicami; publikacja jako obowiązujących dokumentów czeka na człowieka.
 - [ ] Test zakupu kartą testową i webhooka; test reseed na kopii.
 
 ### 14.5 Backup i odtwarzanie
