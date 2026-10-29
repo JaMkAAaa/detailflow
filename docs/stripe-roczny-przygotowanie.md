@@ -1,106 +1,109 @@
-# #147 — przygotowanie abonamentu rocznego Detailflow
+# #147 — abonament roczny Detailflow
 
-Stan: 29.10.2026. **Zakres autoryzowany, oferta czeka na zatwierdzone ceny.**
-To analiza i plan wdrożenia, nie uruchomiony abonament roczny.
+Stan implementacji gałęzi PR #186, 29.10.2026. Moduł wymaga zielonego CI,
+niezależnej kontroli OpenBot i kolejnego polecenia przed merge.
 
-## Sprawdzone źródła i zależności
+## Źródło decyzji i ceny
 
-- [Pełne issue #147](https://github.com/JaMkAAaa/detailflow/issues/147): pierwsze
-  kryterium wymaga kwot rocznych zatwierdzonych przez człowieka w tym issue.
-  W chwili analizy brak komentarzy i brak tych kwot w treści.
-- Przeszukano śledzone pliki repozytorium (`roczn`, `annual`, `yearly`,
-  `lookup_key`), tytuły/treści issue o abonamencie rocznym oraz komentarze issue
-  repozytorium. Nie znaleziono zatwierdzonej oferty rocznej. Historyczny komentarz
-  w #115 wylicza moduły, ale nie podaje cen.
-- `README.md` §1.6, specyfikacja §1 i §11, `lib/landing/plans.ts` oraz
-  `src/server/billing/plans.ts` zawierają wyłącznie miesięczne ceny netto PLN:
-  Solo 79, Studio 149, Pro 279. **Nie upoważnia to do przyjęcia 12× ani rabatu.**
-- #110, #111 i #112 są CLOSED; API `issues/147/dependencies/blocked_by` zwróciło
-  pustą listę. #146 jest CLOSED, PR #185 MERGED, baza analizy to `origin/main`
-  `49e14d6449281a41fce0502202f0b12af93f0742`. Zamkniętych issue nie wznawiamy.
-- Decyzja właściciela z 29.10.2026 autoryzuje #142–#151, po jednym issue/PR.
-  Stare „Poza v1” nie blokuje zakresu #147. Pozostaje konkretna zależność od cen;
-  #147 i epik #115 pozostają otwarte. #148 nie jest częścią tej pracy.
+[Decyzja zapisana w #147](https://github.com/JaMkAAaa/detailflow/issues/147#issuecomment-6498220654).
+Użytkownik na pytanie o ceny, pobranie z góry i coroczne odnowienie odpowiedział
+**„dobierz sam”**, delegując wybór. **OpenBot**, korzystając z tej delegacji,
+ustalił konkretne kwoty (użytkownik sam nie podał tych liczb):
 
-## Dane potrzebne od OpenBot / właściciela produktu
+| Plan | Netto PLN/miesiąc | Netto PLN/rok | Roczny lookup_key |
+| --- | --- | --- | --- |
+| Solo | 79.00 | 790.00 | `plan_solo_yearly` |
+| Studio | 149.00 | 1490.00 | `plan_studio_yearly` |
+| Pro | 279.00 | 2790.00 | `plan_pro_yearly` |
 
-Prosimy o komentarz człowieka **w #147** zatwierdzający:
+Pełna roczna opłata z góry, automatyczne coroczne odnowienie. Ceny netto,
+Stripe dolicza właściwy podatek. Katalog `lib/billing/catalog.ts` przechowuje
+kwoty PLN jako stringi i przelicza je przez Decimal do całkowitych groszy.
+Miesięczne lookup_key `plan_*_monthly` pozostają bez zmian.
 
-| Plan | Pełna cena netto za 12 miesięcy w PLN |
-| --- | --- |
-| Solo | do podania, maksymalnie dwa miejsca po przecinku |
-| Studio | do podania, maksymalnie dwa miejsca po przecinku |
-| Pro | do podania, maksymalnie dwa miejsca po przecinku |
+Poprzednie przygotowanie nie znalazło cen: issue nie miało komentarzy, a README,
+specyfikacja, katalogi i komentarze repo wskazywały wyłącznie miesięczne ceny.
+Nowa jawna delegacja i decyzja OpenBot usunęły tę zależność. Etykietę `blocked`
+zdjęto. #110–114 są CLOSED, lista `blocked_by` #147 pusta. Baza prac:
+`49e14d6449281a41fce0502202f0b12af93f0742`. Nie wznawiamy zamkniętych issue,
+nie implementujemy #148 ani ustaleń osobnego audytu. #115 zostaje otwarty.
 
-Potwierdzenie powinno jasno wskazać, że są to ceny całego rocznego okresu
-rozliczeniowego, pobierane z góry i odnawiane co rok. Potrzebna jest również
-polityka zmiany miesiąc ↔ rok dla istniejących subskrypcji: termin zmiany
-i naliczanie proporcjonalne (proration), ewentualnie jawne pozostawienie zmian
-okresu poza portalem. Nie ustalamy jej samodzielnie w Stripe Dashboard.
+## Kontrakt implementacji
 
-Na tym etapie nie potrzeba sekretu. Późniejszy test hostowanego Checkout wymaga
-klucza **sandbox** i sekretu testowego webhooku dostarczonych bezpiecznym
-formularzem, nigdy komentarzem w issue ani logiem. Brak klucza nie blokuje
-analizy ani testów z atrapą transportu. Nie wykonano provisioningu ani zakupów.
+- `pnpm billing:setup` idempotentnie tworzy/weryfikuje sześć cen PLN exclusive,
+  licensed ×1, recurring month/year ×1. Roczna cena używa produktu planu
+  zweryfikowanego przy cenie miesięcznej. Błędna istniejąca cena przerywa skrypt;
+  nie jest cicho zastępowana. Checkout nie tworzy cen.
+- `POST /api/studios/:studioId/billing/checkout`: `{ plan, interval }`, gdzie
+  interval to `monthly` lub `yearly`; brak pola zachowuje miesięczne API.
+  Otwarte sesje są rozróżniane po planie i okresie. Zmiana jednego z nich wygasza
+  poprzednią sesję; brak pola w starej sesji oznacza miesiąc. Nadal owner-only,
+  membership przez `studioDb(studioId)`, Origin, trial 14 dni bez karty,
+  lock transakcyjny per studio i zakaz równoległych abonamentów.
+- Webhook weryfikuje pełną cenę/okres z katalogu. Bieżący odczyt subskrypcji
+  pod lockiem wygrywa ze starym snapshotem i metadanymi okresu (portal może
+  zmienić cenę bez zmiany metadata). Idempotencja `StripeEvent`, stan, audyt
+  i wpływ są jedną transakcją. Niezgodny customer/tenant/cena = rollback.
+- Addytywna migracja dodaje `Studio.billingInterval` (domyślnie monthly) i
+  `subscriptionNet Decimal(12,2)` za pełny okres. Dotychczasowe subskrypcje
+  dostają miesięczną cenę; seed/trial bez ceny używa katalogu danego okresu.
+  Webhook zapisuje aktualny okres i zatwierdzoną cenę z walidowanego Price.
+- MRR aktywnych rocznych = `subscriptionNet / 12`, sumowanie Decimal bez
+  zaokrąglania pojedynczych kont; pozostałe statusy poza MRR. A-01/A-04 korzystają
+  z okresu/ceny, A-02/A-03/CSV pokazują cenę pełnego okresu i jego nazwę.
+  Historyczny wykres pozostaje istniejącą estymacją z aktualnego snapshotu
+  konta (repo nie ma historii zmian cen/okresów); nie jest księgą historyczną MRR.
+- Wpływy nadal pochodzą z rzeczywistej faktury `invoice.paid`, a nie katalogu.
+  Faktura proration z zerowym `amount_paid` (kredyt/zerowe rozliczenie) kończy
+  synchronizację bez fikcyjnego wpływu. Kwota kont past_due w A-04 to cena
+  okresu, nie dokładne saldo Stripe po proration/kredytach — UI to wyjaśnia.
 
-## Konkretna mapa zmian po decyzji cenowej
+## Zmiana miesiąc ↔ rok: od razu z proration
 
-1. **Katalog i provisioning:** dodać osobny okres rozliczeń do katalogu,
-   zachowując `plan_*_monthly`. Proponowane, jeszcze nieutworzone klucze to
-   `plan_solo_yearly`, `plan_studio_yearly`, `plan_pro_yearly`. Zatwierdzone kwoty
-   PLN przeliczać przez Decimal do całkowitych groszy; `currency=pln`,
-   `tax_behavior=exclusive`, `recurring.interval=year`, `interval_count=1`.
-   Skrypt ma walidować istniejącą cenę i być idempotentny; bez cichej podmiany.
-2. **Checkout i `/billing`:** jawny wybór okresu, domyślnie miesiąc dla starych
-   klientów API. Cena pochodzi wyłącznie z katalogu serwera. Obecny kod ponownie
-   używa otwartej sesji po samym `metadata.plan`; trzeba uwzględnić też okres,
-   a przy zmianie wygasić poprzednią sesję. Zachować owner-only, membership,
-   Origin, lock per studio, trial bez karty i zakaz podwójnego abonamentu.
-3. **Webhook:** obecne `pricePlan` odrzuca każdy interwał poza miesiącem.
-   Walidować pełny kontrakt obu okresów (klucz, PLN, kwota, podatek, jedna
-   pozycja licensed ×1), zapisać okres i cenę potrzebne do projekcji rozliczeń.
-   Zachować atomowe `StripeEvent` + stan + audyt, rollback/retry, odczyt bieżącej
-   subskrypcji pod lockiem oraz zgodność customer/studio/session/invoice.
-   Powrót z Checkout nadal nie nadaje dostępu.
-4. **Model i metryki:** Studio przechowuje dziś plan bez okresu; MRR, skład
-   planów i zaległości korzystają z miesięcznego katalogu (`billing/mrr.ts`,
-   `admin/metrics.ts`, `admin/accounts.ts`, `admin/subscriptions.ts`). Przed
-   włączeniem rocznego zastosować addytywną migrację i projekcję faktycznej
-   ceny/okresu. MRR roczny normalizować przez 12 jako Decimal, bez zaokrąglania
-   pojedynczych kont przed sumowaniem; wpływy pozostają faktycznym netto
-   `invoice.paid`. Nie mnożyć liczby rocznych kont przez miesięczną cenę.
-   Zaległości prezentować zgodnie z ich rzeczywistym okresem/kwotą.
-5. **Landing i portal:** przełącznik oraz pełna cena roczna trafiają razem
-   z działającym Checkout; bez fikcyjnej oszczędności. Konfigurację Customer
-   Portal rozszerzyć dopiero zgodnie z zatwierdzoną polityką zmian okresu.
-   Sama flaga `annual_billing` nie tworzy dziś oferty i nie zastępuje katalogu.
-6. **Testy i aktywacja:** regresja wszystkich trzech cen miesięcznych; roczny
-   Checkout, ponowne użycie/zmiana sesji, owner/manager/worker i obcy tenant;
-   webhook roczny, replay/race, rollback, opóźnione zdarzenia, anulowanie,
-   payment_failed/paid, nieprawidłowa kwota/interwał/tenant; MRR Decimal i wpływy;
-   landing zgodny z cenami. Zapisy wyłącznie w osobnej bazie testowej po
-   migracjach. Potem lint/typecheck/build i hostowany Checkout tylko w sandboxie.
-   Bez restartu dev3002/tunelu Redis i bez ingerencji w audyt na 3104.
+Użytkownik wybrał dosłownie **„Od razu z proration”**. Właściciel używa przycisku
+„Zarządzaj abonamentem w Stripe”. Aplikacja tworzy jawną konfigurację Customer
+Portal i przekazuje jej ID do sesji; nie polega na domyślnej konfiguracji konta:
 
-Stripe Billing rozlicza abonament Detailflow. Nie tworzy `Invoice` klienta
-studia ani dokumentu KSeF; nie zmienia reguły faktury po zakończeniu zlecenia.
+- tylko sześć zweryfikowanych cen katalogu, `default_allowed_updates=[price]`,
+  bez dowolnej ilości i kodów promocyjnych;
+- `proration_behavior=always_invoice`, `billing_cycle_anchor=now`,
+  `schedule_at_period_end.conditions=[]` — bez odkładania skrócenia okresu
+  i obniżenia planu na koniec bieżącego okresu;
+- zmiana jest stosowana od razu, Stripe wylicza wykorzystaną część, kredyt,
+  ewentualną należność i nowy okres. Ostateczna kwota i data odnowienia są
+  widoczne w Stripe przed potwierdzeniem. Aplikacja nie obiecuje zachowania
+  poprzedniej daty odnowienia ani automatycznego zwrotu kredytu na kartę;
+- anulowanie pozostaje na koniec okresu; odnowienie po zmianie ceny/okresu
+  i dostęp są synchronizowane webhookiem, nie powrotem z portalu;
+- konfiguracja ma idempotency key będący hashem polityki i identyfikatorów cen.
+  Stripe deduplikuje ponowienia w swoim oknie idempotencji; po jego wygaśnięciu
+  może powstać kolejna równoważna konfiguracja. Nie edytuj tych konfiguracji
+  ręcznie w Dashboard — są tworzone przez kod dla konkretnej polityki.
+
+Stripe może ograniczać zmianę subskrypcji z pending update, harmonogramem lub
+nieopłaconą fakturą. UI nie gwarantuje zmiany mimo tych ograniczeń: portal
+prowadzi przez obsługiwany stan, a webhook odczytuje faktyczny abonament.
+
+## Weryfikacja i bezpieczna aktywacja
+
+Testy transportu Stripe używają atrap; integracje DB wyłącznie osobnej bazy
+`df147_test` / `df147_acceptance` w dedykowanym kontenerze `detailflow-147-isolated-db` na 55447.
+Brak seeda/resetu istniejącej bazy, realnych zakupów, maili/SMS/MF PROD,
+restartów dev3002 i dedykowanego tunelu Redis. Audyt na 3104 pozostaje osobny.
+
+Do hostowanego testu sandbox potrzebne są klucz sandbox i sekret webhooku przez
+bezpieczny formularz, nigdy issue/log. Bez takich danych nie deklarujemy zakupu
+w prawdziwym hostowanym Checkout ani wdrożenia na konto Stripe.
 
 ## Oficjalny kontrakt Stripe sprawdzony 29.10.2026
 
-- [Create Price](https://docs.stripe.com/api/prices/create): osobne ceny,
-  `lookup_key`, kwota w najmniejszej jednostce i okres `recurring`.
-- [Create Checkout Session](https://docs.stripe.com/api/checkout/sessions/create):
-  `mode=subscription`, `line_items.price`, metadata sesji i subskrypcji.
-- [Subscription webhooks](https://docs.stripe.com/billing/subscriptions/webhooks):
-  asynchroniczna synchronizacja statusów i płatności, weryfikacja źródła zdarzeń.
+- [Create Price](https://docs.stripe.com/api/prices/create)
+- [Create Checkout Session](https://docs.stripe.com/api/checkout/sessions/create)
+- [Subscription webhooks](https://docs.stripe.com/billing/subscriptions/webhooks)
+- [Change price](https://docs.stripe.com/billing/subscriptions/change-price)
+- [Prorations](https://docs.stripe.com/billing/subscriptions/prorations)
+- [Portal configuration API](https://docs.stripe.com/api/customer_portal/configurations/create)
+- [Portal subscription management](https://docs.stripe.com/customer-management/configure-portal)
 
-## Acceptance #147
-
-- [ ] Zatwierdzone przez człowieka ceny roczne w issue — **brak danych**.
-- [ ] Nowe lookup_key, Checkout i webhook — **plan powyżej, niewdrożone**.
-- [ ] Landing z przełącznikiem razem z cenami — **niewdrożony**;
-  dotychczasowy miesięczny landing pozostaje jedyną ofertą.
-
-PR przygotowawczy używa `Refs #147`, nie `Closes #147`. Pełne acceptance
-i niezależna kontrola OpenBot są wymagane przed uznaniem modułu za ukończony;
-merge wymaga kolejnego polecenia OpenBot.
+Stripe Billing rozlicza abonament Detailflow. Nie zapisuje faktur klienta studia
+w `Invoice` ani KSeF i nie zmienia zasady faktury po zakończeniu zlecenia.

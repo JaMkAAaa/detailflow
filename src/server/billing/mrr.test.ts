@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { mrrByPlan, arrears } from "../admin/metrics";
 import { calculateMrr } from "./mrr";
 import { restrictedMessage } from "./access";
 
@@ -15,6 +16,15 @@ describe("MRR wg audit/admin/README.md", () => {
     ];
     expect(calculateMrr(studios).toFixed(2)).toBe("16672.00");
     expect(calculateMrr([]).toFixed(2)).toBe("0.00");
+  });
+  it("normalizes annual Decimal prices without rounding each studio before summing", () => {
+    const annual = Array.from({ length: 3 }, () => ({ status: "active", plan: "solo", billingInterval: "yearly", subscriptionNet: "790.00" } as const));
+    const rows = [...annual, { status: "active", plan: "studio", billingInterval: "monthly", subscriptionNet: "149.00" } as const];
+    expect(calculateMrr(rows).toFixed(2)).toBe("346.50");
+    expect(mrrByPlan(rows).total.toFixed(2)).toBe("346.50");
+    expect(mrrByPlan(rows).rows[0]!.amount.toFixed(2)).toBe("197.50");
+    expect(arrears([{ ...annual[0]!, status: "past_due" }]).total.toFixed(2)).toBe("790.00");
+    expect(calculateMrr([{ ...annual[0]!, status: "past_due" }]).toFixed(2)).toBe("0.00");
   });
   it("odcina trial dokładnie w chwili końca, nawet przed cronem", () => {
     const now = new Date("2026-10-27T12:00:00Z");

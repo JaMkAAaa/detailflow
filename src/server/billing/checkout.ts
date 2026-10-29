@@ -3,15 +3,16 @@ import { z } from "zod";
 import { platformDb } from "@/lib/db/client";
 import { env } from "@/lib/env";
 import { AccessError, authorizeStudio } from "../acl";
+import { BILLING_INTERVALS } from "@/lib/billing/catalog";
 import { getPlanPrice } from "./plans";
 import { getStripe } from "./stripe";
 
-export const checkoutInput = z.object({ plan: z.enum(["solo", "studio", "pro"]) });
+export const checkoutInput = z.object({ plan: z.enum(["solo", "studio", "pro"]), interval: z.enum(BILLING_INTERVALS).default("monthly") });
 export const endedSubscription = (status: Stripe.Subscription.Status) => status === "canceled" || status === "incomplete_expired";
 
 export async function createCheckout(userId: string, studioId: string, input: unknown, stripe = getStripe()) {
   await authorizeStudio(userId, studioId, "billing:manage");
-  const { plan } = checkoutInput.parse(input);
+  const { plan, interval } = checkoutInput.parse(input);
   return platformDb.$transaction(async tx => {
     // Wspólny lock Checkout/webhook: brak podwójnego customer/subscription przy równoległych żądaniach.
     await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${studioId}, 50))::text`;
@@ -20,7 +21,7 @@ export async function createCheckout(userId: string, studioId: string, input: un
     if (studio.status === "trial" && studio.trialEndsAt && studio.trialEndsAt > new Date()) {
       throw new AccessError(409, "Okres próbny jeszcze trwa. Karta nie jest wymagana.");
     }
-    const price = await getPlanPrice(stripe, plan);
+    const price = await getPlanPrice(stripe, plan, interval);
     let customerId = studio.stripeCustomerId;
     if (!customerId) {
       const customer = await stripe.customers.create({ name: studio.name, metadata: { studioId } }, { idempotencyKey: `detailflow:customer:${studioId}` });
@@ -33,13 +34,13 @@ export async function createCheckout(userId: string, studioId: string, input: un
     const sessions = await stripe.checkout.sessions.list({ customer: customerId, status: "open", limit: 100 });
     for (const session of sessions.data) {
       if (session.mode !== "subscription" || session.metadata?.studioId !== studioId) continue;
-      if (session.metadata.plan === plan && session.url) return { url: session.url };
+      if (session.metadata.plan === plan && (session.metadata.interval ?? "monthly") === interval && session.url) return { url: session.url };
       await stripe.checkout.sessions.expire(session.id);
     }
     const session = await stripe.checkout.sessions.create({
       mode: "subscription", customer: customerId, client_reference_id: studioId,
       line_items: [{ price: price.id, quantity: 1 }],
-      metadata: { studioId, plan }, subscription_data: { metadata: { studioId } },
+      metadata: { studioId, plan, interval }, subscription_data: { metadata: { studioId, interval } },
       automatic_tax: { enabled: true }, tax_id_collection: { enabled: true },
       customer_update: { name: "auto", address: "auto" }, billing_address_collection: "required",
       success_url: new URL("/billing?checkout=success", env.APP_URL).href,

@@ -54,7 +54,7 @@ Przed uznaniem prototypu za kompletny wymagane są:
 
 ## Moduły po pierwotnym v1 — autoryzowane, wdrażane pojedynczo
 
-Decyzja właściciela produktu z 29.10.2026 obejmuje wszystkie #142–#151. Dawne „Poza v1” nie oznacza braku zgody; zależności techniczne nadal obowiązują. #142–#145 są wdrożone; #146 jest etapem badania MF/dokumentacji, a kod offline i #147–#151 pozostają niewdrożone. #115 pozostaje otwarty.
+Decyzja właściciela produktu z 29.10.2026 obejmuje wszystkie #142–#151. Dawne „Poza v1” nie oznacza braku zgody; zależności techniczne nadal obowiązują. #142–#145 są wdrożone; #146 jest etapem badania MF/dokumentacji, a kod offline i #148–#151 pozostają niewdrożone. #147 jest zaimplementowany w PR #186, przed końcowym CI/review/merge. #115 pozostaje otwarty.
 
 Katalog Usługi i cennik jest ekranem studia (`/services`). Magazyn chemii (#143) jest ekranem `/inventory`: nazwa, jednostka (pełne sztuki/ml), ilość, próg niskiego stanu i jawna korekta z kontrolą wersji; bez automatycznego zużycia przy zleceniu. Alert ilość ≤ próg pojawia się w D-01 i M-01. Wykorzystuje wzorce panelu i katalogu, bez osobnej gotowej ramki magazynu w prototypie. Statystyki studia (#144) są ekranem `/statistics` tylko dla ownera: przychód z zakończonych zleceń, udział usług i obłożenie boksów w zakresie dat Europe/Warsaw, z „Brak danych” zamiast zer; bez osobnej ramki w prototypie, na wzorcach kart i paneli pulpitu. Portfolio realizacji (#145) jest ekranem `/portfolio` (wzorzec kart studia, bez osobnej ramki w prototypie) i publiczną galerią `/realizacje/[slug]`. Studio samo oznacza zdjęcie; domyślnie nic nie jest publiczne, a brak zdjęć to pusty stan, nie 404. Pełne Ustawienia i Konto pozostają poza ukończonym zakresem i wchodzą osobnymi issue.
 
@@ -62,7 +62,7 @@ Tryb offline KSeF pozostaje wyłączony. #146 rozstrzyga najpierw zasady MF: [de
 
 ## Marketing
 
-Fikcyjne opinie, oceny, logotypy klientów i wyniki zastąpiono scenariuszami oraz możliwościami demonstracji. Cennik 79 / 149 / 279 zł jest koncepcją miesięcznej opłaty netto; opcja roczna jest niedostępna. #147 jest autoryzowany, lecz brak zatwierdzonych cen rocznych blokuje ofertę i przełącznik; [przygotowanie i dane do decyzji](docs/stripe-roczny-przygotowanie.md). Kalkulator jest estymacją, a nie pomiarem wyników klientów. Pozostałe obietnice oferty i regulaminy trzeba zatwierdzić przed publikacją.
+Fikcyjne opinie, oceny, logotypy klientów i wyniki zastąpiono scenariuszami oraz możliwościami demonstracji. Cennik 79 / 149 / 279 zł jest koncepcją miesięcznej opłaty netto; opcja roczna #147 pokazuje pełne 790/1490/2790 PLN netto za rok z góry z corocznym odnowieniem. Kwoty ustalił OpenBot po delegacji użytkownika; [decyzja i kontrakt](docs/stripe-roczny-przygotowanie.md). Kalkulator jest estymacją, a nie pomiarem wyników klientów. Pozostałe obietnice oferty i regulaminy trzeba zatwierdzić przed publikacją.
 
 Szkielety dokumentów prawnych są dostępne pod `/regulamin`, `/polityka-prywatnosci` i `/umowa-powierzenia`. Każda strona jest oznaczona jako projekt do zatwierdzenia prawnego i nie stanowi obowiązującego dokumentu.
 

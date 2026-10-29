@@ -1,13 +1,13 @@
 import Decimal from "decimal.js";
 import type { Plan, StudioStatus } from "@/lib/db/generated/client";
-import { BILLING_PLANS } from "../billing/plans";
+import { monthlyNet, periodNet, type BillingSnapshot } from "@/lib/billing/catalog";
 import { calculateMrr } from "../billing/mrr";
 
 export const TIME_ZONE = "Europe/Warsaw";
 const WEEK = 7 * 86_400_000;
 const ACTIVATION_ORDERS = 3;
 
-export type StudioSnapshot = {
+export type StudioSnapshot = BillingSnapshot & {
   id: string;
   name: string;
   publicCode: string;
@@ -66,7 +66,7 @@ export function wasPayingAt(studio: StudioSnapshot, at: Date) {
 
 export function mrrAt(studios: Iterable<StudioSnapshot>, at: Date) {
   return calculateMrr(
-    [...studios].filter((studio) => wasPayingAt(studio, at)).map((studio) => ({ status: "active" as const, plan: studio.plan })),
+    [...studios].filter((studio) => wasPayingAt(studio, at)).map((studio) => ({ ...studio, status: "active" as const })),
   );
 }
 
@@ -169,7 +169,7 @@ export function warsawPeriodLabel(now: Date) {
 
 const PLAN_ORDER = ["solo", "studio", "pro"] as const;
 
-export function mrrByPlan(studios: Iterable<{ status: StudioStatus; plan: Plan }>) {
+export function mrrByPlan(studios: Iterable<BillingSnapshot & { status: StudioStatus }>) {
   const buckets = {
     solo: { count: 0, amount: new Decimal(0) },
     studio: { count: 0, amount: new Decimal(0) },
@@ -179,20 +179,20 @@ export function mrrByPlan(studios: Iterable<{ status: StudioStatus; plan: Plan }
     if (studio.status !== "active") continue;
     const bucket = buckets[studio.plan];
     bucket.count += 1;
-    bucket.amount = bucket.amount.plus(new Decimal(BILLING_PLANS[studio.plan].unitAmount).div(100));
+    bucket.amount = bucket.amount.plus(monthlyNet(studio));
   }
   const total = PLAN_ORDER.reduce((sum, plan) => sum.plus(buckets[plan].amount), new Decimal(0));
   return { total, rows: PLAN_ORDER.map((plan) => ({ plan, ...buckets[plan] })) };
 }
 
-/** Zaległość = past_due × cena planu. Poza MRR. */
-export function arrears(studios: Iterable<{ status: StudioStatus; plan: Plan }>) {
+/** Cena pełnego okresu kont past_due; nie saldo Stripe po proration/kredytach. Poza MRR. */
+export function arrears(studios: Iterable<BillingSnapshot & { status: StudioStatus }>) {
   let count = 0;
   let total = new Decimal(0);
   for (const studio of studios) {
     if (studio.status !== "past_due") continue;
     count += 1;
-    total = total.plus(new Decimal(BILLING_PLANS[studio.plan].unitAmount).div(100));
+    total = total.plus(periodNet(studio));
   }
   return { count, total };
 }

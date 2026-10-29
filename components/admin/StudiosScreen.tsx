@@ -186,7 +186,7 @@ export function StudiosScreen({ data }: { data: StudiosPage }) {
                     <td className="py-1 pr-3 text-df-body text-df-text">{BILLING_PLANS[studio.plan].name}</td>
                     <td className="py-1 pr-3 text-df-body text-df-muted">{formatDate(studio.lastActivityAt)}</td>
                     <td className="rounded-r-lg py-1 pr-2 text-df-strong whitespace-nowrap text-df-text">
-                      {studio.subscriptionNet ? formatPln(studio.subscriptionNet) : "—"}
+                      {studio.subscriptionNet ? `${formatPln(studio.subscriptionNet)} / ${studio.billingInterval === "yearly" ? "rok" : "mies."}` : "—"}
                     </td>
                   </tr>
                 ))}

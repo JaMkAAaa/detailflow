@@ -18,7 +18,7 @@ export async function getPlatformOverview(now = new Date()): Promise<PlatformOve
   const trialHorizon = new Date(now.getTime() + 3 * DAY);
   const studios = await platformDb.studio.findMany({
     select: {
-      id: true, name: true, publicCode: true, status: true, plan: true,
+      id: true, name: true, publicCode: true, status: true, plan: true, billingInterval: true, subscriptionNet: true,
       createdAt: true, updatedAt: true, activatedAt: true, trialEndsAt: true,
     },
   });

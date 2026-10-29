@@ -17,7 +17,7 @@ export const FLAG_DEFAULTS = [
   {
     key: "annual_billing",
     label: "Abonament roczny",
-    description: "Poza v1. Nie tworzy ceny rocznej w Stripe.",
+    description: "Historyczna flaga informacyjna. Oferta miesięczna/roczna #147 działa niezależnie od tej flagi; ceny tworzy billing:setup.",
     enabled: false,
   },
   {
