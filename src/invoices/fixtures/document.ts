@@ -20,3 +20,18 @@ export function invoiceFixture(): InvoiceDocument {
     },
   };
 }
+
+/** Stored correction deltas; quantity and unitNet remain the AFTER state. */
+export function correctionFixture(): InvoiceDocument {
+  const doc = invoiceFixture();
+  doc.corrects = { ...doc.invoice };
+  doc.invoice = { ...doc.invoice, id: "correction-test", kind: "correction", number: "KFV/1/10/2026",
+    correctsInvoiceId: doc.corrects.id, correctionReason: "Rabat na ceramikę", ksefNumber: null,
+    totalNet: new Decimal("-951.22"), totalVat: new Decimal("-218.78"), totalGross: new Decimal("-1170.00"),
+    items: doc.invoice.items.map((line, index) => ({ ...line, invoiceId: "correction-test",
+      unitNet: new Decimal(index ? "1000" : "1951.22"), net: new Decimal(index ? "-951.22" : "0"),
+      vat: new Decimal(index ? "-218.78" : "0"), gross: new Decimal(index ? "-1170" : "0"),
+    })),
+  };
+  return doc;
+}

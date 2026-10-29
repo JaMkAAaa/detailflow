@@ -4,6 +4,7 @@ import { platformDb } from "@/lib/db/client";
 import { studioDb } from "@/lib/db/tenant";
 import { plDate } from "@/src/invoices/document";
 import { invoiceDetail } from "./query";
+import { generateFa3 } from "@/src/ksef/fa3";
 import { invoiceDocument } from "./document";
 import { correctInvoice, issueInvoice, markInvoicePaid } from "./manage";
 
@@ -17,7 +18,7 @@ const lines = [{ name: "Korekta lakieru · 2 etapy", quantity: "1", unitNet: "19
 const issue = (studioId: string, workOrderId: string, env: "test" | "production" = "test") => issueInvoice(studioId, env, { workOrderId, buyer, items: lines });
 
 beforeAll(async () => {
-  const studios = await Promise.all(["a", "b"].map(s => platformDb.studio.create({ data: { publicCode: `${tag}-${s}`, slug: `${tag}-${s}`, name: s } })));
+  const studios = await Promise.all(["a", "b"].map(s => platformDb.studio.create({ data: { publicCode: `${tag}-${s}`, slug: `${tag}-${s}`, name: s, nip: "9512345678", address: "Rzemieślnicza 12", postal: "02-675", city: "Warszawa" } })));
   a = studios[0]!.id; b = studios[1]!.id;
   const db = studioDb(b);
   const client = await db.client.create({ data: { studioId: b, name: "Adam Nowak" } });
@@ -78,7 +79,7 @@ it("issues corrections as linked documents, chained and tenant-scoped", async ()
   const source = await studioDb(b).invoice.findFirstOrThrow({ where: { number: `FV/42${suffix}` }, include: { items: true } });
   const lp2 = source.items.find(i => i.lp === 2)!;
   await expect(correctInvoice(b, source.id, { reason: "Rabat", items: [{ lp: 2, quantity: "1", unitNet: "1000" }] })).rejects.toMatchObject({ status: 409, message: expect.stringContaining("KSeF") });
-  await studioDb(b).invoice.update({ where: { id: source.id }, data: { ksefStatus: "accepted" } });
+  await studioDb(b).invoice.update({ where: { id: source.id }, data: { ksefStatus: "accepted", ksefNumber: `9512345678-20261024-${tag.replaceAll("-", "").slice(0, 12).toUpperCase()}-5D` } });
   await expect(correctInvoice(a, source.id, { reason: "Rabat", items: [{ lp: 2, quantity: "1", unitNet: "1000" }] })).rejects.toMatchObject({ status: 404 });
   await expect(correctInvoice(b, source.id, { reason: "Nic", items: [{ lp: 2, quantity: "1", unitNet: lp2.unitNet.toString() }] })).rejects.toMatchObject({ status: 400 });
   await expect(correctInvoice(b, source.id, { reason: "Zły lp", items: [{ lp: 9, quantity: "1", unitNet: "1" }] })).rejects.toMatchObject({ status: 400 });
@@ -97,7 +98,20 @@ it("issues corrections as linked documents, chained and tenant-scoped", async ()
   expect((await studioDb(b).invoice.findFirstOrThrow({ where: { id: source.id } })).totalGross.toString()).toBe("4800");
   await expect(correctInvoice(b, first.id, { reason: "Korekta korekty", items: [{ lp: 1, quantity: "2", unitNet: "1" }] })).rejects.toMatchObject({ status: 409 });
   await expect(markInvoicePaid(b, first.id, {})).rejects.toMatchObject({ status: 409 });
-  await expect(invoiceDocument(b, first.id, "test")).rejects.toThrow("korekty");
+  await expect(invoiceDocument(a, first.id, "test")).rejects.toMatchObject({ status: 404 });
+  await expect(invoiceDocument(b, first.id, "production")).rejects.toMatchObject({ status: 404 });
+  const document = await invoiceDocument(b, first.id, "test");
+  expect(document.corrects?.number).toBe(source.number);
+  expect(generateFa3(document)).toContain("<P_15>-1170.00</P_15>");
+  const removed = await invoiceDocument(b, second.id, "test");
+  expect(removed.invoice.items.find(item => item.lp === 2)?.quantity.toString()).toBe("0");
+  expect(generateFa3(removed)).toContain("<P_15>-1230.00</P_15>");
+  await correctInvoice(b, source.id, { reason: "Mała usługa", items: [{ lp: 2, quantity: "1", unitNet: "0.03" }] });
+  const rounding = await correctInvoice(b, source.id, { reason: "Rabat groszowy", items: [{ lp: 2, quantity: "1", unitNet: "0.02" }] });
+  const roundedDocument = await invoiceDocument(b, rounding.id, "test");
+  expect(roundedDocument.invoice.totalNet.toFixed(2)).toBe("-0.01");
+  expect(roundedDocument.invoice.totalVat.toFixed(2)).toBe("-0.01");
+  expect(generateFa3(roundedDocument)).toContain("<P_15>-0.02</P_15>");
 });
 it("rejects a database row that violates the correction link", async () => {
   const source = await studioDb(b).invoice.findFirstOrThrow({ where: { number: `FV/42${suffix}` } });

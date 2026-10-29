@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
-import { invoiceFixture } from "./fixtures/document";
+import { correctionFixture, invoiceFixture } from "./fixtures/document";
 import { generateInvoicePdf } from "./pdf";
 
 async function content(buffer: Buffer) {
@@ -36,4 +36,11 @@ it("labels PROD separately, handles unsent PDF and paginates many lines", async 
   expect(text).toContain("KSeF PROD"); expect(text).not.toContain("TRYB TESTOWY");
   expect(text).toContain("Wysłano PDF: nie wysłano");
   expect(text).toContain("samochodu 59");
+});
+
+it("renders a correction with original number, reason and signed monetary differences", async () => {
+  const text = (await content(await generateInvoicePdf(correctionFixture()))).join(" ");
+  for (const value of ["Faktura korygująca VAT", "KFV/1/10/2026", "Do faktury: FV/41/10/2026", "Rabat na ceramikę",
+    "-951,22 zł", "-218,78 zł", "-1 170,00 zł", "Różnica brutto", "TRYB TESTOWY"]) expect(text).toContain(value);
+  expect(text).not.toContain("Do zapłaty:");
 });

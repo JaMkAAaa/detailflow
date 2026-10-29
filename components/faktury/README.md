@@ -103,8 +103,8 @@ Wspólna walidacja Decimal odrzuca niepełne daty, szkice, niezakończone zlecen
 ułamki grosza, niezgodne pozycje/sumy oraz brutto różne od brutto zlecenia (409).
 Nie naprawia kwot eksportem ani nie wyprowadza ponownie netto z brutto.
 XML obejmuje zwykłą krajową fakturę VAT w PLN (23%, 8%, 5%, 0% krajowe),
-nabywcę z NIP albo konsumenta z BrakID. Korekty, zwolnienia i transakcje
-zagraniczne wymagają osobnego mapowania. Sprzedawca pochodzi z konfiguracji studia,
+nabywcę z NIP albo konsumenta z BrakID. Korekty opisano w #121 niżej; zwolnienia
+i transakcje zagraniczne wymagają osobnego mapowania. Sprzedawca pochodzi z konfiguracji studia,
 nabywca i kwoty z zapisanego snapshotu faktury.
 
 Testy: `pnpm vitest run src/ksef/fa3.test.ts src/invoices/pdf.test.ts`;
@@ -138,8 +138,7 @@ sprawdzają Origin i działają przez `studioDb(studioId)`.
   nadpisuje daty. „Status paid” to pochodna `paidAt`, bez nowej wartości enuma.
   Płatność jest niezależna od KSeF i od Stripe Checkout (poza v1).
 
-Poza zakresem: PDF i FA(3) korekty (eksport zwraca 409 z komunikatem, wymaga osobnego
-mapowania) i wysyłka korekty do KSeF (#44). Podpięcie wizarda D-08 do POST
+PDF i FA(3) korekty obsługuje mapowanie #121 opisane niżej. Podpięcie wizarda D-08 do POST
 wystawiania opisano w #118, niżej.
 
 Testy: `pnpm vitest run src/server/faktury/manage.test.ts` (Postgres: blokada
@@ -171,8 +170,8 @@ Przed kolejką generujemy FA(3) z danych dokumentu i walidujemy lokalnym XSD
 przez `xmllint --nonet`. Docker zawiera walidator i przypięte schematy.
 Snapshot XML i historia powstają w transakcji przed enqueue; istniejący outbox
 odtwarza enqueue przy awarii Redisa. UI pokazuje `queued`, wpis historii i błędy
-409, bez tokenu i diagnostyki XML. Korekty nadal wymagają mapowania #121,
-a ponowienia i mail PDF należą do osobnych issue. Offline nie jest dostępny.
+409, bez tokenu i diagnostyki XML. Korekty używają mapowania #121;
+mail PDF opisano niżej. Offline nie jest dostępny.
 
 ### E-mail z PDF
 
@@ -193,3 +192,18 @@ Dokumenty TEST są oznaczone w temacie, treści i nazwie załącznika.
 
 Wysyłka SMTP jest at-least-once: awaria po przyjęciu przez SMTP, przed zapisem
 transakcji może spowodować powtórkę. Każde zadanie zachowuje stały Message-ID.
+
+
+## Eksport korekty — #121
+
+PDF i XML obsługują `kind=correction`. Dokument wskazuje pierwotną FV (nigdy
+inną korektę), powód i zapisane różnice netto/VAT/brutto, również ujemne.
+Ilość i cena w rekordach korekty opisują stan po zmianie, dlatego nie służą do
+ponownego liczenia różnic. PDF ma kolumny różnic; FA(3) używa `KOR`,
+`PrzyczynaKorekty`, `DaneFaKorygowanej` oraz różnic w `P_11` i podsumowaniach.
+Brak numeru KSeF pierwotnej FV blokuje XML komunikatem 409. Nie jest traktowany
+jako dowód wystawienia poza KSeF. Walidacja XSD pozostaje taka jak dla VAT.
+
+Odczyt źródła jest ograniczony do tego samego studia i środowiska; walidacja
+wymaga zgodności nabywcy. Pobranie ani eksport nie zmieniają `emailedAt`.
+Generator PDF jest również używany przez outbox maila z #120.

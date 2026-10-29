@@ -13,10 +13,12 @@ export async function invoiceDocument(studioId: string, invoiceId: string, envir
     },
   });
   if (!invoice) throw new AccessError(404, "Nie znaleziono faktury.");
-  // Pozycje korekty to różnice kwot; PDF i FA(3) korekty wymagają osobnego mapowania.
-  if (invoice.kind === "correction") throw new InvoiceDocumentError("Eksport PDF i XML korekty nie jest jeszcze dostępny.");
+  const corrects = invoice.kind === "correction"
+    ? await db.invoice.findFirst({ where: { studioId, id: invoice.correctsInvoiceId!, ksefEnv: environment } })
+    : undefined;
+  if (invoice.kind === "correction" && !corrects) throw new InvoiceDocumentError("Nie znaleziono faktury korygowanej.");
   const document: InvoiceDocument = {
-    invoice, order: invoice.workOrder,
+    invoice, corrects: corrects ?? undefined, order: invoice.workOrder,
     seller: { name: invoice.studio.ownerLegalName ?? invoice.studio.name, nip: invoice.studio.nip ?? "", address: invoice.studio.address ?? "", postal: invoice.studio.postal ?? "", city: invoice.studio.city ?? "", env: environment },
   };
   validateInvoiceDocument(document);
