@@ -411,6 +411,8 @@ model Membership {
   studio    Studio         @relation(fields: [studioId], references: [id], onDelete: Cascade)
   user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  assignedOrders WorkOrder[] @relation("WorkOrderAssignee")
+
   @@unique([studioId, userId])
   @@index([userId])
 }
@@ -480,6 +482,7 @@ model WorkOrder {
   clientId      String
   vehicleId     String
   bayId         String?
+  assigneeId    String? // userId członka tego samego studia; null = „Nieprzypisane”
   quoteId       String?
   status        OrderStatus
   service       String // „Korekta + ceramika”
@@ -495,6 +498,9 @@ model WorkOrder {
   client        Client      @relation(fields: [clientId, studioId], references: [id, studioId], onDelete: NoAction)
   vehicle       Vehicle     @relation(fields: [vehicleId, studioId], references: [id, studioId], onDelete: NoAction)
   bay           Bay?        @relation(fields: [bayId, studioId], references: [id, studioId], onDelete: NoAction)
+  // Złożony klucz (studioId, userId) → Membership: obcy użytkownik nie przejdzie na poziomie bazy.
+  // NoAction: usunięcie członka zespołu najpierw zdejmuje przypisania (src/server/studio/members.ts).
+  assignee      Membership? @relation("WorkOrderAssignee", fields: [studioId, assigneeId], references: [studioId, userId], onDelete: NoAction)
   quote         Quote?      @relation(fields: [quoteId, studioId], references: [id, studioId], onDelete: NoAction)
 
   invoices    Invoice[]
@@ -509,6 +515,7 @@ model WorkOrder {
   @@index([studioId, status])
   @@index([studioId, createdAt])
   @@index([studioId, scheduledFrom])
+  @@index([studioId, assigneeId])
 }
 
 // Ostatni przydzielony numer DF-#### w studiu. Przydział = atomowy increment,

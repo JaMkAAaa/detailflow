@@ -2,7 +2,7 @@ import { z } from "zod";
 import { Prisma } from "../../../lib/db/generated/client";
 import { AccessError } from "../acl";
 import type { StudioDb } from "../../../lib/db/tenant";
-import { bookingDateSchema } from "../kalendarz/booking";
+import { assertAssignee, assertBayExists, assertBayFree, bookingDateSchema, serializableBooking } from "../kalendarz/booking";
 import { allocateOrderNumber, OrderStateError } from "./state";
 import { studioDb } from "../../../lib/db/tenant";
 import { seedServices } from "../wyceny/catalog";
@@ -15,6 +15,9 @@ export const createOrderSchema = z.object({
   totalGross: z.string().regex(/^\d{1,10}(?:\.\d{1,2})?$/).transform((value) => new Prisma.Decimal(value)),
   scheduledFrom: bookingDateSchema,
   scheduledTo: bookingDateSchema,
+  // Z okna kalendarza: boks tworzy rezerwację (kolizja → 409), pracownik jest opcjonalny.
+  bayId: z.string().trim().min(1).optional(),
+  assigneeId: z.string().trim().min(1).nullable().optional(),
 }).strict().refine((value) => value.scheduledFrom < value.scheduledTo, {
   path: ["scheduledTo"], message: "Koniec musi być późniejszy niż początek.",
 });
@@ -30,6 +33,7 @@ export function listOrders(db: StudioDb) {
       client: { select: { id: true, name: true, phone: true, email: true } },
       vehicle: { select: { id: true, make: true, model: true, plate: true } },
       bay: { select: { name: true } },
+      assignee: { select: { user: { select: { id: true, name: true } } } },
     },
   });
 }
@@ -41,6 +45,7 @@ export async function getOrder(db: StudioDb, idOrNumber: string) {
       client: { select: { id: true, name: true, phone: true, email: true } },
       vehicle: { select: { id: true, make: true, model: true, plate: true } },
       bay: { select: { name: true } },
+      assignee: { select: { user: { select: { id: true, name: true } } } },
       quote: { include: { items: { orderBy: { sort: "asc" } } } },
       intake: { include: { damages: { orderBy: { no: "asc" } } } },
       photos: { orderBy: { no: "asc" } },
@@ -72,11 +77,17 @@ export async function loadOrderChoices(studioId: string) {
 
 export async function createOrder(db: StudioDb, studioId: string, actorId: string, input: unknown) {
   const data = createOrderSchema.parse(input);
-  return db.$transaction(async (tx) => {
+  // Z boksem: Serializable chroni przed dwoma jednoczesnymi zapisami do tego samego wolnego okna.
+  return serializableBooking(db, async (tx) => {
     const client = await tx.client.findFirst({ where: { id: data.clientId }, select: { id: true } });
     const vehicle = await tx.vehicle.findFirst({ where: { id: data.vehicleId }, select: { clientId: true } });
     if (!client || !vehicle) throw new OrderStateError("not_found", "Nie znaleziono klienta lub auta.");
     if (vehicle.clientId !== client.id) throw new AccessError(400, "Auto nie należy do wybranego klienta.");
+    if (data.bayId) {
+      await assertBayExists(tx, data.bayId);
+      await assertBayFree(tx, data.bayId, data.scheduledFrom, data.scheduledTo);
+    }
+    if (data.assigneeId) await assertAssignee(tx, data.assigneeId);
     const number = await allocateOrderNumber(tx, studioId);
     const order = await tx.workOrder.create({ data: { ...data, studioId, number, status: "accepted", stage: 1 } });
     await tx.workOrderEvent.create({ data: {
@@ -84,5 +95,5 @@ export async function createOrder(db: StudioDb, studioId: string, actorId: strin
       fromStatus: null, fromStage: null, toStatus: "accepted", toStage: 1,
     } });
     return order;
-  });
+  }, { serializable: data.bayId !== undefined });
 }

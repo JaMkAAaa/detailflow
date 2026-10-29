@@ -562,6 +562,7 @@ model WorkOrder {
   clientId      String
   vehicleId     String
   bayId         String?
+  assigneeId    String?     // userId członka tego studia; FK (studioId, assigneeId) → Membership
   status        OrderStatus
   stage         Int         @default(1) // 1–4
   scheduledFrom DateTime

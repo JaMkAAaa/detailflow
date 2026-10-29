@@ -5,11 +5,20 @@ Referencja: [Figma D-02](https://www.figma.com/design/3pssHgZjGzo0UeyBC8yZ3S?nod
 `/calendar` korzysta z autoryzowanego shellu i danych wybranego studia;
 `/kalendarz` przekierowuje na ten adres. Bieżąca data i terminy są wyświetlane
 w Europe/Warsaw. Widok dnia i tygodnia obsługuje nawigację oraz rezerwacje
-wielodniowe. Boksy pochodzą z bazy. Model nie zawiera przypisania pracownika,
-więc filtr pokazuje jedynie „Wszystkie osoby”.
+wielodniowe. Boksy pochodzą z bazy. Filtr osób (`matchesEmployee` w `demo.ts`)
+pokazuje „Wszystkie osoby”, „Nieprzypisane” i członków studia; blok w widoku
+dnia i tygodnia dostaje imię przypisanego pracownika (#137).
 
 „Nowa rezerwacja” otwiera formularz dla istniejących zleceń. Można dodać,
-zmienić lub usunąć przydział boksu. Błąd kolizji z API jest widoczny w formularzu.
+zmienić lub usunąć przydział boksu i ustawić pracownika. Błąd kolizji z API jest
+widoczny w formularzu.
+
+Wolne okno między rezerwacjami (`freeWindows`, w D-02 jak w M-02) otwiera ten sam
+dialog na zakładce „Nowe zlecenie”: `OrderCreateForm` z boksem i godzinami z okna
+(`slot.ts` przekazuje okno przez kontekst). Formularz woła `POST /orders`
+z `bayId`; kolizja 409 zostaje widoczna w formularzu, a okno się nie zamyka.
+Kreator wyceny (`slotId`) nie wchodzi w ten przepływ. Filtr osób nie dotyczy
+telefonu — M-02 w Figmie ma tylko filtr boksów.
 Kontrakt API i testy: `src/server/kalendarz/README.md`.
 
 `DayGrid` bez propsów zachowuje scenariusz demo 24.10.2026 dla testów UI.
