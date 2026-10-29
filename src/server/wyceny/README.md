@@ -26,6 +26,15 @@ surowy token wyłącznie w URL wiadomości, nigdy w jobie ani logach. Korzystamy
 z istniejącego E8 `/p/:token`, bez stubu. Link z ponownej wysyłki nie unieważnia
 poprzednich linków (ich cofanie zapewnia API E8).
 
+Ten sam worker co 15 s ustawia `expired` dla `sent` bez `decidedAt`, gdy
+minie 14 dni od ostatniego `sentAt` lub nie ma już ważnego linku wyceny ani
+powiązanego zlecenia — wcześniejszy warunek wygrywa. Oczekująca pierwsza
+wysyłka (`sentAt: null`) nie wygasa przed przekazaniem do SMTP. Sweep nie
+zmienia decyzji ani nie wysyła maila; warunek aktualizacji chroni także przed
+równoczesną decyzją. Endpoint decyzji odrzuca `expired` i przekroczenie 14 dni
+również przed następnym przebiegiem workera. Discovery studiów jest platformowe,
+a każda aktualizacja wycen przechodzi przez `studioDb`.
+
 ## Katalog usług
 
 Katalog startowy jest seedem w `src/domain/service-catalog.ts` (4 usługi D-06).

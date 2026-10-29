@@ -66,7 +66,9 @@ export async function decideQuote(token: string, decision: "accepted" | "rejecte
     const order = link.workOrderId ? await tx.workOrder.findFirst({ where: { id: link.workOrderId } }) : null;
     const quoteId = link.quoteId ?? order?.quoteId;
     if (!quoteId) throw new PortalLinkError();
-    const changed = await tx.quote.updateMany({ where: { id: quoteId, status: "sent", decidedAt: null },
+    const changed = await tx.quote.updateMany({ where: { id: quoteId, status: "sent", decidedAt: null,
+      OR: [{ sentAt: null }, { sentAt: { gt: new Date(Date.now() - PORTAL_TTL_MS) } }],
+    },
       data: { status: decision, decidedAt: new Date() } });
     if (!changed.count) throw new PortalLinkError();
     await tx.quoteDecisionMail.create({ data: { studioId: link.studioId, quoteId } });
