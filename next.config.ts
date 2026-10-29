@@ -11,7 +11,7 @@ const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
   // BullMQ ładuje opcjonalne adaptery w runtime. pino zostaje w node_modules, bo bundler gubi wątek sonic-boom.
-  serverExternalPackages: ["bullmq", "pino", "pdfkit"],
+  serverExternalPackages: ["bullmq", "pino", "pdfkit", "sharp"],
   outputFileTracingIncludes: {
     "/*": [pdfkitStandardFonts],
     "/api/studios/*/invoices/*/*": ["./app/fonts/Inter.ttf", pdfkitStandardFonts, "./src/ksef/xsd/**/*"],

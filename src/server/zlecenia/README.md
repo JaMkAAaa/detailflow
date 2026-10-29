@@ -20,7 +20,8 @@ Bucket S3 (MinIO lokalnie, R2 w prod) jest prywatny. Klucz:
    Niezgodny plik jest usuwany z bucketu i z bazy (400); brak pliku → 409.
    Dopiero potwierdzone zdjęcie trafia do listy. Wywołanie jest idempotentne.
 4. `GET …/photos` → zdjęcia po numerze z metadanymi (`uploadedBy`, `createdAt`,
-   `uploadedAt`, `stage`) i podpisanym GET (`url`, 5 min). Nie ma publicznych URL-i.
+   `uploadedAt`, `stage`) i podpisanym GET (`url`, 5 min). Ten endpoint nie jest publiczny.
+   Portfolio (#145, `src/server/portfolio`) publikuje osobną pochodną, nigdy ten podpisany oryginał.
 
 `key` spoza prefiksu `studios/<studioId>/` → **403** (`assertKeyInStudio`), zanim
 cokolwiek trafi do bazy lub S3; klucz o złym kształcie (np. `..`) → 400.

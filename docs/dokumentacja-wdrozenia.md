@@ -131,7 +131,7 @@ Fikcyjne opinie i logotypy klientów **nie idą na produkcję**. Zastępujemy je
 | D-09 | Faktury / Szczegóły i KSeF | Podgląd FV, numer KSeF, historia wysyłki, UPO XML, PDF, korekta |
 | D-10 | Faktury / Wymagają uwagi | Odrzucenia KSeF, zaległości, błędy NIP |
 
-Nawigacja sidebara (IA docelowa): Pulpit, Kalendarz, Zlecenia, Faktury, Klienci i auta, Usługi i cennik, Magazyn, Statystyki, Portfolio. **Usługi i cennik** to katalog studia. Magazyn chemii jest ekranem `/inventory` (#143). **Statystyki** to ekran właściciela `/statistics` (#144, widoczny w menu tylko dla ownera). Portfolio i pełne Ustawienia/Konto pozostają „wkrótce” albo poza ukończonym zakresem — nie jako puste moduły.
+Nawigacja sidebara (IA docelowa): Pulpit, Kalendarz, Zlecenia, Faktury, Klienci i auta, Usługi i cennik, Magazyn, Statystyki, Portfolio. **Usługi i cennik** to katalog studia. Magazyn chemii jest ekranem `/inventory` (#143). **Statystyki** to ekran właściciela `/statistics` (#144, widoczny w menu tylko dla ownera). **Portfolio** to ekran `/portfolio` i publiczna galeria `/realizacje/[slug]` (#145): studio ręcznie publikuje zdjęcie, domyślnie nic nie jest publiczne, brak publikacji to pusty stan. Pełne Ustawienia/Konto pozostają poza ukończonym zakresem — nie jako puste moduły.
 
 Akcje globalne pulpitu (wersja po audycie): **Nowa wycena**, **Wystaw fakturę**, **+ Nowe zlecenie**, paleta ⌘K.
 
@@ -360,7 +360,7 @@ Prototyp wprost to oznacza:
 ### 6.3 Poza ukończonym zakresem
 
 - Automatyczne zużycie chemii przy zleceniu (brak wiarygodnych receptur); magazyn z ręczną korektą i rzeczywistym alertem jest wdrożony w #143.
-- Statystyki zaawansowane (rozbicia po pracownikach, klientach, kohorty, eksport) — podstawowe statystyki studia są wdrożone w #144. Portfolio, pełne Ustawienia i Konto.
+- Statystyki zaawansowane (rozbicia po pracownikach, klientach, kohorty, eksport) — podstawowe statystyki studia są wdrożone w #144. Publiczna galeria realizacji jest wdrożona w #145 (ręczna publikacja, maska tablicy na pochodnej). Pełne Ustawienia i Konto.
 - KSeF offline.
 - Panel właściciela na mobile.
 - Płatność klienta online za usługę (Stripe Checkout B2C) — można dodać po v1.
@@ -369,7 +369,7 @@ Prototyp wprost to oznacza:
 
 ### 6.4 Moduły wybrane, wdrażane pojedynczo
 
-Issue #142–#151 są wybrane i wchodzą po technicznych zależnościach, jedno na PR. Właściciel produktu autoryzował 29.10.2026 wykonanie wszystkich (z testami i merge po zielonym CI); etykieta „Poza v1” ani `blocked` nie jest już blokadą zakresu, ale zależności techniczne trzeba sprawdzić. Katalog usług (#142), magazyn chemii (#143) i statystyki studia (#144) są w aplikacji (§6.5). Magazyn przechowuje pełne sztuki lub ml jako Int (0–2 000 000 000), per studioId; bez zaokrągleń i automatycznego zużycia przy zleceniu. Korekta ustawia zmierzony stan i próg, wymaga powodu oraz aktualnej wersji; konflikt współbieżny zwraca 409. Niski stan to ilość ≤ próg, także zero; alert znika po uzupełnieniu. Wszyscy członkowie studia czytają stany, owner/manager zapisuje zgodnie z blokadą billingową. Pozostałe pozycje z tej serii (#145–#151) nie są przez to ukończone. Stripe Billing zostaje abonamentem Detailflow i nie obsługuje płatności klienta za detailing.
+Issue #142–#151 są wybrane i wchodzą po technicznych zależnościach, jedno na PR. Właściciel produktu autoryzował 29.10.2026 wykonanie wszystkich (z testami i merge po zielonym CI); etykieta „Poza v1” ani `blocked` nie jest już blokadą zakresu, ale zależności techniczne trzeba sprawdzić. Katalog usług (#142), magazyn chemii (#143), statystyki studia (#144) i portfolio realizacji (#145) są w aplikacji (§6.5). Magazyn przechowuje pełne sztuki lub ml jako Int (0–2 000 000 000), per studioId; bez zaokrągleń i automatycznego zużycia przy zleceniu. Korekta ustawia zmierzony stan i próg, wymaga powodu oraz aktualnej wersji; konflikt współbieżny zwraca 409. Niski stan to ilość ≤ próg, także zero; alert znika po uzupełnieniu. Wszyscy członkowie studia czytają stany, owner/manager zapisuje zgodnie z blokadą billingową. Pozostałe pozycje z tej serii (#146–#151) nie są przez to ukończone. Stripe Billing zostaje abonamentem Detailflow i nie obsługuje płatności klienta za detailing.
 
 ### 6.5 Statystyki studia (#144) — definicje metryk
 
@@ -685,6 +685,7 @@ Zdjęcia zlecenia (`OrderPhoto`) mogą zawierać tablice rejestracyjne i otoczen
 - Zdjęcie zostaje przez czas życia zlecenia, bo protokół przyjęcia i reklamacja potrzebują dowodu stanu auta. v1 nie kasuje automatycznie zdjęć zakończonych zleceń. Długość takiego kasowania (np. po przedawnieniu reklamacji) jest decyzją prawną i nie wchodzi w to wydanie.
 - Cascade w Postgresie usuwa wiersz, nie obiekt S3. Ścieżka odrzuconego uploadu woła `deleteObject`. Przy usuwaniu danych studia trzeba skasować prefix `studios/<studioId>/`.
 - Portal nie pokazuje zdjęcia bez ważnego tokenu. Surowy token nie trafia do logów.
+- Portfolio (#145) nie wystawia oryginału. Publiczna jest tylko pochodna JPEG pod `/realizacje/[slug]/media/…`, serwowana przez aplikację (bucket zostaje prywatny, bez przekierowania na podpisany URL). Domyślnie studio wskazuje obszar tablicy, a pochodna niszczy ten obszar (2×2 piksele) i nie przenosi EXIF. Świadome `plateVisible` zostawia kadr, nadal jako nowy plik bez metadanych. Odpublikowanie czyści flagę i kasuje pochodną. Cache odpowiedzi mediów ma `max-age=0, must-revalidate`, więc po zdjęciu publikacji kolejny request nie dostaje obrazu. To opis zachowania systemu, nie zatwierdzenie podstawy prawnej publikacji wizerunku auta.
 - Klienta bez zleceń i wycen można usunąć. Klienta z historią nie usuwamy, bo faktury i protokół zostają.
 
 ---
@@ -881,7 +882,7 @@ Budować **pionami wartości**, nie warstwami technicznymi „najpierw cały adm
 | Stripe Invoice ≠ KSeF | księgowość Detailflow | osobna ścieżka na FV za abonament (biuro rachunkowe / KSeF operatora) |
 | Zdjęcia aut to dane biometryczno-podobne / tablice | RODO | umowa, retencja, dostęp portalowy tylko przez token |
 | Landing obiecuje import, KSeF, brak karty | produkt | albo w v1, albo usunąć z L-01 |
-| Magazyn i statystyki w menu | UX | `/inventory` z rzeczywistymi stanami i korektą (#143), `/statistics` dla ownera (#144). Portfolio nadal „Wkrótce”. |
+| Magazyn, statystyki i portfolio w menu | UX | `/inventory` (#143), `/statistics` dla ownera (#144), `/portfolio` i `/realizacje/[slug]` (#145). |
 | Brak kroków 1 i 3 wyceny/faktury w Figmie | UI | zaprojektować w kodzie wg wizardu kroku 2 |
 | Kalkulator i opinie | marketing | nie publikować fikcji |
 

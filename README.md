@@ -108,7 +108,6 @@ Role są sprawdzane **przy każdym żądaniu** na podstawie `Membership`, a nie 
 ### 1.7 Poza zakresem v1
 
 - statystyki zaawansowane (podstawowe statystyki studia są wdrożone w #144),
-- portfolio,
 - pełne Ustawienia i Konto,
 - KSeF offline,
 - panel właściciela platformy na mobile,
@@ -116,7 +115,7 @@ Role są sprawdzane **przy każdym żądaniu** na podstawie `Membership`, a nie 
 - abonament roczny,
 - tryb jasny.
 
-Katalog **Usługi i cennik** jest wdrożony (`/services`), **Magazyn chemii** działa pod `/inventory` (#143), a **Statystyki studia** pod `/statistics` (#144, tylko owner). Właściciel produktu autoryzował 29.10.2026 wykonanie wszystkich #142–#151, po jednym PR z testami i merge po zielonym CI; pozostałe moduły (#145–#151) nie są jeszcze ukończone. Płatność klienta za detailing nie jest częścią Stripe Billing. Portfolio może być widoczne w menu jako **„Wkrótce”**, nigdy jako pusty CRUD albo 404.
+Katalog **Usługi i cennik** jest wdrożony (`/services`), **Magazyn chemii** działa pod `/inventory` (#143), **Statystyki studia** pod `/statistics` (#144, tylko owner), a **Portfolio realizacji** pod `/portfolio` i `/realizacje/[slug]` (#145). Właściciel produktu autoryzował 29.10.2026 wykonanie wszystkich #142–#151, po jednym PR z testami i merge po zielonym CI; pozostałe moduły (#146–#151) nie są jeszcze ukończone. Płatność klienta za detailing nie jest częścią Stripe Billing. Brak opublikowanych zdjęć to pusty stan, nie 404.
 
 ---
 
@@ -261,7 +260,7 @@ Status opisuje **kod**, nie gotowość produkcyjną ani prawną. „Działa” z
 | Panel platformy A-01–A-10 | **Działa / Częściowo** | `/admin` na agregatach z bazy, MFA TOTP, sesja wsparcia 15 min, audyt — szczegóły w [§3.3](#33-panel-platformy-a-01a-10) i [§9.15](#915-panel-platformy-admin) | A-06, A-08 i A-09 mają udokumentowane ograniczenia |
 | Magazyn chemii `/inventory` | **Działa** | stany per studio, pełne sztuki/ml, próg i jawna korekta z powodem oraz kontrolą wersji; rzeczywisty alert na pulpicie desktop/mobile | bez automatycznego zużycia przy zleceniu; odczyt dla zespołu, zapis owner/manager z kontrolą abonamentu |
 | Statystyki studia `/statistics` | **Działa** | tylko owner: przychód z zakończonych zleceń (brutto PLN, Decimal), udział usług, obłożenie boksów 08–16, zakres dat Europe/Warsaw, „Brak danych” zamiast zer; menu desktop i Więcej | definicje w [§6.5 docs](docs/dokumentacja-wdrozenia.md#65-statystyki-studia-144--definicje-metryk); obłożenie to rezerwacje z kalendarza, bez konfiguracji godzin pracy; bez eksportu i rozbić po pracownikach |
-| Portfolio | **Brak** | menu „Wkrótce” | osobne issue (#145) |
+| Portfolio `/portfolio`, `/realizacje/[slug]` | **Działa** | ręczna publikacja owner/manager, domyślnie nic publiczne; pochodna JPEG z maską tablicy albo świadomie widoczną tablicą; pusty stan zamiast 404; odpublikowanie kasuje pochodną | oryginał S3 zostaje prywatny i nie jest podpisywany na stronie publicznej; Instagram nie wchodzi w zakres |
 | Wyszukiwarka ⌘K | **Działa** | Cmd/Ctrl+K i przyciski w topbarze oraz „Więcej”; wyniki aktywnego studia dla klientów, aut, zleceń i faktur | pracownicy nie widzą faktur; do 4 wyników na kategorię |
 | E-mail transakcyjny | **Częściowo** | auth, zaproszenia, wycena, decyzja, trial, faktura z PDF (outbox) | brak SMS; bez `SMTP_URL` w produkcji wysyłka czeka w outboxie; dostarczenie SMTP jest „co najmniej raz” |
 | Obserwacja i kopie | **Częściowo** | `/api/health` (DB i Redis), logi pino JSON, Sentry web + worker (po ustawieniu DSN), backup `pg_dump` do S3 z retencją | brak metryk i gotowych alertów; backup nie ma szyfrowania na poziomie aplikacji ani zautomatyzowanego testu odtworzenia ([§14.5](#145-backup-i-odtwarzanie)) |
@@ -1546,7 +1545,7 @@ To nie jest lista blokad „kodowych” — część pozycji wymaga decyzji, dow
 | Metryki A-06 nie mierzą dostępności MF, Stripe ani poczty | operator nie widzi realnego stanu zależności | sondy zewnętrzne i alerty (poza repo) |
 | Backup bez automatycznego testu odtwarzania i PITR | nieznany RTO/RPO | cykliczny restore na kopię, PITR w bazie zarządzanej |
 | Brak limitów planów dla liczby użytkowników; boksy tylko przez API | plany nie są w pełni egzekwowane | UI boksów i egzekwowanie limitów |
-| Poza ukończonym zakresem | — | JPK, KSeF offline, abonament roczny, płatność online klienta (osobno od Stripe Billing), portfolio, SMS, zaawansowane statystyki. Katalog usług, magazyn chemii i statystyki studia są wdrożone. Moduły #142–#151 wchodzą pojedynczo |
+| Poza ukończonym zakresem | — | JPK, KSeF offline, abonament roczny, płatność online klienta (osobno od Stripe Billing), SMS, zaawansowane statystyki. Katalog usług, magazyn chemii, statystyki studia i portfolio realizacji są wdrożone. Moduły #142–#151 wchodzą pojedynczo |
 
 ### 15.3 Znane drobne niedokończenia
 
@@ -1554,7 +1553,7 @@ To nie jest lista blokad „kodowych” — część pozycji wymaga decyzji, dow
 - przycisk „Link dla klienta” na karcie zlecenia jest „Wkrótce” (API i pulpit działają),
 - `app/p/quote-preview` to placeholder,
 - „Cała historia” na karcie klienta jest „Wkrótce”,
-- „Portfolio” pozostaje „Wkrótce”; „Usługi i cennik” jest katalogiem `/services`, „Magazyn” prowadzi do `/inventory`, a „Statystyki” (tylko owner) do `/statistics`,
+- „Usługi i cennik” jest katalogiem `/services`, „Magazyn” prowadzi do `/inventory`, „Statystyki” (tylko owner) do `/statistics`, a „Portfolio” do `/portfolio`,
 - brak przypomnień o wygasających wycenach, brak wysyłki SMS,
 - brak panelu zgłoszeń po stronie studia i wysyłki odpowiedzi supportu e-mailem.
 
@@ -1611,8 +1610,8 @@ Kolejność prac wynika z issue i faz w [`docs/dokumentacja-wdrozenia.md`](docs/
 - Faktury wystawia się po zakończeniu zlecenia; FV/41 nie powstaje z #DF-0248.
 - Portal klienta: 3 etapy, nie 4; token hashowany, surowy tylko w URL.
 - Kwoty: `Decimal`, PLN, nigdy `float`.
-- Wybrane moduły #142–#151 wchodzą pojedynczo (autoryzacja właściciela 29.10.2026, jeden PR na moduł). Wdrożone: #142, #143, #144. Jeszcze bez własnego wdrożenia: portfolio, KSeF offline, abonament roczny, płatność online klienta. Stripe Billing zostaje abonamentem Detailflow.
-- Menu: „Usługi i cennik” to katalog studia. „Magazyn” prowadzi do `/inventory`. „Statystyki” (owner) prowadzą do `/statistics`. „Portfolio” = „Wkrótce”, nie 404 i nie pusty CRUD.
+- Wybrane moduły #142–#151 wchodzą pojedynczo (autoryzacja właściciela 29.10.2026, jeden PR na moduł). Wdrożone: #142, #143, #144, #145. Jeszcze bez własnego wdrożenia: KSeF offline, abonament roczny, płatność online klienta. Stripe Billing zostaje abonamentem Detailflow.
+- Menu: „Usługi i cennik” to katalog studia. „Magazyn” prowadzi do `/inventory`. „Statystyki” (owner) prowadzą do `/statistics`. „Portfolio” prowadzi do `/portfolio`. Publiczna galeria `/realizacje/[slug]` przy braku zdjęć pokazuje pusty stan, nie 404.
 - Seed odtwarza dane makiety, żeby dało się porównać UI.
 
 ### 17.3 Stack — czego nie dodawać

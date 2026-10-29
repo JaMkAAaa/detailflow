@@ -39,7 +39,7 @@ it("labels the calculator as an estimate and updates it from the sliders", () =>
 
 it("marks out-of-v1 modules as coming soon", () => {
   render(<LandingPage />);
-  expect(within(document.getElementById("funkcje")!).getAllByText("Wkrótce")).toHaveLength(2);
+  expect(within(document.getElementById("funkcje")!).getAllByText("Wkrótce")).toHaveLength(1);
 });
 
 it("opens and closes the L-03 mobile menu", () => {

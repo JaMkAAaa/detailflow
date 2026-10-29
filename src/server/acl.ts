@@ -18,6 +18,7 @@ export const permissions = {
   "inventory:manage": ["owner", "manager"],
   "services:manage": ["owner", "manager"],
   "invoices:manage": ["owner", "manager"],
+  "portfolio:manage": ["owner", "manager"],
   "members:invite": ["owner", "manager"],
 } as const satisfies Record<string, readonly MembershipRole[]>;
 export type Permission = keyof typeof permissions;

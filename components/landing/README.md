@@ -14,8 +14,8 @@ Cennik: `/#pricing`. Wszystkie CTA → `/start`.
 
 - Brak logotypów klientów, gwiazdek i opinii. Zamiast nich „SCENARIUSZ DEMO”.
 - Cennik tylko miesięczny netto 79 / 149 / 279 zł, bez przełącznika roku.
-- Portfolio i przypomnienia o powłokach (poza v1) są oznaczone „Wkrótce” (statystyki studia są wdrożone w aplikacji, #144),
-  bez zmyślonych liczb z makiety.
+- Przypomnienia o powłokach są oznaczone „Wkrótce”. Statystyki studia (#144) i galeria realizacji (#145) są w aplikacji.
+  Landing nie obiecuje publikacji na Instagramie i nie zmyśla liczb z makiety.
 - Kalkulator to **estymacja**: założenia są w `lib/landing/savings.ts`, pokazane w UI,
   liczone na `Decimal`. Do akceptacji prawnej przed publikacją.
 - „Zobacz demo (2 min)” to placeholder — przewija do podglądu pulpitu, dopóki nie ma wideo.

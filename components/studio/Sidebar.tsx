@@ -8,8 +8,6 @@ import { KsefEnvBadge } from "@/components/ksef/KsefEnvBadge";
 import { cn } from "@/lib/utils";
 import { activeStudioItem, studioNavigation } from "./navigation";
 
-const comingSoon = [{ label: "Portfolio", icon: "portfolio" }];
-
 function NavigationIcon({ name }: { name: string }) {
   return (
     <span
@@ -140,21 +138,6 @@ export function Sidebar({
               </li>
             );
           })}
-          {comingSoon.map((item) => (
-            <li key={item.icon}>
-              <button
-                type="button"
-                disabled
-                className="flex h-[42px] w-full cursor-not-allowed items-center gap-3 rounded-lg pl-3.5 text-left text-df-muted"
-              >
-                <NavigationIcon name={item.icon} />
-                <span className="flex-1 text-df-body">{item.label}</span>
-                <span className="rounded bg-df-raised px-1 py-0.5 text-[9px]">
-                  Wkrótce
-                </span>
-              </button>
-            </li>
-          ))}
         </ul>
         <div className="pt-4">
           {current.role === "owner" && <Link href="/billing" className="block p-3 text-df-label">Abonament Detailflow</Link>}
