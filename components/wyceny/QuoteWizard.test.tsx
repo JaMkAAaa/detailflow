@@ -121,6 +121,8 @@ it("saves edited operational items and sends/resends using the same quote ID", a
     const user = userEvent.setup();
     render(<QuoteWizard studioId="studio-a" userId="user-a" clientChoices={[{ id: "real-client", name: "Klient z bazy", email: "real@example.test", vehicles: [{ id: "real-car", label: "Porsche Panamera" }] }]} />);
     await user.click(screen.getByRole("button", { name: /Dalej: wybierz usługi/ }));
+    // Step navigation moves focus in requestAnimationFrame; finish it before typing.
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("heading", { name: "Nowa wycena", level: 1 })));
     const nameInput = screen.getByLabelText("Nazwa: Korekta lakieru");
     await user.clear(nameInput);
     await user.type(nameInput, "Korekta indywidualna");
