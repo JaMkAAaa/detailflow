@@ -6,9 +6,12 @@ import { MobileOrders } from "./MobileOrders";
 import { OrdersBoard } from "./OrdersBoard";
 import { toBoardOrder, type ApiWorkOrder } from "./order-view";
 import { postOrderStatus } from "./orders-client";
+import { useRouter } from "next/navigation";
+import { OrderCreateDialog } from "./OrderCreateDialog";
 import type { OrderClientChoice, OrderServiceChoice } from "./OrderCreateDialog";
 
-export function OrdersScreen({ studioId, clients, services }: { studioId: string; clients: OrderClientChoice[]; services: OrderServiceChoice[] }) {
+export function OrdersScreen({ studioId, clients, services, createRequested = false }: { createRequested?: boolean; studioId: string; clients: OrderClientChoice[]; services: OrderServiceChoice[] }) {
+  const router = useRouter();
   const [orders, setOrders] = useState<ReturnType<typeof toBoardOrder>[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -47,6 +50,7 @@ export function OrdersScreen({ studioId, clients, services }: { studioId: string
 
   return (
     <>
+      {createRequested && <OrderCreateDialog studioId={studioId} clients={clients} services={services} onCreated={created} onClose={() => router.replace("/orders")} />}
       <div className="lg:hidden"><MobileOrders studioId={studioId} orders={orders} clients={clients} services={services} onCreated={created} /></div>
       <div className="hidden lg:block"><OrdersBoard studioId={studioId} orders={orders} clients={clients} services={services} onCreated={created} onChangeStatus={changeStatus} /></div>
     </>

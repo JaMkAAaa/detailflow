@@ -199,6 +199,7 @@ export async function getDashboardMetrics(studioId: string, now = new Date()) {
     },
     featured: featured
       ? {
+          id: featured.id,
           number: featured.number,
           vehicle: `${featured.vehicle.make} ${featured.vehicle.model}`,
           customer: featured.client.name,

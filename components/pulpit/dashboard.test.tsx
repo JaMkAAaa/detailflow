@@ -1,25 +1,28 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, expect, it, vi } from "vitest";
 import { OrdersToday } from "./orders-today";
 import { Schedule } from "./schedule";
 import { todayOrders } from "./demo";
 
-afterEach(cleanup);
+beforeAll(() => {
+  HTMLDialogElement.prototype.showModal = function () { this.setAttribute("open", ""); };
+});
+const refresh = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.clearAllMocks(); });
 
 it("filters today's orders without confusing the six rows with seven active orders", async () => {
   const user = userEvent.setup();
-  const openOrder = vi.fn();
-  render(<OrdersToday orders={todayOrders} onOpenOrder={openOrder} />);
+  render(<OrdersToday orders={todayOrders} />);
   expect(within(screen.getByRole("table")).getAllByRole("row")).toHaveLength(7);
   const inProgress = screen.getByRole("button", { name: "W trakcie 3" });
   inProgress.focus();
   await user.keyboard("{Enter}");
   expect(inProgress.getAttribute("aria-pressed")).toBe("true");
   expect(within(screen.getByRole("table")).getAllByRole("row")).toHaveLength(4);
-  await user.click(screen.getByRole("button", { name: /Porsche Panamera/ }));
-  expect(openOrder).toHaveBeenCalledWith(todayOrders[0]);
+  expect(screen.getByRole("link", { name: /Porsche Panamera/ }).getAttribute("href")).toBe("/orders/DF-0248");
   await user.click(screen.getByRole("button", { name: "Do odbioru 2" }));
   expect(screen.queryByText("Porsche Panamera")).toBeNull();
   expect(within(screen.getByRole("table")).getAllByRole("row")).toHaveLength(3);
@@ -32,14 +35,13 @@ it("offers a way back when a filter has no matches and handles an empty day", as
   const { rerender } = render(
     <OrdersToday
       orders={todayOrders.filter((order) => order.status === "scheduled")}
-      onOpenOrder={vi.fn()}
     />,
   );
   await user.click(screen.getByRole("button", { name: "W trakcie 0" }));
   expect(screen.getByRole("heading", { name: "Brak wyników" })).toBeTruthy();
   await user.click(screen.getByRole("button", { name: "Wyczyść filtry" }));
   expect(screen.getByText("BMW M4")).toBeTruthy();
-  rerender(<OrdersToday orders={[]} onOpenOrder={vi.fn()} />);
+  rerender(<OrdersToday orders={[]} />);
   expect(
     screen.getByRole("heading", { name: "Na dziś wszystko gotowe" }),
   ).toBeTruthy();
@@ -78,7 +80,7 @@ it("renders database metrics and empty states without demo alerts or cars", asyn
     featured: null,
     alerts: { coatingClients: 0, rejected: [] },
   };
-  render(<Dashboard data={data} name="Anna Testowa" />);
+  const { rerender } = render(<Dashboard studioId="studio-a" canInvoice={false} data={data} name="Anna Testowa" />);
   expect(screen.getByText("Dzień dobry, Anna.")).toBeTruthy();
   expect(screen.getByText("1 234,56 zł")).toBeTruthy();
   expect(screen.getByText("Brak alertów wymagających uwagi.")).toBeTruthy();
@@ -86,4 +88,10 @@ it("renders database metrics and empty states without demo alerts or cars", asyn
     screen.getByText("Brak aut w trakcie pracy w boksach na dziś."),
   ).toBeTruthy();
   expect(screen.queryByText(/CarPro|Porsche|Faktura odrzucona/)).toBeNull();
+  expect(screen.getByRole("link", { name: "+ Nowe zlecenie" }).getAttribute("href")).toBe("/orders?new=1");
+  expect(screen.queryByRole("link", { name: "Wystaw fakturę" })).toBeNull();
+  await userEvent.setup().click(screen.getByRole("button", { name: "Wystaw fakturę" }));
+  expect(screen.getByText("Faktury wystawia właściciel lub manager po zakończeniu zlecenia.")).toBeTruthy();
+  rerender(<Dashboard studioId="studio-a" canInvoice data={data} name="Anna Testowa" />);
+  expect(screen.getByRole("link", { name: "Wystaw fakturę" }).getAttribute("href")).toBe("/invoices/new");
 });

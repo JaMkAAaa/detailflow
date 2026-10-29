@@ -1,34 +1,18 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Kpis } from "./kpis";
 import { LiveSchedule } from "./live-schedule";
-import type { DashboardMetrics } from "@/src/server/pulpit/metrics";
+import { useDashboardActions, type DashboardProps } from "./use-dashboard-actions";
 import { OrdersToday } from "./orders-today";
-import { type TodayOrder } from "./demo";
 
-export function Dashboard({
-  data,
-  name,
-}: {
-  data: DashboardMetrics;
-  name: string;
-}) {
+export function Dashboard({ data, name, studioId, canInvoice }: DashboardProps) {
   const featured = data.featured;
   const dialog = useRef<HTMLDialogElement>(null);
-  const [notice, setNotice] = useState({ title: "", description: "" });
-  function showNotice(title: string, description: string) {
-    setNotice({ title, description });
-    dialog.current?.showModal();
-  }
-  function openOrder(order: TodayOrder) {
-    showNotice(
-      `${order.vehicle} · #${order.number}`,
-      `Szczegóły zlecenia będą dostępne wkrótce. ${order.customer} · ${order.plate} · ${order.service}.`,
-    );
-  }
+  const { notice, setNotice, busy, act } = useDashboardActions(studioId);
+  useEffect(() => { if (notice) dialog.current?.showModal(); }, [notice]);
   return (
     <div className="flex flex-col gap-6">
       <div className="flex min-h-[66px] items-center justify-between gap-4">
@@ -45,36 +29,15 @@ export function Dashboard({
           <Link href="/quotes/new" className={buttonVariants({ variant: "secondary", className: "h-10 px-[18px] text-df-label" })}>
             Nowa wycena
           </Link>
-          <Button
-            variant="secondary"
-            className="h-10 px-[18px] text-df-label"
-            onClick={() =>
-              showNotice(
-                "Wystaw fakturę",
-                "Fakturę wystawisz po zakończeniu zlecenia. Wybór zakończonego zlecenia i tworzenie faktur będą dostępne wkrótce.",
-              )
-            }
-          >
-            Wystaw fakturę
-          </Button>
-          <Button
-            className="h-10 px-[18px] text-df-label"
-            onClick={() =>
-              showNotice(
-                "Nowe zlecenie",
-                "Przyjmowanie nowych zleceń będzie dostępne wkrótce.",
-              )
-            }
-          >
-            + Nowe zlecenie
-          </Button>
+          {canInvoice ? <Link href="/invoices/new" className={buttonVariants({ variant: "secondary", className: "h-10 px-[18px] text-df-label" })}>Wystaw fakturę</Link> : <Button variant="secondary" onClick={() => setNotice({ title: "Wystaw fakturę", description: "Faktury wystawia właściciel lub manager po zakończeniu zlecenia." })}>Wystaw fakturę</Button>}
+          <Link href="/orders?new=1" className={buttonVariants({ className: "h-10 px-[18px] text-df-label" })}>+ Nowe zlecenie</Link>
         </div>
       </div>
       <Kpis data={data} />
       <div className="grid grid-cols-[minmax(0,2.016fr)_minmax(300px,1fr)] items-start gap-6">
         <div className="flex min-w-0 flex-col gap-6">
           <LiveSchedule data={data} />
-          <OrdersToday orders={data.todayOrders} onOpenOrder={openOrder} />
+          <OrdersToday orders={data.todayOrders} />
         </div>
         <div className="flex min-w-0 flex-col gap-5">
           {featured ? (
@@ -86,16 +49,10 @@ export function Dashboard({
                 <h2 id="featured-title" className="text-df-section">
                   Na warsztacie
                 </h2>
-                <button
-                  aria-label={`Opcje ${featured.vehicle}`}
-                  className="rounded px-1 text-df-muted hover:bg-df-raised"
-                  onClick={() => openOrder(featured)}
-                >
-                  •••
-                </button>
+                <Link href={`/orders/${encodeURIComponent(featured.number)}`} aria-label={`Opcje ${featured.vehicle}`} className="rounded px-1 text-df-muted hover:bg-df-raised">•••</Link>
               </div>
               <div className="h-11">
-                <h3 className="text-df-section">{featured.vehicle}</h3>
+                <h3 className="text-df-section"><Link href={`/orders/${encodeURIComponent(featured.number)}`}>{featured.vehicle}</Link></h3>
                 <p className="mt-0.5 text-df-label text-df-muted">
                   #{featured.number} · {featured.customer} · {featured.bay}
                 </p>
@@ -133,25 +90,8 @@ export function Dashboard({
                 </p>
               </div>
               <div className="flex gap-2.5">
-                <Button
-                  variant="secondary"
-                  className="h-[38px] min-w-0 flex-1 px-2 text-df-label"
-                  onClick={() => openOrder(featured)}
-                >
-                  Szczegóły zlecenia
-                </Button>
-                <Button
-                  variant="secondary"
-                  className="h-[38px] min-w-0 flex-1 px-2 text-df-label"
-                  onClick={() =>
-                    showNotice(
-                      "Link dla klienta",
-                      "Portal klienta będzie dostępny wkrótce.",
-                    )
-                  }
-                >
-                  Link dla klienta ↗
-                </Button>
+                <Link href={`/orders/${encodeURIComponent(featured.number)}`} className={buttonVariants({ variant: "secondary", className: "h-[38px] min-w-0 flex-1 px-2 text-df-label" })}>Szczegóły zlecenia</Link>
+                <Button variant="secondary" disabled={busy} className="h-[38px] min-w-0 flex-1 px-2 text-df-label" onClick={() => act(featured.id, "portal-links")}>Link dla klienta ↗</Button>
               </div>
             </section>
           ) : (
@@ -212,18 +152,19 @@ export function Dashboard({
       </div>
       <dialog
         ref={dialog}
+        onClose={() => setNotice(null)}
         aria-labelledby="dashboard-dialog-title"
         aria-describedby="dashboard-dialog-description"
         className="fixed inset-0 m-auto w-[440px] max-w-[calc(100%-32px)] rounded-xl border border-df-line bg-df-panel p-6 text-df-text backdrop:bg-black/60"
       >
         <h2 id="dashboard-dialog-title" className="text-df-section">
-          {notice.title}
+          {notice?.title}
         </h2>
         <p
           id="dashboard-dialog-description"
           className="mt-3 text-df-body text-df-muted"
         >
-          {notice.description}
+          {notice?.description}
         </p>
         <form method="dialog" className="mt-5 flex justify-end">
           <Button type="submit" variant="secondary">

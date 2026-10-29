@@ -15,10 +15,8 @@ const filters = [
 
 export function OrdersToday({
   orders,
-  onOpenOrder,
 }: {
   orders: TodayOrder[];
-  onOpenOrder: (order: TodayOrder) => void;
 }) {
   const [filter, setFilter] = useState<string>("all");
   const visible = orders.filter(
@@ -97,8 +95,8 @@ export function OrdersToday({
             {visible.map((order) => (
               <tr key={order.number} className="h-[59px]">
                 <td className="pr-2">
-                  <button
-                    onClick={() => onOpenOrder(order)}
+                  <Link
+                    href={`/orders/${encodeURIComponent(order.number)}`}
                     className="text-left hover:text-df-lime"
                   >
                     <span className="block text-df-strong">
@@ -107,7 +105,7 @@ export function OrdersToday({
                     <span className="mt-px block text-df-label text-df-muted">
                       {order.customer} · {order.plate}
                     </span>
-                  </button>
+                  </Link>
                 </td>
                 <td className="pr-2 text-df-body text-df-muted">
                   {order.service}
