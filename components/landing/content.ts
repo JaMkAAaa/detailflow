@@ -57,7 +57,6 @@ export const mainFeatures: readonly Feature[] = [
 /** Moduły poza v1 — pokazujemy je jako „Wkrótce”, bez fikcyjnych liczb. */
 export const soonFeatures = [
   { title: "Przypomnienia o powłokach", text: "Ceramika po 6 miesiącach? Klient dostanie przypomnienie i zarezerwuje konserwację jednym kliknięciem." },
-  { title: "Statystyki, które coś mówią", text: "Przychód, najpopularniejsze usługi, obłożenie boksów i powracający klienci. Bez formuł." },
   { title: "Portfolio jednym kliknięciem", text: "Zakończone zlecenia trafią do galerii na stronę studia lub Instagram." },
 ] as const;
 

@@ -107,7 +107,7 @@ Role są sprawdzane **przy każdym żądaniu** na podstawie `Membership`, a nie 
 
 ### 1.7 Poza zakresem v1
 
-- statystyki zaawansowane,
+- statystyki zaawansowane (podstawowe statystyki studia są wdrożone w #144),
 - portfolio,
 - pełne Ustawienia i Konto,
 - KSeF offline,
@@ -116,7 +116,7 @@ Role są sprawdzane **przy każdym żądaniu** na podstawie `Membership`, a nie 
 - abonament roczny,
 - tryb jasny.
 
-Katalog **Usługi i cennik** jest wdrożony (`/services`), a **Magazyn chemii** działa pod `/inventory` (#143). Pozostałe moduły z listy są wybrane i wchodzą pojedynczo — brak jednej pozycji nie oznacza, że cała seria #142–#151 jest ukończona. Płatność klienta za detailing nie jest częścią Stripe Billing. Statystyki i portfolio mogą być widoczne w menu jako **„Wkrótce”**, nigdy jako pusty CRUD albo 404.
+Katalog **Usługi i cennik** jest wdrożony (`/services`), **Magazyn chemii** działa pod `/inventory` (#143), a **Statystyki studia** pod `/statistics` (#144, tylko owner). Właściciel produktu autoryzował 29.10.2026 wykonanie wszystkich #142–#151, po jednym PR z testami i merge po zielonym CI; pozostałe moduły (#145–#151) nie są jeszcze ukończone. Płatność klienta za detailing nie jest częścią Stripe Billing. Portfolio może być widoczne w menu jako **„Wkrótce”**, nigdy jako pusty CRUD albo 404.
 
 ---
 
@@ -260,7 +260,8 @@ Status opisuje **kod**, nie gotowość produkcyjną ani prawną. „Działa” z
 | Zdjęcia i protokół | **Działa** | presigned upload, S3, protokół, akceptacja w studiu i w portalu, sprzątanie niepotwierdzonych uploadów (24 h) | potwierdzone zdjęcia nie mają automatycznej retencji |
 | Panel platformy A-01–A-10 | **Działa / Częściowo** | `/admin` na agregatach z bazy, MFA TOTP, sesja wsparcia 15 min, audyt — szczegóły w [§3.3](#33-panel-platformy-a-01a-10) i [§9.15](#915-panel-platformy-admin) | A-06, A-08 i A-09 mają udokumentowane ograniczenia |
 | Magazyn chemii `/inventory` | **Działa** | stany per studio, pełne sztuki/ml, próg i jawna korekta z powodem oraz kontrolą wersji; rzeczywisty alert na pulpicie desktop/mobile | bez automatycznego zużycia przy zleceniu; odczyt dla zespołu, zapis owner/manager z kontrolą abonamentu |
-| Statystyki/portfolio | **Brak** | menu „Wkrótce” | osobne issue |
+| Statystyki studia `/statistics` | **Działa** | tylko owner: przychód z zakończonych zleceń (brutto PLN, Decimal), udział usług, obłożenie boksów 08–16, zakres dat Europe/Warsaw, „Brak danych” zamiast zer; menu desktop i Więcej | definicje w [§6.5 docs](docs/dokumentacja-wdrozenia.md#65-statystyki-studia-144--definicje-metryk); obłożenie to rezerwacje z kalendarza, bez konfiguracji godzin pracy; bez eksportu i rozbić po pracownikach |
+| Portfolio | **Brak** | menu „Wkrótce” | osobne issue (#145) |
 | Wyszukiwarka ⌘K | **Działa** | Cmd/Ctrl+K i przyciski w topbarze oraz „Więcej”; wyniki aktywnego studia dla klientów, aut, zleceń i faktur | pracownicy nie widzą faktur; do 4 wyników na kategorię |
 | E-mail transakcyjny | **Częściowo** | auth, zaproszenia, wycena, decyzja, trial, faktura z PDF (outbox) | brak SMS; bez `SMTP_URL` w produkcji wysyłka czeka w outboxie; dostarczenie SMTP jest „co najmniej raz” |
 | Obserwacja i kopie | **Częściowo** | `/api/health` (DB i Redis), logi pino JSON, Sentry web + worker (po ustawieniu DSN), backup `pg_dump` do S3 z retencją | brak metryk i gotowych alertów; backup nie ma szyfrowania na poziomie aplikacji ani zautomatyzowanego testu odtworzenia ([§14.5](#145-backup-i-odtwarzanie)) |
@@ -1120,7 +1121,20 @@ Assety: logo Flowcut w `branding/`, ikony i zdjęcia demo w `public/`; część 
 - `PATCH /api/studios/:studioId/inventory/:chemicalId`: jawna korekta `{quantity, lowThreshold, version, reason}`. To nowy zmierzony stan, nie przyrost. Jedno atomowe UPDATE z warunkiem wersji chroni przed utratą równoczesnej korekty; konflikt 409 wymaga odświeżenia. Cudzy i nieistniejący rekord dają ten sam 404. Zapisy wymagają sesji, roli, Origin i limitu API; UI używa Server Actions z takimi samymi kontrolami dostępu i Origin.
 - Pulpit desktop, mobile i dzwonek czytają rzeczywiste pozycje z ilością ≤ progu z tego samego studia; po uzupełnieniu alert znika. Zachowany jest ostatni powód korekty, bez deklaracji pełnego dziennika magazynowego.
 
-Migracja `20261029140000_chemical_inventory` wyłącznie dodaje enum, tabelę, indeks i ograniczenia; nie usuwa ani nie zmienia istniejących danych. #144–#151 i epik #115 pozostają osobnym zakresem.
+Migracja `20261029140000_chemical_inventory` wyłącznie dodaje enum, tabelę, indeks i ograniczenia; nie usuwa ani nie zmienia istniejących danych. #145–#151 i epik #115 pozostają osobnym zakresem.
+
+---
+
+### 9.18 Statystyki studia (#144)
+
+Widok właściciela `/statistics` czyta zlecenia i boksy tylko przez `studioDb(studioId)`; to nie jest panel platformy A-05. Uprawnienie `stats:read` ma wyłącznie owner. Manager i worker dostają 404 na stronie, 403 w API i nie widzą pozycji w menu. Blokada billingowa nie wyłącza odczytu.
+
+- `GET /api/studios/:studioId/statistics?from=YYYY-MM-DD&to=YYYY-MM-DD` zwraca `{ range, revenue, services, occupancy }` z kwotami PLN jako stringi (`"1100.20"`) i procentami z jednym miejscem po przecinku. Nagłówek `Cache-Control: private, no-store`. Brak sesji → 401, brak roli ownera lub cudze studio → 403, zły zakres → 400.
+- Zakres to włączne dni Europe/Warsaw (domyślnie od 1. dnia miesiąca do dziś, maks. 366 dni). Strona używa tych samych parametrów w formularzu GET i trzech gotowych zakresach.
+- Puste miesiące, brak zakończonych zleceń albo brak rezerwacji boksów dają `null` / `hasData: false`, a UI „Brak danych” — nigdy 0 zł ani 0% jako pomiar.
+- Definicje przychodu (brutto z `WorkOrder.totalGross`, bez faktur), udziału usług i obłożenia (08–16, unia rezerwacji) opisuje [docs §6.5](docs/dokumentacja-wdrozenia.md#65-statystyki-studia-144--definicje-metryk).
+
+Bez migracji i bez zmian w danych. Nadal poza zakresem: eksport, rozbicia po pracownikach i klientach, konfiguracja godzin pracy, #145–#151 oraz epik #115.
 
 ---
 
@@ -1532,7 +1546,7 @@ To nie jest lista blokad „kodowych” — część pozycji wymaga decyzji, dow
 | Metryki A-06 nie mierzą dostępności MF, Stripe ani poczty | operator nie widzi realnego stanu zależności | sondy zewnętrzne i alerty (poza repo) |
 | Backup bez automatycznego testu odtwarzania i PITR | nieznany RTO/RPO | cykliczny restore na kopię, PITR w bazie zarządzanej |
 | Brak limitów planów dla liczby użytkowników; boksy tylko przez API | plany nie są w pełni egzekwowane | UI boksów i egzekwowanie limitów |
-| Poza ukończonym zakresem | — | JPK, KSeF offline, abonament roczny, płatność online klienta (osobno od Stripe Billing), statystyki, portfolio, SMS. Katalog usług i magazyn chemii są wdrożone. Moduły #142–#151 wchodzą pojedynczo |
+| Poza ukończonym zakresem | — | JPK, KSeF offline, abonament roczny, płatność online klienta (osobno od Stripe Billing), portfolio, SMS, zaawansowane statystyki. Katalog usług, magazyn chemii i statystyki studia są wdrożone. Moduły #142–#151 wchodzą pojedynczo |
 
 ### 15.3 Znane drobne niedokończenia
 
@@ -1540,7 +1554,7 @@ To nie jest lista blokad „kodowych” — część pozycji wymaga decyzji, dow
 - przycisk „Link dla klienta” na karcie zlecenia jest „Wkrótce” (API i pulpit działają),
 - `app/p/quote-preview` to placeholder,
 - „Cała historia” na karcie klienta jest „Wkrótce”,
-- „Statystyki” i „Portfolio” pozostają „Wkrótce”; „Usługi i cennik” jest katalogiem `/services`, a „Magazyn” prowadzi do `/inventory`,
+- „Portfolio” pozostaje „Wkrótce”; „Usługi i cennik” jest katalogiem `/services`, „Magazyn” prowadzi do `/inventory`, a „Statystyki” (tylko owner) do `/statistics`,
 - brak przypomnień o wygasających wycenach, brak wysyłki SMS,
 - brak panelu zgłoszeń po stronie studia i wysyłki odpowiedzi supportu e-mailem.
 
@@ -1597,8 +1611,8 @@ Kolejność prac wynika z issue i faz w [`docs/dokumentacja-wdrozenia.md`](docs/
 - Faktury wystawia się po zakończeniu zlecenia; FV/41 nie powstaje z #DF-0248.
 - Portal klienta: 3 etapy, nie 4; token hashowany, surowy tylko w URL.
 - Kwoty: `Decimal`, PLN, nigdy `float`.
-- Wybrane moduły #142–#151 wchodzą pojedynczo. Jeszcze bez własnego wdrożenia: statystyki, portfolio, KSeF offline, abonament roczny, płatność online klienta. Stripe Billing zostaje abonamentem Detailflow.
-- Menu: „Usługi i cennik” to katalog studia. „Magazyn” prowadzi do `/inventory`. „Statystyki / Portfolio” = „Wkrótce”, nie 404 i nie pusty CRUD.
+- Wybrane moduły #142–#151 wchodzą pojedynczo (autoryzacja właściciela 29.10.2026, jeden PR na moduł). Wdrożone: #142, #143, #144. Jeszcze bez własnego wdrożenia: portfolio, KSeF offline, abonament roczny, płatność online klienta. Stripe Billing zostaje abonamentem Detailflow.
+- Menu: „Usługi i cennik” to katalog studia. „Magazyn” prowadzi do `/inventory`. „Statystyki” (owner) prowadzą do `/statistics`. „Portfolio” = „Wkrótce”, nie 404 i nie pusty CRUD.
 - Seed odtwarza dane makiety, żeby dało się porównać UI.
 
 ### 17.3 Stack — czego nie dodawać

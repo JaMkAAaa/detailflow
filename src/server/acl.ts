@@ -8,6 +8,7 @@ export { AccessError } from "./access-error";
 export const permissions = {
   "billing:manage": ["owner"],
   "studio:settings": ["owner"],
+  "stats:read": ["owner"],
   "studio:select": ["owner", "manager", "worker"],
   "studio:read": ["owner", "manager", "worker"],
   "orders:write": ["owner", "manager", "worker"],

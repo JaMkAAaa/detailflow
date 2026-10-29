@@ -8,10 +8,7 @@ import { KsefEnvBadge } from "@/components/ksef/KsefEnvBadge";
 import { cn } from "@/lib/utils";
 import { activeStudioItem, studioNavigation } from "./navigation";
 
-const comingSoon = [
-  { label: "Statystyki", icon: "statystyki" },
-  { label: "Portfolio", icon: "portfolio" },
-];
+const comingSoon = [{ label: "Portfolio", icon: "portfolio" }];
 
 function NavigationIcon({ name }: { name: string }) {
   return (
@@ -114,6 +111,8 @@ export function Sidebar({
           {studioNavigation.map((item) => {
             if ((item.href === "/invoices" || item.href === "/services") && current.role === "worker")
               return null;
+            // Statystyki studia widzi tylko właściciel (permission stats:read).
+            if (item.href === "/statistics" && current.role !== "owner") return null;
             const selected = active?.href === item.href;
             return (
               <li key={item.href}>

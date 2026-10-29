@@ -57,7 +57,7 @@ export function PricingSection() {
             </li>
           ))}
         </ul>
-        <p className="text-center text-df-label text-df-muted">Statystyki i portfolio są w przygotowaniu — nie wchodzą w zakres planów na start.</p>
+        <p className="text-center text-df-label text-df-muted">Portfolio jest w przygotowaniu — nie wchodzi w zakres planów na start.</p>
       </Container>
     </section>
   );

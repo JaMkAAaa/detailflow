@@ -12,6 +12,8 @@ Definicje KPI v1:
 - Przychód miesiąca: suma `WorkOrder.totalGross` dla `completed`, według
   `completedAt` w miesiącu kalendarzowym Europe/Warsaw. To wartość wykonanych
   usług brutto, nie wpływy na konto, Stripe ani suma faktur TEST/PROD.
+  Ekran `/statistics` (#144) używa tej samej definicji przychodu dla dowolnego zakresu dat
+  (`src/server/statystyki/statistics.ts`, docs §6.5).
 - Aktywne: `accepted`, `in_progress`, `ready_for_pickup`, niezależnie od terminu.
   `completed` i `canceled` są wykluczone.
 - Obłożenie: suma unii przedziałów aktywnych zleceń w każdym boksie na dziś,

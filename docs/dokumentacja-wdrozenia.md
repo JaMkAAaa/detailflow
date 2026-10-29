@@ -131,7 +131,7 @@ Fikcyjne opinie i logotypy klientów **nie idą na produkcję**. Zastępujemy je
 | D-09 | Faktury / Szczegóły i KSeF | Podgląd FV, numer KSeF, historia wysyłki, UPO XML, PDF, korekta |
 | D-10 | Faktury / Wymagają uwagi | Odrzucenia KSeF, zaległości, błędy NIP |
 
-Nawigacja sidebara (IA docelowa): Pulpit, Kalendarz, Zlecenia, Faktury, Klienci i auta, Usługi i cennik, Magazyn, Statystyki, Portfolio. **Usługi i cennik** to katalog studia. Magazyn chemii jest ekranem `/inventory` (#143). Statystyki, Portfolio i pełne Ustawienia/Konto pozostają „wkrótce” albo poza ukończonym zakresem — nie jako puste moduły.
+Nawigacja sidebara (IA docelowa): Pulpit, Kalendarz, Zlecenia, Faktury, Klienci i auta, Usługi i cennik, Magazyn, Statystyki, Portfolio. **Usługi i cennik** to katalog studia. Magazyn chemii jest ekranem `/inventory` (#143). **Statystyki** to ekran właściciela `/statistics` (#144, widoczny w menu tylko dla ownera). Portfolio i pełne Ustawienia/Konto pozostają „wkrótce” albo poza ukończonym zakresem — nie jako puste moduły.
 
 Akcje globalne pulpitu (wersja po audycie): **Nowa wycena**, **Wystaw fakturę**, **+ Nowe zlecenie**, paleta ⌘K.
 
@@ -360,7 +360,7 @@ Prototyp wprost to oznacza:
 ### 6.3 Poza ukończonym zakresem
 
 - Automatyczne zużycie chemii przy zleceniu (brak wiarygodnych receptur); magazyn z ręczną korektą i rzeczywistym alertem jest wdrożony w #143.
-- Statystyki zaawansowane, Portfolio, pełne Ustawienia i Konto.
+- Statystyki zaawansowane (rozbicia po pracownikach, klientach, kohorty, eksport) — podstawowe statystyki studia są wdrożone w #144. Portfolio, pełne Ustawienia i Konto.
 - KSeF offline.
 - Panel właściciela na mobile.
 - Płatność klienta online za usługę (Stripe Checkout B2C) — można dodać po v1.
@@ -369,7 +369,23 @@ Prototyp wprost to oznacza:
 
 ### 6.4 Moduły wybrane, wdrażane pojedynczo
 
-Issue #142–#151 są wybrane i wchodzą po technicznych zależnościach, jedno na PR. Katalog usług (#142) i magazyn chemii (#143) są w aplikacji. Magazyn przechowuje pełne sztuki lub ml jako Int (0–2 000 000 000), per studioId; bez zaokrągleń i automatycznego zużycia przy zleceniu. Korekta ustawia zmierzony stan i próg, wymaga powodu oraz aktualnej wersji; konflikt współbieżny zwraca 409. Niski stan to ilość ≤ próg, także zero; alert znika po uzupełnieniu. Wszyscy członkowie studia czytają stany, owner/manager zapisuje zgodnie z blokadą billingową. Pozostałe pozycje z tej serii nie są przez to ukończone. Stripe Billing zostaje abonamentem Detailflow i nie obsługuje płatności klienta za detailing.
+Issue #142–#151 są wybrane i wchodzą po technicznych zależnościach, jedno na PR. Właściciel produktu autoryzował 29.10.2026 wykonanie wszystkich (z testami i merge po zielonym CI); etykieta „Poza v1” ani `blocked` nie jest już blokadą zakresu, ale zależności techniczne trzeba sprawdzić. Katalog usług (#142), magazyn chemii (#143) i statystyki studia (#144) są w aplikacji (§6.5). Magazyn przechowuje pełne sztuki lub ml jako Int (0–2 000 000 000), per studioId; bez zaokrągleń i automatycznego zużycia przy zleceniu. Korekta ustawia zmierzony stan i próg, wymaga powodu oraz aktualnej wersji; konflikt współbieżny zwraca 409. Niski stan to ilość ≤ próg, także zero; alert znika po uzupełnieniu. Wszyscy członkowie studia czytają stany, owner/manager zapisuje zgodnie z blokadą billingową. Pozostałe pozycje z tej serii (#145–#151) nie są przez to ukończone. Stripe Billing zostaje abonamentem Detailflow i nie obsługuje płatności klienta za detailing.
+
+### 6.5 Statystyki studia (#144) — definicje metryk
+
+Ekran `/statistics` i `GET /api/studios/:studioId/statistics?from=YYYY-MM-DD&to=YYYY-MM-DD` to statystyki **jednego studia** dla ownera (`stats:read`), nie panel platformy A-05. Kod: `src/server/statystyki/statistics.ts`. Wszystkie zapytania idą przez `studioDb(studioId)`; manager i worker dostają 404 (strona) lub 403 (API), a menu nie pokazuje im pozycji.
+
+**Zakres dat.** `from` i `to` to włączne dni kalendarzowe Europe/Warsaw. Zakres to przedział półotwarty `[północ Warszawy `from`, północ Warszawy po `to`)`, więc dni DST mają 23 lub 25 godzin, a zlecenie zakończone o 23:59:59 trafia do ostatniego dnia miesiąca. Brak parametrów = od 1. dnia bieżącego miesiąca do dziś. Maksymalnie 366 dni; zła data, odwrócony lub zbyt długi zakres → 400 (UI pokazuje komunikat i bieżący miesiąc). Studio demo Obsidian używa tego samego zegara co pulpit (24.10.2026, 11:30).
+
+**Przychód.** Suma `WorkOrder.totalGross` (brutto PLN, `Decimal(12,2)`, sumowana jako `Decimal`) zleceń ze statusem `completed` i `completedAt` w zakresie. To wartość wykonanych usług, ta sama definicja co KPI „Przychód” na pulpicie (dla tego samego miesiąca liczby są równe — pilnuje tego test). Nie jest to wpływ na konto, Stripe, ani suma faktur KSeF: faktury, korekty i `Quote` nie są joinowane ani dodawane, więc zlecenie z fakturą i korektą liczy się raz. Anulowane i aktywne zlecenia nie wchodzą do przychodu; `completed` bez `completedAt` nie da się przypisać do okresu i jest pomijane. Wykres miesięczny dzieli te same zlecenia po miesiącach Warszawy; miesiąc przycięty zakresem jest oznaczony „część miesiąca”.
+
+**Udział usług.** Te same zakończone zlecenia pogrupowane po etykiecie `WorkOrder.service` (spacje scalone, bez rozróżniania wielkości liter). Etykieta jest tekstem zlecenia (przy zleceniu z wyceny to pozycje wyceny połączone przecinkami), więc pakiet „Korekta, Ceramika” to osobna pozycja od „Ceramika”. Jedno zlecenie trafia do jednej pozycji: udziały zleceń sumują się do 100%, a przychód nie jest rozdzielany po `QuoteItem` (mnożniki i zaokrąglenia dałyby sumę ≠ przychód). Pokazujemy 8 największych pozycji i „Pozostałe usługi”; udział w przychodzie jest pusty, gdy przychód wynosi 0 zł.
+
+**Obłożenie boksów.** Zarezerwowany czas boksów: rezerwacje `WorkOrder` z `bayId` i statusem innym niż `canceled` (także zakończone), przycięte do okna 08:00–16:00 Warszawy w każdym dniu zakresu, jako suma przedziałów (nakładające się rezerwacje w jednym boksie liczą się raz) podzielona przez `liczba boksów × liczba dni × 8 h`. Okno 08–16 jest tym samym założeniem co na pulpicie, dopóki nie ma konfiguracji godzin pracy; weekendy wchodzą do pojemności. Pulpit liczy dziś tylko zlecenia aktywne, statystyki — wszystkie nieanulowane, więc dla bieżącego dnia wartości mogą się różnić. To rezerwacje z kalendarza, nie pomiar faktycznej obecności auta.
+
+**Brak danych zamiast zer.** Metryka nie ma danych, gdy brak jej zdarzeń źródłowych: przychód i udział usług — brak zakończonych zleceń w zakresie (dotyczy też pojedynczych miesięcy); obłożenie — brak boksów albo brak jakiejkolwiek rezerwacji z boksem w zakresie. API zwraca wtedy `null`/`hasData: false`, a UI „Brak danych”. Zakończone zlecenia o wartości 0 zł to realny pomiar 0,00 zł.
+
+**Bez migracji.** #144 nie zmienia schematu bazy. Testy: `src/server/statystyki/*.test.ts` (granice miesięcy i DST, 23/25-godzinne dni, `completed` vs `canceled`/aktywne, brak podwójnego liczenia z fakturami, dwa tenanty, autoryzacja API), `components/statystyki`, `e2e/statistics.spec.ts` (desktop i mobile).
 
 ---
 
@@ -777,6 +793,7 @@ APP_URL=https://app.detailflow.pl
 | D-05 | `/customers`, `/customers/[id]` |
 | D-06 | `/quotes/new` |
 | D-07–D-10 | `/invoices`, `/invoices/new`, `/invoices/[number]`, `/invoices/attention` |
+| Statystyki studia (#144, owner) | `/statistics` |
 | M-* | te same trasy, layout mobilny |
 | P-01/P-02 | `/p/[token]` |
 | A-01–A-08 | `/admin`, `/admin/studios`, `/admin/subscriptions`, … |
@@ -864,7 +881,7 @@ Budować **pionami wartości**, nie warstwami technicznymi „najpierw cały adm
 | Stripe Invoice ≠ KSeF | księgowość Detailflow | osobna ścieżka na FV za abonament (biuro rachunkowe / KSeF operatora) |
 | Zdjęcia aut to dane biometryczno-podobne / tablice | RODO | umowa, retencja, dostęp portalowy tylko przez token |
 | Landing obiecuje import, KSeF, brak karty | produkt | albo w v1, albo usunąć z L-01 |
-| Magazyn w menu | UX | `/inventory` z rzeczywistymi stanami i korektą (#143). Statystyki i Portfolio nadal „Wkrótce”. |
+| Magazyn i statystyki w menu | UX | `/inventory` z rzeczywistymi stanami i korektą (#143), `/statistics` dla ownera (#144). Portfolio nadal „Wkrótce”. |
 | Brak kroków 1 i 3 wyceny/faktury w Figmie | UI | zaprojektować w kodzie wg wizardu kroku 2 |
 | Kalkulator i opinie | marketing | nie publikować fikcji |
 
