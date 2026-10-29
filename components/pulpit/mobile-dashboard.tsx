@@ -2,8 +2,11 @@
 
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Sheet } from "@/components/studio/Sheet";
+import { PhotoFileButton } from "@/components/zlecenia/photo-file-button";
+import { uploadOrderPhoto } from "@/components/zlecenia/order-media";
 import type { DashboardMetrics } from "@/src/server/pulpit/metrics";
 import { useDashboardActions, type DashboardProps } from "./use-dashboard-actions";
 
@@ -35,14 +38,30 @@ function Icon({ children, size }: { children: ReactNode; size: number }) {
 }
 
 export function MobileDashboard({ data, name, studioId }: DashboardProps) {
+  const router = useRouter();
   const { notice, setNotice, busy, act } = useDashboardActions(studioId);
   const [notifications, setNotifications] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
   const featured = data.featured;
   const date = data.dateLabel.replace(/\s\d{4}$/, "");
   const orders = data.todayOrders.filter((order) => order.number !== featured?.number);
   const alerts = data.alerts;
   const stageName = featured ? STAGES[featured.stage - 1] : undefined;
   const nextStage = featured ? STAGES[featured.stage] : undefined;
+
+  async function uploadFeatured(files: File[]) {
+    if (!featured) return;
+    setPhotoBusy(true);
+    try {
+      for (const file of files) await uploadOrderPhoto({ studioId, workOrderId: featured.id, file, stage: featured.stage });
+      setNotice({ title: "Zdjęcie dodane", description: "Zdjęcie jest na karcie zlecenia." });
+      router.refresh();
+    } catch (error) {
+      setNotice({ title: "Nie udało się dodać zdjęcia", description: error instanceof Error ? error.message : "Spróbuj ponownie." });
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -122,15 +141,18 @@ export function MobileDashboard({ data, name, studioId }: DashboardProps) {
               >
                 Zakończ: {stageName}
               </button>
-              <Link
-                href={`/orders/${encodeURIComponent(featured.number)}?tab=zdjecia`}
-                className="flex h-11 items-center justify-center gap-2 rounded-[14px] bg-df-raised px-[18px] text-[15px] font-semibold"
+              <PhotoFileButton
+                ariaLabel="Zdjęcie"
+                capture
+                disabled={photoBusy}
+                onFiles={(files) => void uploadFeatured(files)}
+                className="flex h-11 cursor-pointer items-center justify-center gap-2 rounded-[14px] bg-df-raised px-[18px] text-[15px] font-semibold"
               >
                 <Icon size={18}>
                   <path d="M4 8h3l1.5-2h7L17 8h3v11H4V8ZM12 16.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" />
                 </Icon>
-                Zdjęcie
-              </Link>
+                {photoBusy ? "Wgrywanie…" : "Zdjęcie"}
+              </PhotoFileButton>
             </div>
           </div>
         </section>

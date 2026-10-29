@@ -18,7 +18,7 @@ export type ApiWorkOrder = {
   vehicle: { id: string; make: string; model: string; plate: string };
   bay: { name: string } | null;
   quote?: { status: string; totalGross?: string | number | { toString(): string }; items?: { name: string; basePrice: string | number | { toString(): string } }[] } | null;
-  intake?: { number: string; createdAt: string | Date; acceptedAt: string | Date | null; createdBy?: { name: string | null } | null; damages: { no: number; title: string; part: string; size: string | null; photoId: string | null }[] } | null;
+  intake?: { number: string; createdAt: string | Date; acceptedAt: string | Date | null; createdBy?: { name: string | null } | null; damages: { no: number; title: string; part: string; size: string | null; posX?: number; posY?: number; photoId: string | null }[] } | null;
   photos?: { id: string; no: number; caption: string | null; stage: number; uploadedAt: string | Date | null }[];
   events?: { createdAt: string | Date; fromStatus: OrderStatus | null; toStatus: OrderStatus; fromStage: number | null; toStage: number; actor: { name: string | null } | null }[];
 };
@@ -95,10 +95,16 @@ export function toOrderDetails(order: ApiWorkOrder): OrderDetailsData {
       at: intake ? iso(intake.createdAt) : iso(order.scheduledFrom),
       by: intake?.createdBy?.name ?? "—",
       acceptedAt: intake?.acceptedAt ? iso(intake.acceptedAt) : "",
-      damages: intake?.damages.map((damage) => ({ no: damage.no, title: damage.title, part: damage.part, size: damage.size ?? "—", photo: damage.photoId ? order.photos?.find((photo) => photo.id === damage.photoId)?.no : undefined })) ?? [],
+      damages: intake?.damages.map((damage) => ({
+        no: damage.no, title: damage.title, part: damage.part, size: damage.size ?? "—",
+        x: typeof damage.posX === "number" ? damage.posX : undefined,
+        y: typeof damage.posY === "number" ? damage.posY : undefined,
+        photoId: damage.photoId ?? undefined,
+        photo: damage.photoId ? order.photos?.find((photo) => photo.id === damage.photoId)?.no : undefined,
+      })) ?? [],
     },
     photos: (order.photos ?? []).filter((photo) => photo.uploadedAt).map((photo) => ({
-      no: photo.no, at: iso(photo.uploadedAt!), caption: photo.caption ?? `Zdjęcie ${photo.no}`,
+      id: photo.id, no: photo.no, at: iso(photo.uploadedAt!), caption: photo.caption ?? `Zdjęcie ${photo.no}`,
       stage: stageNames[photo.stage - 1] ?? `Etap ${photo.stage}`,
     })),
     history: events.map(eventForOrder),

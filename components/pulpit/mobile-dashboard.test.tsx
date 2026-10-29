@@ -79,7 +79,7 @@ it("renders the workshop card with the current stage, finish and camera actions"
   expect(screen.getByText("Etap 2 z 4 · Korekta lakieru")).toBeTruthy();
   expect(screen.getByText("Dalej: Aplikacja ceramiki")).toBeTruthy();
   expect(screen.getByRole("progressbar").getAttribute("aria-valuenow")).toBe("2");
-  expect(screen.getByRole("link", { name: "Zdjęcie" }).getAttribute("href")).toBe("/orders/DF-0248?tab=zdjecia");
+  expect(screen.getByLabelText("Zdjęcie").getAttribute("type")).toBe("file");
   const fetcher = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
   vi.stubGlobal("fetch", fetcher);
   await user.click(screen.getByRole("button", { name: "Zakończ: Korekta lakieru" }));
@@ -110,6 +110,24 @@ it("shows the same dashboard alerts under the bell and links day rows to orders"
   expect(screen.getByRole("link", { name: "Audi Q5" }).getAttribute("href")).toBe("/orders/DF-0249");
   await userEvent.setup().click(screen.getByRole("button", { name: "Powiadomienia" }));
   expect(within(screen.getByRole("dialog", { name: "Powiadomienia" })).getByRole("link", { name: /Serwis ceramiki/ }).getAttribute("href")).toBe("/customers");
+});
+
+it("uploads a workshop photo through the same presigned flow and shows a confirm error", async () => {
+  const user = userEvent.setup();
+  const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (url === "/api/studios/studio-a/orders/order-a/photos" && init?.method === "POST") {
+      return { ok: false, status: 400, json: async () => ({ error: "Zdjęcie może mieć maksymalnie 20 MB." }) };
+    }
+    return { ok: true, json: async () => ({}) };
+  });
+  vi.stubGlobal("fetch", fetcher);
+  render(<MobileDashboard studioId="studio-a" canInvoice={false} data={data} name="Michał Kowalski" />);
+  const file = new File([new Uint8Array(4)], "hala.jpg", { type: "image/jpeg" });
+  await user.upload(screen.getByLabelText("Zdjęcie"), file);
+  expect(await screen.findByText("Zdjęcie może mieć maksymalnie 20 MB.")).toBeTruthy();
+  expect(fetcher).toHaveBeenCalledWith("/api/studios/studio-a/orders/order-a/photos", expect.objectContaining({ method: "POST" }));
+  expect(refresh).not.toHaveBeenCalled();
 });
 
 it("keeps the order context on a failed stage advance", async () => {

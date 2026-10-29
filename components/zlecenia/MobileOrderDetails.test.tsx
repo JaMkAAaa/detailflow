@@ -44,7 +44,7 @@ it("offers a real phone link and a back link", () => {
 
 it("posts stage advancement and shows a server error without losing the order context", async () => {
   const user = userEvent.setup();
-  const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: "Konflikt zapisu etapu." }), { status: 409, headers: { "Content-Type": "application/json" } }));
+  const fetcher = vi.fn(async () => new Response(JSON.stringify({ error: "Konflikt zapisu etapu." }), { status: 409, headers: { "Content-Type": "application/json" } }));
   vi.stubGlobal("fetch", fetcher);
   render(<MobileOrderDetails data={order} studioId="studio-test" />);
   await user.click(screen.getByRole("button", { name: "Zakończ: Korekta lakieru" }));

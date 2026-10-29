@@ -58,5 +58,5 @@ i akceptacji — zapis blokuje wiersz protokołu warunkowym `UPDATE … WHERE ac
 - `storage.minio.test.ts` — prawdziwy MinIO, pomijany bez `S3_TEST_ENDPOINT` (instrukcja w pliku):
   podpisany Content-Type/długość, prywatność bucketu, wygasanie URL-i.
 
-UI D-04 nadal pokazuje dane demo i dialog „wkrótce” przy dodawaniu zdjęć;
-podłączenie ekranu do tych endpointów jest osobnym krokiem.
+UI D-04/M-04 i przycisk aparatu na pulpicie wołają te endpointy. Podgląd bierze tylko
+podpisany GET; klucz spoza `studios/<studioId>/` zostaje 403.

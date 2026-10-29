@@ -56,8 +56,8 @@ Odstępstwa od Figmy:
   fotografii. Jest placeholder 150 px.
 - Etap „Dalej: …” bez czasu trwania („· 4 h”) — model go nie ma.
 - Lista „Dzisiejsze zlecenia” pomija auto z karty „Na warsztacie”.
-- „Zakończ: …” i „Zdjęcie” otwierają sheet „wkrótce” (issue `type:ui`); zapis etapu
-  i upload zdjęć (#33) podłączy osobny krok `type:implement`.
+- „Zakończ: …” zapisuje etap przez API. „Zdjęcie” wgrywa plik tym samym presigned
+  PUT + confirm co karta zlecenia.
 - Dzwonek powiadomień pozostaje nieaktywny.
 - Obłożenie to wartość policzona z seeda/dnia (definicja w README pulpitu), więc
   nie musi wynosić 82% z makiety.

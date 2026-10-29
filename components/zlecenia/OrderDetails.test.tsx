@@ -66,7 +66,7 @@ it("starts on the tab from the URL and falls back to the overview", () => {
 
 it("opens the customer card and sends stage advancement to the order API", async () => {
   const user = userEvent.setup();
-  const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: "Etap można zmienić tylko w zleceniu w trakcie." }), { status: 409, headers: { "Content-Type": "application/json" } }));
+  const fetcher = vi.fn(async () => new Response(JSON.stringify({ error: "Etap można zmienić tylko w zleceniu w trakcie." }), { status: 409, headers: { "Content-Type": "application/json" } }));
   vi.stubGlobal("fetch", fetcher);
   render(<OrderDetails data={order} studioId="studio-test" />);
   await user.click(screen.getByRole("button", { name: "Link dla klienta ↗" }));

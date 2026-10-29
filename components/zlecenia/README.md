@@ -16,8 +16,9 @@ ARIA tabs ze strzałkami/Home/End; wybór trafia do URL przez `replaceState`.
 
 - **Przegląd** — dokumentacja, protokół przyjęcia, postęp **4 etapów studia**
   (portal ma 3), kwota zlecenia i kontakt. Brak zdjęć/protokołu pokazuje stan pusty.
-- **Zdjęcia, Stan auta, Historia** — pokazują zapisane dane; upload zdjęć i edycja
-  protokołu pozostają osobnymi zadaniami.
+- **Zdjęcia, Stan auta, Historia** — lista zdjęć z podpisanego GET, upload presigned
+  PUT + confirm, protokół z punktami na schemacie (zapis i akceptacja). Po akceptacji
+  formularz jest tylko do odczytu.
 
 Zmiana etapu zapisuje się przez `POST /orders/:id/advance`. Karta klienta prowadzi
 do `/customers/:clientId`; portal i dodawanie zdjęć pozostają poza tym krokiem.
@@ -65,8 +66,9 @@ i wersję desktopową powyżej (CSS). Oba widoki używają rekordów z API i baz
   wysokości na „fold”, bez wirtualizacji). Grupy: W trakcie, Do odbioru, Przyjęte. Chipy statusu i szukajka (auto, klient, numer, rejestracja —
   `BoardOrder.plate` z seeda; dotyczy też wyszukiwania na tablicy) działają razem; brak wyników
   → `NoResultsState`. Każda karta linkuje do szczegółów zlecenia.
-- **M-04**: zdjęcie (ostatnie z `photos`), numer/status, „Zadzwoń” (`tel:`), Link i Zdjęcie
-  (sheet „wkrótce”), postęp **4 etapów studia** (portal ma 3), wycena w PLN z `formatPln`.
+- **M-04**: zdjęcie (ostatnie z podpisanego GET), numer/status, „Zadzwoń” (`tel:`), Link
+  (sheet „wkrótce”) i Zdjęcie (ten sam presigned upload co D-04), postęp **4 etapów studia**
+  (portal ma 3), wycena w PLN z `formatPln`, protokół przyjęcia.
   Dolny pasek „Zakończ: …” zastępuje tab bar (`TabBar` chowa się na `/orders/:numer`).
   Zmiana etapu zapisuje się przez API; status odświeża się po mutacji.
 

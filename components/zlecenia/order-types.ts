@@ -1,7 +1,7 @@
 export type StageState = "done" | "current" | "todo";
 export type OrderStage = { name: string; note: string; state: StageState };
-export type IntakeDamage = { no: number; title: string; part: string; size: string; photo?: number };
-export type OrderPhoto = { no: number; at: string; caption: string; stage: string; src?: string };
+export type IntakeDamage = { no: number; title: string; part: string; size: string; photo?: number; photoId?: string; x?: number; y?: number };
+export type OrderPhoto = { id?: string; no: number; at: string; caption: string; stage: string; src?: string };
 export type HistoryEvent = { at: string; title: string; detail?: string; actor: string; kind: "studio" | "client" | "system" };
 export type OrderDetailsData = {
   id: string;
