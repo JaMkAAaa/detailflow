@@ -6,7 +6,10 @@ import { createPortalLink, decideQuote, PORTAL_TTL_MS } from "../portal/links";
 import { expireQuotes } from "./expire";
 import { POST } from "@/app/p/[token]/decision/route";
 
-process.env.SKIP_ENV_VALIDATION = "1";
+vi.hoisted(() => {
+  process.env.SKIP_ENV_VALIDATION = "1";
+  process.env.APP_URL = "http://localhost:3000";
+});
 
 const studios: string[] = [];
 const now = new Date();
