@@ -12,7 +12,7 @@ const seller: Seller = { name: "Obsidian", nip: "9512345678", address: "Warszaws
 const orders: Order[] = [{ id: "order", number: "DF-0243", vehicle: "BMW X3", completedAt: "2026-10-23T14:30:00Z", buyer: { name: "Adam Nowak", nip: "", street: "Puławska 120/4", postal: "02-620", city: "Warszawa", email: "adam@example.com" }, items: ["Korekta lakieru", "Powłoka ceramiczna"].map(name => ({ name, quantity: "1", unitNet: "1951.22", vatRate: 23, discount: "0" })) }];
 const invoice: InvoiceView = { id: "invoice", number: "FV/41/10/2026", env: "test", status: "issued", ksefStatus: "accepted", ksefNumber: "demo-number", acceptedAt: "2026-10-24T08:13:08Z", issuedAt: "2026-10-24T08:12:08Z", saleAt: "2026-10-24T08:12:08Z", dueAt: "2026-10-31T12:00:00Z", paidAt: null, emailedAt: "2026-10-24T08:13:30Z", upoXml: null, kind: "invoice", correctsNumber: null, correctionReason: null, corrections: [], current: [], orderNumber: "DF-0243", buyer: orders[0]!.buyer, items: orders[0]!.items, totalNet: "3902.44", totalVat: "897.56", totalGross: "4800", events: [] };
 beforeAll(() => { HTMLDialogElement.prototype.showModal = function () { this.setAttribute("open", ""); }; HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); }; });
-afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 it("decodes invoice route segments and preserves the environment in links", () => {
   expect(invoiceNumberFromSegment("FV%2F41%2F10%2F2026")).toBe("FV/41/10/2026");
   expect(invoiceNumberFromSegment("FV/41/10/2026")).toBe("FV/41/10/2026");
@@ -142,4 +142,26 @@ it("folds discounts into cent prices matching the preview and keeps the draft on
   expect(JSON.parse(String(calls.mock.calls[0]![1]?.body)).items[0]).toEqual({ name: "Korekta lakieru", quantity: "1", unitNet: "1756.10", vatRate: 23 });
   expect((await screen.findByRole("alert")).textContent).toContain("Sprawdź listę faktur");
   expect(localStorage.getItem(invoiceDraftKey("a", "u", "test"))).not.toBeNull();
+});
+
+it.each([false, true])("queues KSeF on details and displays queued status and history (mobile=%s)", async mobile => {
+  vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: mobile, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+  const calls = vi.spyOn(globalThis, "fetch").mockResolvedValue(reply({ ksefStatus: "queued" }, 202));
+  const user = userEvent.setup();
+  render(<InvoiceDetails invoice={{ ...invoice, ksefStatus: "not_sent", ksefNumber: null }} seller={seller} studioId="a" />);
+  await user.click(screen.getByRole("button", { name: "Wyślij do KSeF" }));
+  expect(calls.mock.calls[0]![0]).toBe("/api/studios/a/invoices/invoice/ksef");
+  expect(calls.mock.calls[0]![1]?.method).toBe("POST");
+  expect(screen.getAllByText("W kolejce").length).toBeGreaterThan(0);
+  expect(screen.getAllByText("Skierowano do KSeF TEST").length).toBeGreaterThan(0);
+  expect(screen.queryByRole("button", { name: "Wyślij do KSeF" })).toBeNull();
+});
+it("shows KSeF configuration errors and allows retrying", async () => {
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(reply({ error: "Skonfiguruj NIP i token KSeF TEST studia." }, 409));
+  const user = userEvent.setup();
+  render(<InvoiceDetails invoice={{ ...invoice, ksefStatus: "not_sent" }} seller={seller} studioId="a" />);
+  await user.click(screen.getByRole("button", { name: "Wyślij do KSeF" }));
+  expect(await screen.findByText("Skonfiguruj NIP i token KSeF TEST studia.")).toBeTruthy();
+  expect(screen.getByRole("link", { name: "Ustawienia i token KSeF" }).getAttribute("href")).toBe("/settings");
+  expect((screen.getByRole("button", { name: "Wyślij do KSeF" }) as HTMLButtonElement).disabled).toBe(false);
 });

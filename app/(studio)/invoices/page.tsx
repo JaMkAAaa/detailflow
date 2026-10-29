@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { InvoicesScreen } from "@/components/faktury/InvoicesScreen";
 import { KsefEnvForm } from "@/components/faktury/KsefEnvForm";
 import { invoiceList } from "@/src/server/faktury/list-query";
@@ -11,6 +12,7 @@ export default async function InvoicesPage() {
   return (
     <div className="space-y-6">
       {current.role === "owner" && <KsefEnvForm env={status.env} prodAllowed={status.prodAllowed} tokenSet={status.tokenSet} />}
+      {current.role === "owner" && <Link href="/settings" className="inline-block text-df-label text-df-lime">Ustawienia i token KSeF</Link>}
       <InvoicesScreen key={`${context.studioId}:${status.env}`} invoices={await invoiceList(context.studioId, status.env)} env={status.env} now={new Date().toISOString()} />
     </div>
   );
