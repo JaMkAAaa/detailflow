@@ -155,13 +155,19 @@ function mergeIntervals(intervals: [number, number][]) {
   return merged;
 }
 
-function bookedMs(merged: [number, number][], range: StatisticsRange) {
+/** Working window 08–16 Warsaw of every day in the range; identical for all bays, so computed once. */
+function workingWindows(range: StatisticsRange) {
   const first = parseDay(range.from)!;
+  return Array.from({ length: range.days }, (_, day) => [
+    warsawDate(first.y, first.m, first.d + day, OPEN_HOUR).getTime(),
+    warsawDate(first.y, first.m, first.d + day, CLOSE_HOUR).getTime(),
+  ] as const);
+}
+
+function bookedMs(merged: [number, number][], windows: ReturnType<typeof workingWindows>) {
   let total = 0;
   let cursor = 0;
-  for (let day = 0; day < range.days; day++) {
-    const windowStart = warsawDate(first.y, first.m, first.d + day, OPEN_HOUR).getTime();
-    const windowEnd = warsawDate(first.y, first.m, first.d + day, CLOSE_HOUR).getTime();
+  for (const [windowStart, windowEnd] of windows) {
     while (cursor < merged.length && merged[cursor]![1] <= windowStart) cursor++;
     for (let i = cursor; i < merged.length && merged[i]![0] < windowEnd; i++) {
       total += Math.max(0, Math.min(windowEnd, merged[i]![1]) - Math.max(windowStart, merged[i]![0]));
@@ -218,9 +224,10 @@ export async function getStudioStatistics(studioId: string, range: StatisticsRan
     byBay.set(booking.bayId!, list);
   }
   const occupancyHasData = bays.length > 0 && bookings.length > 0;
+  const windows = workingWindows(range);
   let bookedTotal = 0;
   const bayRows = bays.map((bay) => {
-    const booked = bookedMs(mergeIntervals(byBay.get(bay.id) ?? []), range);
+    const booked = bookedMs(mergeIntervals(byBay.get(bay.id) ?? []), windows);
     bookedTotal += booked;
     const capacity = range.days * (CLOSE_HOUR - OPEN_HOUR) * HOUR;
     return { id: bay.id, name: bay.name, percent: percent(D(booked), D(capacity)), bookedHours: roundHours(booked), capacityHours: roundHours(capacity) };
