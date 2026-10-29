@@ -2,7 +2,7 @@ import { createTransport } from "nodemailer";
 import { platformDb } from "@/lib/db/client";
 import { studioDb } from "@/lib/db/tenant";
 import { generatePortalToken, hashPortalToken } from "@/lib/portal/token";
-import { PORTAL_TTL_MS } from "../portal/links";
+import { PORTAL_TTL_MS } from "../portal/ttl";
 
 // Trwały outbox obsługiwany przez istniejący worker. Retry nie zapisuje URL/tokenu.
 export async function deliverQuoteMails() {

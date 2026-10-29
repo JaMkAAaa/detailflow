@@ -4,8 +4,9 @@ import { generatePortalToken, hashPortalToken } from "../../../lib/portal/token"
 import { OrderError } from "../zlecenia/errors";
 import { acceptProtocol } from "../zlecenia/intake";
 import { portalPhotoPath } from "./media";
+import { PORTAL_TTL_MS } from "./ttl";
 
-export const PORTAL_TTL_MS = 14 * 86400_000;
+export { PORTAL_TTL_MS };
 export class PortalLinkError extends Error {
   constructor() { super("Link wygasł lub jest nieprawidłowy."); }
 }
