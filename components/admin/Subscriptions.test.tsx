@@ -22,7 +22,7 @@ const data: PlatformSubscriptions = {
   ],
   collected: "14980.00",
   arrears: { count: 6, amount: "894.00" },
-  arrearsRows: [{ id: "1", name: "Studio Demo", publicCode: "ST-D0001", plan: "Studio", amount: "149.00" }],
+  arrearsRows: [{ id: "1", name: "Studio Demo", publicCode: "ST-D0001", plan: "Studio", amount: "149.00", interval: "monthly" }],
   churn: { base: 118, left: 5, joined: 15, paying: 128, rate: 5 / 118 },
   costs: [
     { category: "infrastructure", amount: "1860.00" },
@@ -43,7 +43,7 @@ it("pokazuje skład MRR, wpływy, zaległość i churn 4,2%", () => {
   expect(screen.getByText("894 zł")).toBeTruthy();
   expect(screen.getAllByText("4,2%").length).toBeGreaterThan(0);
   expect(screen.getByText("5 / 118 płacących na początku miesiąca")).toBeTruthy();
-  expect(screen.getByText("64 × 79 zł")).toBeTruthy();
+  expect(screen.getByText("64 kont · średnio 79 zł MRR / konto")).toBeTruthy();
   expect(screen.getByRole("link", { name: /Studio Demo/ })).toBeTruthy();
   expect(screen.getByLabelText("Infrastruktura")).toBeTruthy();
   expect(screen.getByText("74,4%", { exact: false })).toBeTruthy();

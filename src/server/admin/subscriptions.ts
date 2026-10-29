@@ -1,7 +1,7 @@
 import Decimal from "decimal.js";
 import { platformDb } from "@/lib/db/client";
 import { BILLING_PLANS } from "../billing/plans";
-import { planNet } from "./accounts";
+import { periodNet } from "@/lib/billing/catalog";
 import { COST_CATEGORIES } from "./costs";
 import {
   arrears,
@@ -21,7 +21,7 @@ export async function getPlatformSubscriptions(now = new Date()) {
   const [studios, collected, costRows] = await Promise.all([
     platformDb.studio.findMany({
       select: {
-        id: true, name: true, publicCode: true, status: true, plan: true,
+        id: true, name: true, publicCode: true, status: true, plan: true, billingInterval: true, subscriptionNet: true,
         createdAt: true, updatedAt: true, activatedAt: true, trialEndsAt: true,
       },
       orderBy: { name: "asc" },
@@ -51,7 +51,7 @@ export async function getPlatformSubscriptions(now = new Date()) {
       plan: row.plan,
       label: BILLING_PLANS[row.plan].name,
       count: row.count,
-      unit: planNet(row.plan),
+      unit: row.count ? row.amount.div(row.count).toFixed(2) : "0.00",
       amount: row.amount.toFixed(2),
       share: composition.total.isZero() ? 0 : row.amount.div(composition.total).times(100).toNumber(),
     })),
@@ -62,7 +62,8 @@ export async function getPlatformSubscriptions(now = new Date()) {
       name: studio.name,
       publicCode: studio.publicCode,
       plan: BILLING_PLANS[studio.plan].name,
-      amount: planNet(studio.plan),
+      amount: periodNet(studio).toFixed(2),
+      interval: studio.billingInterval,
     })),
     churn: churnStats(studios, now),
     costs,

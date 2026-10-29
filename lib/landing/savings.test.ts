@@ -8,7 +8,7 @@ describe("estimateSavings", () => {
       hoursSavedPerMonth: 27,
       extraCars: 4,
       extraRevenuePln: "3400.00",
-      plan: { id: "studio", name: "Studio", priceNetPln: "149", maxBays: 4 },
+      plan: { id: "studio", name: "Studio", priceNetPln: "149", annualNetPln: "1490", maxBays: 4 },
       returnMultiple: 23,
     });
   });

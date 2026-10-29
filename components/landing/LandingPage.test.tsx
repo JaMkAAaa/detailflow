@@ -12,13 +12,16 @@ it("sends every sign-up CTA to /start", () => {
   for (const cta of ctas) expect(cta.getAttribute("href")).toBe("/start");
 });
 
-it("shows only monthly net prices 79 / 149 / 279 and no yearly toggle", () => {
+it("shows monthly prices by default and full annual prices after switching", () => {
   render(<LandingPage />);
   const pricing = within(document.getElementById("pricing")!);
   for (const price of ["79 zł", "149 zł", "279 zł"]) expect(pricing.getByText(price)).toBeTruthy();
-  expect(screen.queryByText(/Rocznie/)).toBeNull();
-  expect(screen.queryByRole("tab")).toBeNull();
-  expect(screen.queryByRole("switch")).toBeNull();
+  fireEvent.click(pricing.getByRole("radio", { name: "Rocznie" }));
+  for (const price of ["790 zł", "1490 zł", "2790 zł"]) expect(pricing.getByText(price)).toBeTruthy();
+  expect(pricing.getByText(/Pełna opłata za rok z góry. Automatyczne coroczne odnowienie/)).toBeTruthy();
+  expect(pricing.queryByText("149 zł")).toBeNull();
+  fireEvent.click(pricing.getByRole("radio", { name: "Miesięcznie" }));
+  expect(pricing.getByText("149 zł")).toBeTruthy();
 });
 
 it("has no fake social proof: ratings, stars, client logos or review counts", () => {

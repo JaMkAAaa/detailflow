@@ -90,7 +90,7 @@ export function StudioCard({
         <section aria-labelledby="stripe-heading" className="rounded-xl bg-df-panel p-5">
           <h2 id="stripe-heading" className="text-df-section">Stripe</h2>
           <dl className="mt-4 grid grid-cols-[140px_minmax(0,1fr)] gap-y-3 text-df-body">
-            <Field label="Abonament netto" value={card.subscriptionNet ? formatPln(card.subscriptionNet) : null} />
+            <Field label="Abonament netto" value={card.subscriptionNet ? `${formatPln(card.subscriptionNet)} / ${card.billingInterval === "yearly" ? "rok" : "mies."}` : null} />
             <Field label="Customer" value={card.stripeCustomerId} />
             <Field label="Subscription" value={card.stripeSubscriptionId} />
           </dl>

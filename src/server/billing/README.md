@@ -11,7 +11,8 @@ Rejestracja `/start` nadal tworzy 14-dniowy trial bez klienta Stripe i bez karty
    i miesięczne ceny netto PLN: `plan_solo_monthly` (7900 gr),
    `plan_studio_monthly` (14900 gr), `plan_pro_monthly` (27900 gr).
    Ponowne uruchomienie weryfikuje istniejące ceny; nie podmienia błędnej ceny.
-   Dla live wykonaj osobno z kluczem live. Nie ma planów rocznych.
+   Także roczne: `plan_solo_yearly` (79000 gr), `plan_studio_yearly` (149000 gr),
+   `plan_pro_yearly` (279000 gr), z góry, automatyczne odnowienie. Testy tylko sandbox.
 3. Skonfiguruj Stripe Tax (adres sprzedawcy, rejestracje podatkowe i klasyfikację
    produktów SaaS). Ceny mają `tax_behavior=exclusive`; Checkout zbiera adres/NIP
    i oblicza podatek przez `automatic_tax`. Nie przeliczamy pieniędzy przez float.
@@ -31,11 +32,12 @@ Rejestracja `/start` nadal tworzy 14-dniowy trial bez klienta Stripe i bez karty
 Właściciel otwiera „Abonament Detailflow” (`/billing`) w sidebarze lub menu
 mobilnym. Aktywny trial pokazuje datę końca; serwer odrzuca próbę Checkout przed
 jego końcem. Po trialu `POST /api/studios/:studioId/billing/checkout` z
-`{ "plan": "solo" | "studio" | "pro" }` wymaga sesji, Origin aplikacji i roli owner.
+`{ "plan": "solo" | "studio" | "pro", "interval": "monthly" | "yearly" }`
+(brak interval oznacza monthly) wymaga sesji, Origin aplikacji i roli owner.
 Tworzy klienta Stripe dopiero teraz. Przypisanie `customerId` jest zapisane w Studio,
 a `studioId` trafia do metadanych klienta, sesji i abonamentu.
 
-Istniejąca otwarta sesja tego planu jest używana ponownie. Zmiana planu wygasza
+Istniejąca otwarta sesja tego planu i okresu jest używana ponownie. Zmiana planu wygasza
 poprzednią otwartą sesję. Istniejący nieterminalny abonament w Stripe uniemożliwia
 utworzenie kolejnego, również przed otrzymaniem pierwszego webhooku. Powrót
 success_url pokazuje wyłącznie komunikat; nie nadaje dostępu.
@@ -75,14 +77,14 @@ wykonaj pełny zakup kartą testową przez Checkout i resend z Workbench w sandb
 
 ## Customer Portal
 
-W Stripe Dashboard → Settings → Billing → Customer portal skonfiguruj i zapisz
-**domyślną konfigurację**, osobno w sandboxie i live. Włącz zmianę metody płatności,
-podgląd faktur abonamentowych, anulowanie oraz zmianę planu. Do zmiany planu dopuść
-wyłącznie trzy produkty i miesięczne ceny utworzone przez `pnpm billing:setup`
-(Solo/Studio/Pro, PLN, bez zmiany ilości, bez planów rocznych). Wybierz anulowanie
-na koniec okresu i proration zgodnie z polityką rozliczeń operatora. Stripe ustala
-należności; aplikacja synchronizuje plan i status webhookiem. Anulowanie na koniec
-okresu zachowuje `active` do faktycznego zakończenia subskrypcji.
+Portal dostaje konfigurację tworzoną przez kod z sześciu zweryfikowanych cen.
+Włączone są karta, historia faktur, anulowanie na koniec okresu i zmiana ceny.
+Zmiana planu/okresu działa od razu: `proration_behavior=always_invoice`,
+`billing_cycle_anchor=now`, bez warunków `schedule_at_period_end`. Stripe
+pokazuje rozliczenie, kredyt i datę odnowienia przed potwierdzeniem; aplikacja
+nie obiecuje zachowania starej daty ani automatycznego zwrotu na kartę.
+Nie edytuj generowanych konfiguracji ręcznie. Stare metadata okresu nie są
+źródłem prawdy dla webhooku — wiążąca jest zweryfikowana bieżąca cena.
 
 `POST /api/studios/:studioId/billing/portal` wymaga sesji, Origin i roli owner.
 Customer pochodzi wyłącznie z rekordu autoryzowanego studia; body nie wybiera
@@ -140,3 +142,11 @@ metryka „Wpływy”. Faktura KSeF (`Invoice`) tam nie trafia.
 Testy #51: `pnpm test src/server/billing src/server/acl.test.ts` na osobnej bazie
 PostgreSQL po migracjach. Obejmują izolację tenantów, CSRF/role portalu, anulowanie
 → odczyt z komunikatem, blokadę zapisów, granicę trialu, MRR, deduplikację i retry maili.
+
+## Abonament roczny (#147)
+
+[Decyzja OpenBot z jawnej delegacji użytkownika, ceny i kontrakt](../../../docs/stripe-roczny-przygotowanie.md).
+`Studio.billingInterval` i `subscriptionNet` są projekcją bieżącego Price.
+MRR roczny = cena / 12, Decimal bez zaokrąglania per konto. `invoice.paid`
+po proration zapisuje faktyczne netto faktury; zerowe pobranie z kredytu nie
+zapisuje fikcyjnego wpływu. `Invoice` KSeF pozostaje osobnym obiegiem.

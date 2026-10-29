@@ -1,3 +1,5 @@
+"use client";
+import { useState } from "react";
 import Link from "next/link";
 import { Logo, LogoMark } from "@/components/brand/Logo";
 import { plans } from "@/lib/landing/plans";
@@ -5,6 +7,7 @@ import { faq, navLinks, pricingNotes, pricingPlans } from "./content";
 import { CheckIcon, Container, CtaLink, SectionHeading } from "./primitives";
 
 export function PricingSection() {
+  const [yearly, setYearly] = useState(false);
   return (
     <section id="pricing" aria-labelledby="pricing-title" className="scroll-mt-20 py-20 md:py-28">
       <Container className="flex flex-col gap-10">
@@ -12,9 +15,13 @@ export function PricingSection() {
           id="pricing-title"
           eyebrow="Cennik"
           title="Prosty cennik. Bez prowizji od zleceń."
-          lead="14 dni za darmo w każdym planie, bez karty. Ceny netto, rozliczenie co miesiąc."
+          lead="14 dni za darmo w każdym planie, bez karty. Ceny netto. Wybierz rozliczenie miesięczne lub roczne."
         />
-        <p className="text-center text-df-label text-df-muted">Cennik koncepcyjny · rozliczenie miesięczne netto · plan roczny nie jest dostępny</p>
+        <fieldset className="flex justify-center gap-6"><legend className="sr-only">Okres rozliczeń</legend>
+          <label><input type="radio" name="pricing-interval" checked={!yearly} onChange={() => setYearly(false)} /> Miesięcznie</label>
+          <label><input type="radio" name="pricing-interval" checked={yearly} onChange={() => setYearly(true)} /> Rocznie</label>
+        </fieldset>
+        <p className="text-center text-df-label text-df-muted">{yearly ? "Pełna opłata za rok z góry. Automatyczne coroczne odnowienie." : "Rozliczenie co miesiąc."} Ceny netto PLN, podatek doliczany w Stripe.</p>
         <div className="grid gap-6 lg:grid-cols-3">
           {pricingPlans.map((card) => {
             const plan = plans.find((candidate) => candidate.id === card.id)!;
@@ -30,8 +37,8 @@ export function PricingSection() {
                 </div>
                 <p className="min-h-[44px] text-[15px] leading-[1.5] text-df-muted">{card.description}</p>
                 <p className="flex items-baseline gap-2">
-                  <span className="text-[48px] leading-none font-bold text-df-text">{plan.priceNetPln} zł</span>
-                  <span className="text-[15px] text-df-muted">/ mies. netto</span>
+                  <span className="text-[48px] leading-none font-bold text-df-text">{yearly ? plan.annualNetPln : plan.priceNetPln} zł</span>
+                  <span className="text-[15px] text-df-muted">/ {yearly ? "rok" : "mies."} netto</span>
                 </p>
                 {/* Rejestracja zawsze startuje od trialu planu Solo, więc każdy plan prowadzi do /start. */}
                 <CtaLink variant={featured ? "primary" : "outline"} className="w-full py-3 text-[15px]">

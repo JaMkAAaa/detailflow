@@ -1,7 +1,7 @@
 import type Stripe from "stripe";
 import { platformDb } from "@/lib/db/client";
 import type { StudioStatus } from "@/lib/db/generated/client";
-import { pricePlan } from "./plans";
+import { priceBilling } from "./plans";
 import { endedSubscription } from "./checkout";
 import { subscriptionInvoiceNet } from "./revenue";
 import { getStripe } from "./stripe";
@@ -67,7 +67,7 @@ export async function processStripeEvent(event: Stripe.Event, stripe = getStripe
     const subscription = await stripe.subscriptions.retrieve(subscriptionId!);
     if (objectId(subscription.customer) !== studio.stripeCustomerId || subscription.metadata.studioId !== studioId) throw new Error("Niezgodny tenant abonamentu.");
     if (subscription.items.data.length !== 1 || subscription.items.data[0]?.quantity !== 1) throw new Error("Nieprawidłowe pozycje abonamentu.");
-    const plan = pricePlan(subscription.items.data[0].price);
+    const { plan, interval, net } = priceBilling(subscription.items.data[0].price);
     let status = subscriptionStatus(subscription.status);
     if (invoice && objectId(subscription.latest_invoice) === invoice.id && !endedSubscription(subscription.status) && subscription.status !== "paused" && subscription.status !== "unpaid") {
       const currentInvoice = await stripe.invoices.retrieve(invoice.id);
@@ -77,17 +77,22 @@ export async function processStripeEvent(event: Stripe.Event, stripe = getStripe
       where: { id: studioId },
       data: {
         plan,
+        billingInterval: interval,
+        subscriptionNet: net.toFixed(2),
         status,
         stripeSubscriptionId: subscription.id,
         ...(status === "active" && !studio.activatedAt ? { activatedAt: new Date() } : {}),
       },
     });
     await tx.auditLog.create({ data: { studioId, action: event.type, meta: {
-      eventId: event.id, subscriptionId: subscription.id, plan, status,
+      eventId: event.id, subscriptionId: subscription.id, plan, interval, subscriptionNet: net.toFixed(2), status,
       ...(invoice ? { invoiceId: invoice.id, currency: invoice.currency, amountPaid: String(invoice.amount_paid) } : {}),
     } } });
     if (event.type === "invoice.paid") {
       if (!invoice?.id) throw new Error("Brak faktury Stripe przy invoice.paid.");
+      // Faktura po proration może być pokryta kredytem (0 pobranych środków).
+      // Synchronizujemy abonament i deduplikujemy event, bez fikcyjnego wpływu.
+      if (invoice.amount_paid === 0) return;
       const net = subscriptionInvoiceNet(invoice);
       if (!net) throw new Error("Brak kwoty netto wpływu abonamentu.");
       const paidUnix = invoice.status_transitions?.paid_at ?? event.created;

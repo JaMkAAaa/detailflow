@@ -27,6 +27,11 @@ enum Plan {
   pro
 }
 
+enum BillingInterval {
+  monthly
+  yearly
+}
+
 enum MembershipRole {
   owner
   manager
@@ -127,6 +132,8 @@ model Studio {
   phone                String?
   status               StudioStatus @default(trial)
   plan                 Plan         @default(solo)
+  billingInterval      BillingInterval @default(monthly)
+  subscriptionNet      Decimal? @db.Decimal(12, 2) // netto PLN za pełny okres Stripe
   trialReminderSentAt  DateTime?
   trialEndsAt          DateTime?
   // Pierwsze przejście trial → active. Historyczne MRR i konwersja trialu.

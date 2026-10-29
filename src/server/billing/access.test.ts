@@ -1,3 +1,4 @@
+import { BILLING_CATALOG, billingPrice } from "@/lib/billing/catalog";
 import { randomUUID } from "node:crypto";
 import Stripe from "stripe";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -60,12 +61,31 @@ describe("restricted billing (Postgres)", () => {
   });
   it("portal wiąże customer z tenantem i wymaga właściciela, sesji i Origin", async () => {
     const create = vi.fn().mockResolvedValue({ url: "https://billing.stripe.com/test" });
-    const stripe = { billingPortal: { sessions: { create } } } as unknown as Stripe;
+    const configurations = { create: vi.fn().mockResolvedValue({ id: "bpc_annual" }) };
+    const stripe = { prices: { list: vi.fn().mockImplementation(async ({ lookup_keys }: { lookup_keys: string[] }) => {
+      const [, plan, interval] = lookup_keys[0]!.split("_");
+      const config = billingPrice(plan as keyof typeof BILLING_CATALOG, interval as "monthly" | "yearly");
+      return { data: [{ id: lookup_keys[0], product: `prod_${plan}`, lookup_key: lookup_keys[0], currency: "pln", unit_amount: config.unitAmount,
+        tax_behavior: "exclusive", recurring: { interval: config.stripeInterval, interval_count: 1, usage_type: "licensed" } }] };
+    }) }, billingPortal: { configurations, sessions: { create } } } as unknown as Stripe;
     expect(await createBillingPortal(ownerId, studioId, stripe)).toEqual({ url: "https://billing.stripe.com/test" });
-    expect(create).toHaveBeenCalledWith({ customer: `cus_${tag}`, return_url: "http://localhost:3000/billing", locale: "pl" });
+    expect(create).toHaveBeenCalledWith({ customer: `cus_${tag}`, configuration: "bpc_annual", return_url: "http://localhost:3000/billing", locale: "pl" });
     await expect(createBillingPortal(ownerId, foreignId, stripe)).rejects.toMatchObject({ status: 403 });
     await expect(createBillingPortal(workerId, studioId, stripe)).rejects.toMatchObject({ status: 403 });
     expect(create).toHaveBeenCalledTimes(1);
+    expect(configurations.create).toHaveBeenCalledTimes(1);
+    expect(configurations.create.mock.calls[0]![0].features.subscription_update).toMatchObject({
+      enabled: true, default_allowed_updates: ["price"], proration_behavior: "always_invoice",
+      billing_cycle_anchor: "now", schedule_at_period_end: { conditions: [] },
+      products: [
+        { product: "prod_solo", prices: ["plan_solo_monthly", "plan_solo_yearly"] },
+        { product: "prod_studio", prices: ["plan_studio_monthly", "plan_studio_yearly"] },
+        { product: "prod_pro", prices: ["plan_pro_monthly", "plan_pro_yearly"] },
+      ],
+    });
+    expect(await createBillingPortal(ownerId, studioId, stripe)).toEqual({ url: "https://billing.stripe.com/test" });
+    expect(configurations.create.mock.calls[0]![1]).toEqual(configurations.create.mock.calls[1]![1]);
+    expect(configurations.create.mock.calls[0]![1].idempotencyKey).toMatch(/^detailflow:portal:[0-9a-f]{64}$/);
     const ctx = { params: Promise.resolve({ studioId }) };
     expect((await portalRoute(request("POST", "billing/portal", "https://evil.example"), ctx)).status).toBe(403);
     mocks.session.mockResolvedValue(null);

@@ -113,7 +113,7 @@ export const pricingPlans = [
   },
 ] as const;
 
-export const pricingNotes = ["14 dni trialu bez karty", "Rozliczenie miesięczne, ceny netto", "Import klientów z Excela"] as const;
+export const pricingNotes = ["14 dni trialu bez karty", "Rozliczenie miesięczne lub roczne, ceny netto", "Import klientów z Excela"] as const;
 
 export const faq = [
   {
@@ -134,6 +134,6 @@ export const faq = [
   },
   {
     q: "Czy mogę zrezygnować w dowolnym momencie?",
-    a: "Okres próbny trwa 14 dni i nie wymaga karty. Plan rozliczany jest miesięcznie; szczegóły regulaminu opublikujemy przed startem płatnych planów.",
+    a: "Okres próbny trwa 14 dni i nie wymaga karty. Plan rozliczany jest miesięcznie lub rocznie z góry, z automatycznym odnowieniem. Zmiana okresu działa od razu z proporcjonalnym rozliczeniem Stripe; kwotę i datę odnowienia zobaczysz przed potwierdzeniem. Szczegóły regulaminu opublikujemy przed startem płatnych planów.",
   },
 ] as const;

@@ -1,3 +1,4 @@
+import { periodNet } from "@/lib/billing/catalog";
 import type { Plan, StudioStatus } from "@/lib/db/generated/client";
 import { plans } from "@/lib/landing/plans";
 import { BILLING_PLANS } from "@/src/server/billing/plans";
@@ -69,8 +70,8 @@ export function planNet(plan: Plan): string {
   return `${Math.floor(grosze / 100)}.${String(grosze % 100).padStart(2, "0")}`;
 }
 
-export function subscriptionNet(status: StudioStatus, plan: Plan): string | null {
-  return status === "trial" ? null : planNet(plan);
+export function subscriptionNet(status: StudioStatus, plan: Plan, snapshot?: import("@/lib/billing/catalog").BillingSnapshot): string | null {
+  return status === "trial" ? null : snapshot ? periodNet(snapshot).toFixed(2) : planNet(plan);
 }
 
 export function parseStudiosQuery(params: Params): StudiosQuery {
@@ -125,6 +126,7 @@ export type StudioCsvRow = {
   phone: string | null;
   lastActivityAt: Date;
   subscriptionNet: string | null;
+  billingInterval?: "monthly" | "yearly";
   stripeCustomerId: string | null;
   stripeSubscriptionId: string | null;
 };
@@ -147,6 +149,7 @@ export function studiosToCsv(rows: StudioCsvRow[]): string {
     "telefon",
     "ostatnia_aktywnosc",
     "abonament_netto_pln",
+    "okres_abonamentu",
     "stripe_customer",
     "stripe_subscription",
   ];
@@ -162,6 +165,7 @@ export function studiosToCsv(rows: StudioCsvRow[]): string {
       row.phone ?? "",
       row.lastActivityAt.toISOString(),
       row.subscriptionNet ?? "",
+      row.billingInterval ?? "monthly",
       row.stripeCustomerId ?? "",
       row.stripeSubscriptionId ?? "",
     ]

@@ -22,6 +22,8 @@ const studioSelect = {
   district: true,
   status: true,
   plan: true,
+  billingInterval: true,
+  subscriptionNet: true,
   phone: true,
   nip: true,
   address: true,
@@ -68,7 +70,8 @@ function toCsvRow(studio: StudioRow, lastActivityAt: Date): StudioCsvRow {
     ownerEmail: owner?.email ?? null,
     phone: studio.phone,
     lastActivityAt,
-    subscriptionNet: subscriptionNet(studio.status, studio.plan),
+    billingInterval: studio.billingInterval,
+    subscriptionNet: subscriptionNet(studio.status, studio.plan, studio),
     stripeCustomerId: studio.stripeCustomerId,
     stripeSubscriptionId: studio.stripeSubscriptionId,
   };
@@ -146,6 +149,7 @@ export type StudioCard = {
   nip: string | null;
   addressLine: string | null;
   subscriptionNet: string | null;
+  billingInterval?: "monthly" | "yearly";
   stripeCustomerId: string | null;
   stripeSubscriptionId: string | null;
   trialEndsAt: Date | null;
@@ -210,7 +214,8 @@ export async function getStudioCard(publicCode: string, actorId: string): Promis
     phone: studio.phone,
     nip: studio.nip,
     addressLine: addressLine(studio),
-    subscriptionNet: subscriptionNet(studio.status, studio.plan),
+    billingInterval: studio.billingInterval,
+    subscriptionNet: subscriptionNet(studio.status, studio.plan, studio),
     stripeCustomerId: studio.stripeCustomerId,
     stripeSubscriptionId: studio.stripeSubscriptionId,
     trialEndsAt: studio.trialEndsAt,

@@ -93,15 +93,15 @@ Role są sprawdzane **przy każdym żądaniu** na podstawie `Membership`, a nie 
 
 ### 1.6 Plany i trial
 
-| Plan | Cena netto / mies. | Stripe `lookup_key` |
-| --- | --- | --- |
-| Solo | 79 zł | `plan_solo_monthly` |
-| Studio | 149 zł | `plan_studio_monthly` |
-| Pro | 279 zł | `plan_pro_monthly` |
+| Plan | Netto / mies. | Netto / rok | Stripe lookup_key (miesiąc / rok) |
+| --- | --- | --- | --- |
+| Solo | 79 zł | 790 zł | `plan_solo_monthly` / `plan_solo_yearly` |
+| Studio | 149 zł | 1490 zł | `plan_studio_monthly` / `plan_studio_yearly` |
+| Pro | 279 zł | 2790 zł | `plan_pro_monthly` / `plan_pro_yearly` |
 
 - Trial: **14 dni, bez karty**.
 - Po trialu: Checkout Stripe albo dostęp tylko do odczytu (dane pozostają).
-- Abonament roczny i płatność klienta online **nie są wdrożone** (flagi `annual_billing` i `client_online_pay` w panelu platformy są wyłączone i niczego nie włączają).
+- Abonament roczny: **Solo 790 / Studio 1490 / Pro 2790 PLN netto/rok**, z góry, automatyczne coroczne odnowienie. Kwoty ustalił OpenBot po jawnej delegacji użytkownika „dobierz sam”; użytkownik wybrał zmianę okresu od razu z proration. [Decyzja, kontrakt i wdrożenie #147](docs/stripe-roczny-przygotowanie.md). Historyczna flaga `annual_billing` nie steruje ofertą. Płatność online klienta (#148) pozostaje niewdrożona.
 - Limity planów: **egzekwowany jest tylko limit boksów** (Solo 1, Studio 4, Pro bez limitu) przy dodawaniu boksu przez `POST /api/studios/:studioId/bays` (tylko API, bez ekranu; owner); istniejące boksy po obniżeniu planu zostają. Limit użytkowników (1 / 5 / bez limitu) jest tylko pokazywany w karcie studia A-03, nie jest egzekwowany przy zaproszeniach.
 - Cennik i obietnice z landingu wymagają zatwierdzenia prawnego przed publikacją.
 
@@ -112,10 +112,9 @@ Role są sprawdzane **przy każdym żądaniu** na podstawie `Membership`, a nie 
 - KSeF offline,
 - panel właściciela platformy na mobile,
 - płatność klienta online za detailing,
-- abonament roczny,
 - tryb jasny.
 
-Katalog **Usługi i cennik** jest wdrożony (`/services`), **Magazyn chemii** działa pod `/inventory` (#143), **Statystyki studia** pod `/statistics` (#144, tylko owner), a **Portfolio realizacji** pod `/portfolio` i `/realizacje/[slug]` (#145). Właściciel produktu autoryzował 29.10.2026 wykonanie wszystkich #142–#151, po jednym PR z testami i merge po zielonym CI; pozostałe moduły (#146–#151) nie są jeszcze ukończone. Płatność klienta za detailing nie jest częścią Stripe Billing. Brak opublikowanych zdjęć to pusty stan, nie 404.
+Katalog **Usługi i cennik** jest wdrożony (`/services`), **Magazyn chemii** działa pod `/inventory` (#143), **Statystyki studia** pod `/statistics` (#144, tylko owner), a **Portfolio realizacji** pod `/portfolio` i `/realizacje/[slug]` (#145). Właściciel produktu autoryzował 29.10.2026 wykonanie wszystkich #142–#151, po jednym PR z testami i merge po zielonym CI; #146 zakończył badanie/dokumentację; #147 jest zaimplementowany w PR #186 przed końcowym CI/review/merge. #148–#151 nie są jeszcze ukończone. Płatność klienta za detailing nie jest częścią Stripe Billing. Brak opublikowanych zdjęć to pusty stan, nie 404.
 
 ---
 
@@ -967,7 +966,7 @@ accepted ──▶ in_progress ──▶ ready_for_pickup ──▶ completed
 **Implementacja:** `src/server/billing/`, `app/(studio)/billing`, `app/api/stripe/webhook`, `app/api/studios/[studioId]/billing/`.
 
 - Plany: Solo 7900 gr, Studio 14900 gr, Pro 27900 gr netto, miesięcznie, `tax_behavior=exclusive`.
-- `pnpm billing:setup` tworzy brakujące produkty/ceny po `lookup_key`; ponowne uruchomienie weryfikuje istniejące ceny i **nie podmienia błędnej**. Osobno test i live.
+- `pnpm billing:setup` tworzy brakujące produkty/ceny po `lookup_key`; ponowne uruchomienie weryfikuje sześć miesięcznych/rocznych cen i **nie podmienia błędnej**. Testy wyłącznie sandbox.
 - Checkout:
   - tylko owner,
   - tylko po trialu (albo po jego wygaśnięciu); przed końcem trialu 409,
@@ -1042,7 +1041,7 @@ accepted ──▶ in_progress ──▶ ready_for_pickup ──▶ completed
 
 - Jeden responsywny układ L-01/L-02; L-03 to pełnoekranowe menu mobilne.
 - Gość na `/` dostaje rewrite na `/landing`, URL pozostaje `/`.
-- Cennik: tylko miesięczny netto 79/149/279; brak przełącznika rocznego.
+- Cennik: miesiąc 79/149/279 i rok 790/1490/2790 netto PLN, przełącznik pokazuje pełną opłatę roczną z góry.
 - Brak fikcyjnych opinii, gwiazdek i logotypów klientów; zamiast tego „SCENARIUSZ DEMO”.
 - Kalkulator oszczędności jest **estymacją** na Decimal, z jawnymi założeniami; nie mierzy wyników klientów.
 - „Zobacz demo (2 min)” to placeholder przewijający do podglądu pulpitu.
@@ -1545,7 +1544,7 @@ To nie jest lista blokad „kodowych” — część pozycji wymaga decyzji, dow
 | Metryki A-06 nie mierzą dostępności MF, Stripe ani poczty | operator nie widzi realnego stanu zależności | sondy zewnętrzne i alerty (poza repo) |
 | Backup bez automatycznego testu odtwarzania i PITR | nieznany RTO/RPO | cykliczny restore na kopię, PITR w bazie zarządzanej |
 | Brak limitów planów dla liczby użytkowników; boksy tylko przez API | plany nie są w pełni egzekwowane | UI boksów i egzekwowanie limitów |
-| Poza ukończonym zakresem | — | JPK, KSeF offline, abonament roczny, płatność online klienta (osobno od Stripe Billing), SMS, zaawansowane statystyki. Katalog usług, magazyn chemii, statystyki studia i portfolio realizacji są wdrożone. Moduły #142–#151 wchodzą pojedynczo |
+| Poza ukończonym zakresem | — | JPK, KSeF offline, płatność online klienta (osobno od Stripe Billing), SMS, zaawansowane statystyki. Katalog usług, magazyn chemii, statystyki studia i portfolio realizacji są wdrożone. Moduły #142–#151 wchodzą pojedynczo |
 
 ### 15.3 Znane drobne niedokończenia
 
@@ -1588,7 +1587,7 @@ Kolejność prac wynika z issue i faz w [`docs/dokumentacja-wdrozenia.md`](docs/
 | [Figma](https://www.figma.com/design/3pssHgZjGzo0UeyBC8yZ3S) | źródło prawdy UI |
 | [Issues](https://github.com/JaMkAAaa/detailflow/issues) | backlog, epiki, zadania `agent-ready` |
 
-**Uwaga o rozbieżności:** `docs/dokumentacja-wdrozenia.md` opisuje docelowy produkt i miejscami wyprzedza kod albo go nie zawiera (np. pełne Ustawienia, JPK, wersja roczna, automatyczne zużycie chemii). Ten README opisuje **stan faktyczny** i wskazuje luki. Przy sprzeczności: kod i migracje > ten README > dokumentacja wdrożenia > makieta.
+**Uwaga o rozbieżności:** `docs/dokumentacja-wdrozenia.md` opisuje docelowy produkt i miejscami wyprzedza kod albo go nie zawiera (np. pełne Ustawienia, JPK, automatyczne zużycie chemii). Ten README opisuje **stan faktyczny** i wskazuje luki. Przy sprzeczności: kod i migracje > ten README > dokumentacja wdrożenia > makieta.
 
 ---
 
@@ -1610,7 +1609,7 @@ Kolejność prac wynika z issue i faz w [`docs/dokumentacja-wdrozenia.md`](docs/
 - Faktury wystawia się po zakończeniu zlecenia; FV/41 nie powstaje z #DF-0248.
 - Portal klienta: 3 etapy, nie 4; token hashowany, surowy tylko w URL.
 - Kwoty: `Decimal`, PLN, nigdy `float`.
-- Wybrane moduły #142–#151 wchodzą pojedynczo (autoryzacja właściciela 29.10.2026, jeden PR na moduł). Wdrożone: #142, #143, #144, #145. Jeszcze bez własnego wdrożenia: KSeF offline, abonament roczny, płatność online klienta. Stripe Billing zostaje abonamentem Detailflow.
+- Wybrane moduły #142–#151 wchodzą pojedynczo (autoryzacja właściciela 29.10.2026, jeden PR na moduł). Wdrożone: #142, #143, #144, #145. #146 zakończył dokumentację; #147 ma implementację w PR #186 przed końcowym CI/review/merge. Jeszcze bez własnego wdrożenia: KSeF offline, płatność online klienta. Stripe Billing zostaje abonamentem Detailflow.
 - Menu: „Usługi i cennik” to katalog studia. „Magazyn” prowadzi do `/inventory`. „Statystyki” (owner) prowadzą do `/statistics`. „Portfolio” prowadzi do `/portfolio`. Publiczna galeria `/realizacje/[slug]` przy braku zdjęć pokazuje pusty stan, nie 404.
 - Seed odtwarza dane makiety, żeby dało się porównać UI.
 

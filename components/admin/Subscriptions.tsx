@@ -8,7 +8,7 @@ export function Subscriptions({ data, canEdit }: { data: PlatformSubscriptions; 
   const kpis = [
     { label: "MRR", value: formatPln(data.mrr), detail: "Suma active. Trial, past_due i suspended poza sumą." },
     { label: "Wpływy", value: formatPln(data.collected), detail: "Stripe invoice.paid, netto. Bez faktur KSeF." },
-    { label: "Zaległości", value: formatPln(data.arrears.amount), detail: `${data.arrears.count} kont past_due × cena planu` },
+    { label: "Zaległości", value: formatPln(data.arrears.amount), detail: `${data.arrears.count} kont past_due · cena pełnego okresu` },
     {
       label: "Churn",
       value: formatRate(data.churn.rate),
@@ -49,7 +49,7 @@ export function Subscriptions({ data, canEdit }: { data: PlatformSubscriptions; 
                   <div className="h-full bg-df-lime" style={{ width: `${row.share}%` }} />
                 </div>
                 <p className="mt-1 text-df-label text-df-muted">
-                  {row.count} × {formatPln(row.unit)}
+                  {row.count} kont · średnio {formatPln(row.unit)} MRR / konto
                 </p>
               </li>
             ))}
@@ -72,7 +72,7 @@ export function Subscriptions({ data, canEdit }: { data: PlatformSubscriptions; 
       <article className="rounded-xl bg-df-panel p-5">
         <h2 className="text-df-section">Zaległości</h2>
         <p className="mt-1 text-df-label text-df-muted">
-          Stripe ponawia obciążenie karty. Tu jest kolejka kont past_due — poza MRR i poza fakturami KSeF.
+          Stripe ponawia obciążenie karty. Tu jest kolejka kont past_due z ceną pełnego okresu — poza MRR i poza fakturami KSeF. Rzeczywiste saldo, w tym proration i kredyt, sprawdzisz w Stripe.
         </p>
         {data.arrearsRows.length === 0 ? (
           <p className="mt-3 text-df-body text-df-muted">Brak kont z zaległością.</p>
@@ -83,7 +83,7 @@ export function Subscriptions({ data, canEdit }: { data: PlatformSubscriptions; 
                 <Link href={`/admin/studios/${row.publicCode}`} className="flex items-start justify-between gap-3 py-3 hover:text-df-lime">
                   <span>
                     <span className="block font-medium">{row.name}</span>
-                    <span className="mt-0.5 block text-df-label text-df-muted">{row.publicCode} · {row.plan}</span>
+                    <span className="mt-0.5 block text-df-label text-df-muted">{row.publicCode} · {row.plan} · {row.interval === "yearly" ? "rocznie" : "miesięcznie"}</span>
                   </span>
                   <span className="text-df-strong">{formatPln(row.amount)}</span>
                 </Link>

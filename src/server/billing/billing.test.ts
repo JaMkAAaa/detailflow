@@ -1,3 +1,6 @@
+import Decimal from "decimal.js";
+import { getPlatformSubscriptions } from "../admin/subscriptions";
+import { getPlatformOverview } from "../admin/overview";
 import { randomUUID } from "node:crypto";
 import Stripe from "stripe";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -7,7 +10,8 @@ import { createCheckout } from "./checkout";
 import { processStripeEvent, subscriptionStatus } from "./webhook";
 import { POST as webhook } from "@/app/api/stripe/webhook/route";
 import { POST as checkoutRoute } from "@/app/api/studios/[studioId]/billing/checkout/route";
-import { pricePlan } from "./plans";
+import { billingPrice } from "@/lib/billing/catalog";
+import { pricePlan, priceBilling } from "./plans";
 import { authorizeStudio } from "../acl";
 import { getStripe } from "./stripe";
 
@@ -58,7 +62,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await platformDb.subscriptionPayment.deleteMany({ where: { OR: [{ studioId }, { stripeInvoiceId: "in_test" }] } });
-  await platformDb.studio.update({ where: { id: studioId }, data: { status: "trial", plan: "solo", stripeCustomerId: customerId, stripeSubscriptionId: null, trialEndsAt: new Date(0) } });
+  await platformDb.studio.update({ where: { id: studioId }, data: { status: "trial", plan: "solo", billingInterval: "monthly", subscriptionNet: null, stripeCustomerId: customerId, stripeSubscriptionId: null, trialEndsAt: new Date(0) } });
 });
 afterAll(async () => {
   await platformDb.auditLog.deleteMany({ where: { studioId: { in: [studioId, foreignId] } } });
@@ -132,6 +136,79 @@ describe("billing with Postgres and mocked Stripe transport", () => {
     await processStripeEvent(event("invoice.paid", { parent: null }), asStripe(stripe));
     expect(stripe.subscriptions.retrieve).not.toHaveBeenCalled();
   });
+  it.each(["solo", "studio", "pro"] as const)("annual Checkout for %s uses the approved full price and separates sessions by period", async plan => {
+    const config = billingPrice(plan, "yearly");
+    const annual = { ...price, id: `price_${plan}_year`, lookup_key: config.lookupKey, unit_amount: config.unitAmount,
+      recurring: { interval: "year", interval_count: 1, usage_type: "licensed" } } as Stripe.Price;
+    expect(priceBilling(annual)).toMatchObject({ plan, interval: "yearly" });
+    const stripe = client(); stripe.prices.list.mockResolvedValue({ data: [annual] });
+    stripe.checkout.sessions.list.mockResolvedValue({ data: [{ id: "cs_monthly", mode: "subscription", metadata: { studioId, plan }, url: "https://checkout.stripe.com/old" }] });
+    await createCheckout(ownerId, studioId, { plan, interval: "yearly" }, asStripe(stripe));
+    expect(stripe.checkout.sessions.expire).toHaveBeenCalledWith("cs_monthly");
+    expect(stripe.checkout.sessions.create).toHaveBeenCalledWith(expect.objectContaining({
+      line_items: [{ price: annual.id, quantity: 1 }], metadata: { studioId, plan, interval: "yearly" },
+      subscription_data: { metadata: { studioId, interval: "yearly" } }, automatic_tax: { enabled: true },
+    }));
+    stripe.checkout.sessions.list.mockResolvedValue({ data: [{ mode: "subscription", metadata: { studioId, plan, interval: "yearly" }, url: "https://checkout.stripe.com/year" }] });
+    expect(await createCheckout(ownerId, studioId, { plan, interval: "yearly" }, asStripe(stripe))).toEqual({ url: "https://checkout.stripe.com/year" });
+    expect(stripe.checkout.sessions.create).toHaveBeenCalledTimes(1);
+    await expect(createCheckout(workerId, studioId, { plan, interval: "yearly" }, asStripe(stripe))).rejects.toMatchObject({ status: 403 });
+    await expect(createCheckout(ownerId, foreignId, { plan, interval: "yearly" }, asStripe(stripe))).rejects.toMatchObject({ status: 403 });
+    await expect(createCheckout(ownerId, studioId, { plan, interval: "weekly" }, asStripe(stripe))).rejects.toThrow();
+  });
+  it("switches annual ↔ monthly from current Stripe state, deduplicates proration invoices and rejects an invalid annual amount", async () => {
+    const annual = { ...price, lookup_key: "plan_studio_yearly", unit_amount: 149000,
+      recurring: { interval: "year", interval_count: 1, usage_type: "licensed" } } as Stripe.Price;
+    const baseline = await getPlatformSubscriptions();
+    const yearlySub = subscription({ items: { data: [{ quantity: 1, price: annual }] } } as Stripe.Subscription);
+    const e = event("customer.subscription.updated", subscription()); // delayed monthly snapshot
+    await Promise.all([processStripeEvent(e, asStripe(client(yearlySub))), processStripeEvent(e, asStripe(client(yearlySub)))]);
+    const saved = await platformDb.studio.findUniqueOrThrow({ where: { id: studioId } });
+    expect(saved).toMatchObject({ status: "active", billingInterval: "yearly" });
+    expect(saved.subscriptionNet?.toFixed(2)).toBe("1490.00");
+    const expectedMrr = new Decimal(baseline.mrr).plus(new Decimal("1490").div(12)).toFixed(2);
+    expect((await getPlatformSubscriptions()).mrr).toBe(expectedMrr);
+    expect((await getPlatformOverview()).mrr).toBe(expectedMrr);
+    expect(await platformDb.auditLog.count({ where: { studioId, meta: { path: ["eventId"], equals: e.id } } })).toBe(1);
+    expect(await platformDb.studio.findUnique({ where: { id: foreignId } })).toMatchObject({ billingInterval: "monthly", subscriptionNet: null });
+    const bad = subscription({ items: { data: [{ quantity: 1, price: { ...annual, unit_amount: 178800 } }] } } as Stripe.Subscription);
+    const invalid = event("customer.subscription.updated", bad);
+    await expect(processStripeEvent(invalid, asStripe(client(bad)))).rejects.toThrow();
+    expect(await platformDb.stripeEvent.findUnique({ where: { id: invalid.id } })).toBeNull();
+    // Stripe invoices the actual proration, not another full annual price.
+    const invoice = { id: "in_test", customer: customerId, parent: { subscription_details: { subscription: subId } },
+      currency: "pln", amount_paid: 12300, total_excluding_tax: 10000 };
+    const paid = event("invoice.paid", invoice);
+    await processStripeEvent(paid, asStripe(client(yearlySub)));
+    await processStripeEvent(paid, asStripe(client(yearlySub)));
+    expect((await platformDb.subscriptionPayment.findUniqueOrThrow({ where: { stripeInvoiceId: "in_test" } })).amountNet.toFixed(2)).toBe("100.00");
+    expect(await platformDb.subscriptionPayment.count({ where: { studioId } })).toBe(1);
+    await processStripeEvent(event("invoice.payment_failed", { ...invoice, amount_paid: 0 }), asStripe(client(yearlySub)));
+    expect(await platformDb.studio.findUnique({ where: { id: studioId } })).toMatchObject({ status: "past_due", billingInterval: "yearly" });
+    const recovered = client(yearlySub); recovered.invoices.retrieve.mockResolvedValue({ status: "paid" });
+    await processStripeEvent(event("invoice.paid", invoice), asStripe(recovered));
+    expect(await platformDb.subscriptionPayment.count({ where: { studioId } })).toBe(1);
+    expect(await platformDb.studio.findUnique({ where: { id: studioId } })).toMatchObject({ status: "active", billingInterval: "yearly" });
+    // Credit-funded downgrade invoice has no cash receipt, but must not retry forever.
+    const credit = event("invoice.paid", { ...invoice, id: "in_credit", amount_paid: 0, total_excluding_tax: -10000 });
+    await processStripeEvent(credit, asStripe(client()));
+    await processStripeEvent(credit, asStripe(client()));
+    const monthly = await platformDb.studio.findUniqueOrThrow({ where: { id: studioId } });
+    expect(monthly.billingInterval).toBe("monthly");
+    expect(monthly.subscriptionNet?.toFixed(2)).toBe("149.00");
+    expect(await platformDb.subscriptionPayment.findUnique({ where: { stripeInvoiceId: "in_credit" } })).toBeNull();
+    expect(await platformDb.invoice.count({ where: { studioId } })).toBe(0);
+  });
+  it("does not allow a manager to buy either billing period", async () => {
+    await studioDb(studioId).membership.updateMany({ where: { userId: workerId }, data: { role: "manager" } });
+    const stripe = client();
+    try {
+      for (const interval of ["monthly", "yearly"]) {
+        await expect(createCheckout(workerId, studioId, { plan: "studio", interval }, asStripe(stripe))).rejects.toMatchObject({ status: 403 });
+      }
+      expect(stripe.prices.list).not.toHaveBeenCalled();
+    } finally { await studioDb(studioId).membership.updateMany({ where: { userId: workerId }, data: { role: "worker" } }); }
+  });
   it("requires owner, same tenant, and expired trial before any Stripe calls", async () => {
     const stripe = client();
     await expect(createCheckout(workerId, studioId, { plan: "studio" }, asStripe(stripe))).rejects.toMatchObject({ status: 403 });
@@ -145,7 +222,7 @@ describe("billing with Postgres and mocked Stripe transport", () => {
     const stripe = client();
     await createCheckout(ownerId, studioId, { plan: "studio" }, asStripe(stripe));
     expect(stripe.prices.list).toHaveBeenCalledWith(expect.objectContaining({ lookup_keys: ["plan_studio_monthly"] }));
-    expect(stripe.checkout.sessions.create).toHaveBeenCalledWith(expect.objectContaining({ mode: "subscription", customer: customerId, subscription_data: { metadata: { studioId } }, line_items: [{ price: price.id, quantity: 1 }] }));
+    expect(stripe.checkout.sessions.create).toHaveBeenCalledWith(expect.objectContaining({ mode: "subscription", customer: customerId, subscription_data: { metadata: { studioId, interval: "monthly" } }, line_items: [{ price: price.id, quantity: 1 }] }));
     expect(stripe.checkout.sessions.create.mock.calls[0]![0].subscription_data).not.toHaveProperty("trial_period_days");
     stripe.checkout.sessions.list.mockResolvedValue({ data: [{ mode: "subscription", metadata: { studioId, plan: "studio" }, url: "https://checkout.stripe.com/open" }] });
     stripe.checkout.sessions.create.mockClear();
@@ -154,7 +231,7 @@ describe("billing with Postgres and mocked Stripe transport", () => {
     stripe.subscriptions.list.mockResolvedValue({ data: [subscription()] });
     await expect(createCheckout(ownerId, studioId, { plan: "studio" }, asStripe(stripe))).rejects.toMatchObject({ status: 409 });
   });
-  it("rejects annual, foreign-currency, gross and unrecognized prices", () => {
+  it("rejects mismatched intervals, foreign-currency, gross and unrecognized prices", () => {
     for (const bad of [{ currency: "eur" }, { unit_amount: 149 }, { tax_behavior: "inclusive" }, { lookup_key: "other" }, { recurring: { interval: "year", interval_count: 1 } }]) {
       expect(() => pricePlan({ ...price, ...bad } as Stripe.Price)).toThrow();
     }

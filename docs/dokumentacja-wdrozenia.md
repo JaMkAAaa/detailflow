@@ -19,7 +19,7 @@ Detailflow to **polski SaaS operacyjny dla studiów detailingowych**. Zastępuje
 - klient śledzi auto na żywo przez link, bez konta,
 - platforma Detailflow rozlicza studia abonamentem (Stripe) i nadzoruje zdrowie produktu.
 
-Hasło oferty z landingu: **„Twoje studio detailingu. Bez Excela. Bez chaosu.”** Okres próbny: **14 dni, bez karty**. Cennik miesięczny netto: **Solo 79 zł · Studio 149 zł · Pro 279 zł**. Opcja roczna nie jest wdrożona; została autoryzowana do osobnego #147 w serii #142–#151 (§6.4).
+Hasło oferty z landingu: **„Twoje studio detailingu. Bez Excela. Bez chaosu.”** Okres próbny: **14 dni, bez karty**. Cennik miesięczny netto: **Solo 79 zł · Studio 149 zł · Pro 279 zł**. Opcja roczna (#147): Solo 790 / Studio 1490 / Pro 2790 PLN netto za pełny rok z góry, automatyczne odnowienie. [Decyzja OpenBot po delegacji użytkownika i kontrakt](stripe-roczny-przygotowanie.md).
 
 Aplikacja ma **cztery powierzchnie**:
 
@@ -313,7 +313,7 @@ Dwa niezależne obiegi pieniędzy:
 
 | Obieg | Kto płaci | Mechanizm | Dokument |
 | --- | --- | --- | --- |
-| Abonament Detailflow | studio → Detailflow | Stripe Billing, PLN, miesięcznie | faktura VAT Detailflow (osobny temat księgowy) |
+| Abonament Detailflow | studio → Detailflow | Stripe Billing, PLN, miesięcznie lub rocznie | faktura VAT Detailflow (osobny temat księgowy) |
 | Usługa detailingu | klient studia → studio | przelew / gotówka / później płatność online | **faktura KSeF studia** |
 
 MRR w panelu właściciela = suma **aktywnych** abonamentów Solo/Studio/Pro. **Wyklucza** triale, zaległości i konta wstrzymane. Nie jest sumą wpłat Stripe w miesiącu (te są osobną metryką „Wpływy”).
@@ -364,7 +364,7 @@ Prototyp wprost to oznacza:
 - KSeF offline — #146 to ukończenie badania/dokumentacji, nie wdrożenie klienta; kod pozostaje przyszłym zakresem.
 - Panel właściciela na mobile.
 - Płatność klienta online za usługę (Stripe Checkout B2C) — autoryzowana do osobnego #148, jeszcze niewdrożona.
-- Abonament roczny.
+- Abonament roczny (#147) jest zaimplementowany w PR #186; [decyzja i kontrakt](stripe-roczny-przygotowanie.md). Wymaga zakończenia CI i review przed merge.
 - Tryb jasny (produkt jest ciemny).
 
 ### 6.4 Moduły wybrane, wdrażane pojedynczo
@@ -694,11 +694,11 @@ Zdjęcia zlecenia (`OrderPhoto`) mogą zawierać tablice rejestracyjne i otoczen
 
 Produkty (test + live, te same `lookup_key`):
 
-| Plan | Netto / mies. | Stripe |
-| --- | --- | --- |
-| Solo | 79 PLN | `plan_solo_monthly` |
-| Studio | 149 PLN | `plan_studio_monthly` |
-| Pro | 279 PLN | `plan_pro_monthly` |
+| Plan | Netto / mies. | Netto / rok | Stripe (miesiąc / rok) |
+| --- | --- | --- | --- |
+| Solo | 79 PLN | 790 PLN | `plan_solo_monthly` / `plan_solo_yearly` |
+| Studio | 149 PLN | 1490 PLN | `plan_studio_monthly` / `plan_studio_yearly` |
+| Pro | 279 PLN | 2790 PLN | `plan_pro_monthly` / `plan_pro_yearly` |
 
 Zdarzenia, które **muszą** aktualizować `Studio`:
 
@@ -714,7 +714,7 @@ Trial 14 dni bez karty: rejestracja tworzy `Studio` + `trialEndsAt`. Cron codzie
 
 Mapowanie na makietę A-04:
 
-- MRR = suma cen aktywnych subskrypcji (nie triale, nie past_due, nie suspended).
+- MRR = suma miesięcznie znormalizowanych cen aktywnych subskrypcji (roczne / 12 jako Decimal, nie triale, nie past_due, nie suspended).
 - Wpływy = `invoice.paid` w okresie.
 - Zaległości = `past_due` × cena planu.
 - Churn = anulowane w okresie / baza na starcie okresu.
