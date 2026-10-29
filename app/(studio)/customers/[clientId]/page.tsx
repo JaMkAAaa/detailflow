@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getClient } from "@/src/server/klienci/clients";
 import { ClientError } from "@/src/server/klienci/errors";
 import { requireStudio } from "@/src/server/studio/context";
+import { ClientPrivacyActions } from "../privacy-actions";
 import { ClientForm, DeleteButton, VehicleForm } from "../forms";
 
 const statusLabel = {
@@ -11,7 +12,7 @@ const statusLabel = {
 } as const;
 
 export default async function CustomerPage({ params }: { params: Promise<{ clientId: string }> }) {
-  const { studioId } = await requireStudio();
+  const { studioId, member } = await requireStudio();
   const { clientId } = await params;
   const client = await getClient(studioId, clientId).catch((error) => {
     if (error instanceof ClientError && error.status === 404) notFound();
@@ -30,6 +31,8 @@ export default async function CustomerPage({ params }: { params: Promise<{ clien
         <ClientForm studioId={studioId} client={client} />
         <DeleteButton url={`/api/studios/${studioId}/clients/${client.id}`} label="Usuń klienta" confirm="Usunąć klienta i jego auta bez historii?" />
       </section>
+
+      {member.role !== "worker" && <ClientPrivacyActions studioId={studioId} clientId={client.id} />}
 
       <section className="flex flex-col gap-4">
         <h2 className="text-df-strong text-df-text">Auta</h2>
