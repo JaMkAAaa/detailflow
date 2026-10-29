@@ -15,6 +15,8 @@ beforeAll(() => {
 afterEach(cleanup);
 const props = {
   studio: "Obsidian Studio",
+  studioId: "a",
+  choices: [{ studioId: "a", studio: { name: "Obsidian Studio" } }],
   name: "Michał Kowalski",
   location: "Warszawa, Mokotów",
   attentionCount: 2,

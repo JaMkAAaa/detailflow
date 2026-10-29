@@ -11,6 +11,8 @@ export default async function MorePage() {
       : await invoiceAttentionCount(studioId, current.studio.ksefEnv);
   return (
     <MoreScreen
+      choices={choices}
+      studioId={studioId}
       studio={current.studio.name}
       name={user.name}
       location={[current.studio.city, current.studio.district]

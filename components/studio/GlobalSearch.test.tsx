@@ -31,7 +31,7 @@ it("opens from the mobile More screen and shows explicit no-results state", asyn
   render(
     <>
       <GlobalSearch studioId="studio-a" />
-      <MoreScreen studio="Studio A" name="Ala Kowalska" location="" role="worker" attentionCount={0} />
+      <MoreScreen studioId="a" choices={[{ studioId: "a", studio: { name: "Studio A" } }]} studio="Studio A" name="Ala Kowalska" location="" role="worker" attentionCount={0} />
     </>,
   );
   await user.click(screen.getByRole("button", { name: "Szukaj klienta, auta, zlecenia lub faktury" }));

@@ -75,7 +75,9 @@ describe("ACL and the same invoice endpoint across two tenants (Postgres)", () =
   it("checks picker membership and origin before setting the cookie", async () => {
     mocks.session.mockResolvedValue({ user: users.manager });
     const select = (studioId: string, origin = "http://localhost:3000") => selectStudio(new Request("http://localhost:3000/api/studios/active", { method: "POST", headers: { origin, "content-type": "application/json" }, body: JSON.stringify({ studioId }) }));
-    expect((await select(studios[1]!)).status).toBe(403);
+    const forbidden = await select(studios[1]!);
+    expect(forbidden.status).toBe(403);
+    expect(forbidden.headers.get("set-cookie")).toBeNull();
     expect((await select(studios[0]!, "https://evil.example")).status).toBe(403);
     const allowed = await select(studios[0]!);
     expect(allowed.status).toBe(200);

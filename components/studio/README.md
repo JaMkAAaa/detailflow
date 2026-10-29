@@ -74,3 +74,11 @@ Tab bar ustępuje stałym akcjom M-05 i M-08. Widoki używają tego samego progu
 `lg` (1024 px); `useMobile` subskrybuje zmiany szerokości i zachowuje stan wizardu.
 
 Źródło: [M-06](https://www.figma.com/design/3pssHgZjGzo0UeyBC8yZ3S?node-id=32-554).
+
+## Przełączanie studia na M-06 (#125)
+
+Ekran Więcej pokazuje studia z membershipów sesji. Przy jednym studiu widoczna
+jest nazwa bez kontrolki wyboru. Wybór wysyła `POST /api/studios/active`; serwer
+sprawdza membership przed ustawieniem cookie. Sukces prowadzi pełną nawigacją
+na pulpit, usuwając cache i stan klienta poprzedniego studia. Błąd pozostawia
+poprzedni wybór i pozwala ponowić próbę.
