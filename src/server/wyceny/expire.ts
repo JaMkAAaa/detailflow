@@ -1,6 +1,6 @@
 import { platformDb } from "../../../lib/db/client";
 import { studioDb } from "../../../lib/db/tenant";
-import { PORTAL_TTL_MS } from "../portal/links";
+import { PORTAL_TTL_MS } from "../portal/ttl";
 
 export async function expireQuotes(now = new Date()) {
   const studios = await platformDb.studio.findMany({ select: { id: true } });

@@ -7,8 +7,10 @@ Publiczna trasa `/p/[token]` weryfikuje hash, TTL i odwołanie PortalLink.
 Ważny link zlecenia pokazuje P-01 z jego autem, numerem, usługą, kwotą brutto,
 kontaktem studia i datą odbioru (`dueAt`, a bez niej `scheduledTo`). Daty są
 formatowane w Europe/Warsaw. Kwota pozostaje dziesiętnym stringiem, bez float.
-Brak telefonu ukrywa akcję kontaktu. Zdjęcia należą do osobnego issue;
-portal nie podstawia zdjęcia Porsche z makiety dla innego auta.
+Brak telefonu ukrywa akcję kontaktu. Ważny link zlecenia dokłada zdjęcia tego
+zlecenia i — tylko gdy protokół istnieje — jego akceptację. Link samej wyceny
+zostawia formularz decyzji i nie pokazuje zdjęć zlecenia. Portal nie podstawia
+zdjęcia Porsche z makiety dla innego auta.
 
 Etapy studia 1/2/3/4 mapują się na portal 1/2/3/3: przyjęcie i mycie,
 korekta lakieru, ceramika i kontrola. Przyjęte zlecenie oczekuje; do odbioru

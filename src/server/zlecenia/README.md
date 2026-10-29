@@ -46,7 +46,7 @@ oraz opcjonalne `photoId` — wgrane (potwierdzone) zdjęcie **tego samego zlece
 - `PUT …/protocol` `{ damages: [{ title, part, size?, x, y, photoId? }] }` — tworzy protokół lub zastępuje punkty.
 - `GET …/protocol` — protokół z punktami i podpisanym URL zdjęcia punktu; brak → 404.
 - `POST …/protocol/accept` — akceptacja klienta jako flaga `acceptedAt` (idempotentna).
-  UI portalu podłączy `acceptProtocol` później; portal nie ma jeszcze własnej ścieżki auth.
+  Portal woła tę samą funkcję po tokenie linku zlecenia (`acceptPortalProtocol`).
 
 Po akceptacji protokół jest niezmienny (PUT → 409), także przy równoległym zapisie
 i akceptacji — zapis blokuje wiersz protokołu warunkowym `UPDATE … WHERE acceptedAt IS NULL`.

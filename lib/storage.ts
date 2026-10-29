@@ -36,14 +36,34 @@ export function presignGet(key: string, expiresIn: number) {
   return getSignedUrl(signingClient(), new GetObjectCommand({ Bucket: env.S3_BUCKET, Key: key }), { expiresIn });
 }
 
+function isMissingObject(error: unknown) {
+  const e = error as { name?: string; $metadata?: { httpStatusCode?: number } };
+  return e.name === "NotFound" || e.name === "NoSuchKey" || e.$metadata?.httpStatusCode === 404;
+}
+
 /** `null`, gdy obiektu nie ma. */
 export async function headObject(key: string) {
   try {
     const head = await internalClient().send(new HeadObjectCommand({ Bucket: env.S3_BUCKET, Key: key }));
     return { sizeBytes: head.ContentLength ?? 0, contentType: head.ContentType ?? "" };
   } catch (error) {
-    const e = error as { name?: string; $metadata?: { httpStatusCode?: number } };
-    if (e.name === "NotFound" || e.name === "NoSuchKey" || e.$metadata?.httpStatusCode === 404) return null;
+    if (isMissingObject(error)) return null;
+    throw error;
+  }
+}
+
+/** Strumień obiektu dla route portalu. `null`, gdy obiektu nie ma. */
+export async function openObject(key: string) {
+  try {
+    const result = await internalClient().send(new GetObjectCommand({ Bucket: env.S3_BUCKET, Key: key }));
+    if (!result.Body) return null;
+    return {
+      stream: result.Body.transformToWebStream(),
+      contentType: result.ContentType ?? "application/octet-stream",
+      contentLength: result.ContentLength,
+    };
+  } catch (error) {
+    if (isMissingObject(error)) return null;
     throw error;
   }
 }

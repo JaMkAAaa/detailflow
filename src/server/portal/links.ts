@@ -1,8 +1,12 @@
 import { platformDb } from "../../../lib/db/client";
 import { studioDb, type StudioDb } from "../../../lib/db/tenant";
 import { generatePortalToken, hashPortalToken } from "../../../lib/portal/token";
+import { OrderError } from "../zlecenia/errors";
+import { acceptProtocol } from "../zlecenia/intake";
+import { portalPhotoPath } from "./media";
+import { PORTAL_TTL_MS } from "./ttl";
 
-export const PORTAL_TTL_MS = 14 * 86400_000;
+export { PORTAL_TTL_MS };
 export class PortalLinkError extends Error {
   constructor() { super("Link wygasł lub jest nieprawidłowy."); }
 }
@@ -53,7 +57,50 @@ export async function readPortal(token: string) {
     items: { orderBy: { sort: "asc" } }, vehicle: { select: { make: true, model: true, plate: true } },
   } }) : null;
   const studio = await platformDb.studio.findUniqueOrThrow({ where: { id: link.studioId }, select: { name: true, phone: true, address: true } });
-  return { studio, order, quote };
+  const photos = order ? await listPortalPhotos(db, link.id, order.id) : [];
+  const protocol = order ? await readPortalProtocol(db, order.id) : null;
+  return { studio, order, quote, photos, protocol };
+}
+
+async function listPortalPhotos(db: StudioDb, linkId: string, workOrderId: string) {
+  const rows = await db.orderPhoto.findMany({
+    where: { workOrderId, uploadedAt: { not: null } },
+    orderBy: { no: "asc" },
+    select: { id: true, no: true, caption: true },
+  });
+  return rows.map((photo) => ({ no: photo.no, caption: photo.caption, url: portalPhotoPath(linkId, photo.id) }));
+}
+
+async function readPortalProtocol(db: StudioDb, workOrderId: string) {
+  const protocol = await db.intakeProtocol.findFirst({
+    where: { workOrderId },
+    select: {
+      number: true, acceptedAt: true,
+      damages: { orderBy: { no: "asc" }, select: { no: true, title: true, part: true, size: true, posX: true, posY: true } },
+    },
+  });
+  if (!protocol) return null;
+  return {
+    number: protocol.number,
+    acceptedAt: protocol.acceptedAt,
+    damages: protocol.damages.map(({ posX, posY, ...damage }) => ({ ...damage, x: posX, y: posY })),
+  };
+}
+
+/** Ta sama flaga co akceptacja w studiu. Brak protokołu nic nie zapisuje. Zły token → PortalLinkError (P-02). */
+export async function acceptPortalProtocol(token: string) {
+  const link = await resolvePortalLink(token);
+  if (!link) throw new PortalLinkError();
+  if (!link.workOrderId) return;
+  const db = studioDb(link.studioId);
+  const protocol = await db.intakeProtocol.findFirst({ where: { workOrderId: link.workOrderId }, select: { id: true } });
+  if (!protocol) return;
+  try {
+    await acceptProtocol(link.studioId, link.workOrderId);
+  } catch (error) {
+    if (error instanceof OrderError && error.status === 404) return;
+    throw error;
+  }
 }
 
 export async function decideQuote(token: string, decision: "accepted" | "rejected") {
