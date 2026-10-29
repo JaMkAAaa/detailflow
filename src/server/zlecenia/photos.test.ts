@@ -4,6 +4,7 @@ import { platformDb } from "../../../lib/db/client";
 import { studioDb } from "../../../lib/db/tenant";
 import { assertKeyInStudio, confirmPhotoUpload, listPhotos, photoKey, requestPhotoUpload } from "./photos";
 import { acceptProtocol, getProtocol, saveProtocol } from "./intake";
+import { cleanupUnconfirmedPhotos, UNCONFIRMED_PHOTO_TTL_MS } from "./cleanup-photos";
 import { GET as listRoute, POST as uploadRoute } from "../../../app/api/studios/[studioId]/orders/[workOrderId]/photos/route";
 import { POST as confirmRoute } from "../../../app/api/studios/[studioId]/orders/[workOrderId]/photos/confirm/route";
 import { GET as protocolGet, PUT as protocolPut } from "../../../app/api/studios/[studioId]/orders/[workOrderId]/protocol/route";
@@ -13,14 +14,14 @@ import { POST as acceptRoute } from "../../../app/api/studios/[studioId]/orders/
 const mocks = vi.hoisted(() => {
   process.env.SKIP_ENV_VALIDATION = "1";
   process.env.APP_URL = "http://localhost:3000";
-  return { session: vi.fn(), objects: new Map<string, { sizeBytes: number; contentType: string }>() };
+  return { session: vi.fn(), headObject: vi.fn(), deleteObject: vi.fn(), objects: new Map<string, { sizeBytes: number; contentType: string }>() };
 });
 vi.mock("../../../lib/auth", () => ({ auth: { api: { getSession: mocks.session } } }));
 vi.mock("../../../lib/storage", () => ({
   presignPut: async ({ key, expiresIn }: { key: string; expiresIn: number }) => `https://s3.test/put/${key}?expires=${expiresIn}`,
   presignGet: async (key: string, expiresIn: number) => `https://s3.test/get/${key}?expires=${expiresIn}`,
-  headObject: async (key: string) => mocks.objects.get(key) ?? null,
-  deleteObject: async (key: string) => { mocks.objects.delete(key); },
+  headObject: async (key: string) => { await mocks.headObject(key); return mocks.objects.get(key) ?? null; },
+  deleteObject: async (key: string) => { await mocks.deleteObject(key); mocks.objects.delete(key); },
 }));
 
 const jpeg = { contentType: "image/jpeg", sizeBytes: 1024 };
@@ -156,6 +157,80 @@ describe("zdjęcia i protokół przyjęcia (Postgres)", () => {
       const confirmed = await confirmRoute(request("POST", { key: body.key }), context(a!, order!));
       expect(confirmed.status).toBe(200);
       expect(await confirmed.json()).toMatchObject({ uploadedBy: { name: "Kamil" } });
+    });
+  });
+
+  describe("sprzątanie porzuconych uploadów", () => {
+    const now = new Date();
+    const staleDate = new Date(now.getTime() - UNCONFIRMED_PHOTO_TTL_MS - 1);
+    async function pending(index = 0, createdAt = staleDate, withObject = true) {
+      const studioId = studios[index]!, workOrderId = orders[index]![2]!;
+      const photo = await requestPhotoUpload(studioId, workOrderId, userId, jpeg);
+      await studioDb(studioId).orderPhoto.updateMany({ where: { id: photo.id }, data: { createdAt } });
+      if (withObject) upload(photo.key);
+      return { ...photo, studioId, workOrderId, read: () => studioDb(studioId).orderPhoto.findFirst({ where: { id: photo.id } }) };
+    }
+    it("usuwa tylko starsze niż 24 h; zachowuje granicę, świeże, potwierdzone i inne studio", async () => {
+      const stale = await pending();
+      const absent = await pending(0, staleDate, false);
+      const boundary = await pending(0, new Date(now.getTime() - UNCONFIRMED_PHOTO_TTL_MS));
+      const fresh = await pending(0, now);
+      const confirmed = await pending();
+      await confirmPhotoUpload(confirmed.studioId, confirmed.workOrderId, { key: confirmed.key });
+      const foreign = await pending(1);
+      const rows = await platformDb.studio.findMany({ where: { id: studios[0]! } });
+      const spy = vi.spyOn(platformDb.studio, "findMany").mockResolvedValue(rows);
+      try {
+        expect(await cleanupUnconfirmedPhotos(now)).toBe(2);
+        for (const photo of [stale, absent]) {
+          expect(await photo.read()).toBeNull();
+          expect(mocks.objects.has(photo.key)).toBe(false);
+        }
+        for (const photo of [boundary, fresh, confirmed, foreign]) {
+          expect(await photo.read()).not.toBeNull();
+          expect(mocks.objects.has(photo.key)).toBe(true);
+        }
+        expect(await cleanupUnconfirmedPhotos(now)).toBe(0);
+      } finally { spy.mockRestore(); }
+    });
+    it("błąd S3 pozostawia wiersz do ponowienia", async () => {
+      const photo = await pending();
+      const rows = await platformDb.studio.findMany({ where: { id: studios[0]! } });
+      const spy = vi.spyOn(platformDb.studio, "findMany").mockResolvedValue(rows);
+      mocks.deleteObject.mockRejectedValueOnce(new Error("S3 unavailable"));
+      try {
+        await expect(cleanupUnconfirmedPhotos(now)).rejects.toThrow("S3 unavailable");
+        expect(await photo.read()).not.toBeNull();
+        expect(mocks.objects.has(photo.key)).toBe(true);
+        expect(await cleanupUnconfirmedPhotos(now)).toBe(1);
+        expect(await photo.read()).toBeNull();
+      } finally { spy.mockRestore(); }
+    });
+    it("blokada sprzątania nie pozwala potwierdzić usuniętego zdjęcia", async () => {
+      const photo = await pending();
+      const rows = await platformDb.studio.findMany({ where: { id: studios[0]! } });
+      const spy = vi.spyOn(platformDb.studio, "findMany").mockResolvedValue(rows);
+      let release!: () => void, locked!: () => void, headed!: () => void;
+      const gate = new Promise<void>(resolve => { release = resolve; });
+      const started = new Promise<void>(resolve => { locked = resolve; });
+      const headStarted = new Promise<void>(resolve => { headed = resolve; });
+      mocks.deleteObject.mockImplementationOnce(async () => { locked(); await gate; });
+      try {
+        const cleanup = cleanupUnconfirmedPhotos(now);
+        await started;
+        mocks.headObject.mockImplementationOnce(() => { headed(); });
+        const confirmation = confirmPhotoUpload(photo.studioId, photo.workOrderId, { key: photo.key });
+        // Attach the rejection assertion before letting cleanup finish.
+        const rejected = expect(confirmation).rejects.toMatchObject({ status: 404 });
+        await headStarted;
+        // Let the HEAD continuation capture the object while S3 DELETE is still held.
+        await Promise.resolve();
+        release();
+        expect(await cleanup).toBe(1);
+        await rejected;
+        expect(await photo.read()).toBeNull();
+        expect(mocks.objects.has(photo.key)).toBe(false);
+      } finally { release(); spy.mockRestore(); }
     });
   });
 
