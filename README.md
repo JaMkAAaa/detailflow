@@ -4,12 +4,12 @@
 
 - **Repozytorium:** [JaMkAAaa/detailflow](https://github.com/JaMkAAaa/detailflow)
 - **Figma (źródło UI):** [Detailflow](https://www.figma.com/design/3pssHgZjGzo0UeyBC8yZ3S)
-- **Zakres kodu:** commit `5a9780a3` (dokumentacja opisuje ten stan; późniejsze commity mogą go zmienić)
-- **Stack:** Next.js 15 · React 19 · TypeScript · PostgreSQL 16 · Prisma 7 · Tailwind CSS 4 · Better Auth · BullMQ · Stripe · S3/MinIO · KSeF 2.0 TEST
+- **Zakres kodu:** `main` na commicie `704921eb` (po #179). Opis stanu zweryfikowano w kodzie, migracjach i testach tego commitu; późniejsze commity mogą go zmienić.
+- **Stack:** Next.js 15 · React 19 · TypeScript · PostgreSQL 16 · Prisma 7 · Tailwind CSS 4 · Better Auth · BullMQ · Stripe · S3/MinIO · KSeF 2.0 (TEST domyślnie, PROD za flagą)
 
-Ten plik jest **główną dokumentacją techniczną i produktową** repozytorium. Opisuje nie tylko architekturę, ale też zakres wdrożonego produktu, reguły biznesowe, dane demonstracyjne, ograniczenia i sposób pracy z kodem. Szczegółowe dokumenty modułów są linkowane w sekcji [Dokumentacja źródłowa](#16-dokumentacja-źródlowa).
+Ten plik jest **opisem stanu kodu** i główną dokumentacją techniczną repozytorium. Opisuje architekturę, wdrożony zakres, reguły biznesowe, dane demonstracyjne, ograniczenia i sposób pracy z kodem. Szczegółowe dokumenty modułów są linkowane w sekcji [Dokumentacja źródłowa](#16-dokumentacja-źródłowa). **Specyfikacją docelową produktu** jest [`docs/dokumentacja-wdrozenia.md`](docs/dokumentacja-wdrozenia.md); przy sprzeczności o stanie wdrożenia wygrywa kod, potem ten plik.
 
-> **Ważne:** repozytorium zawiera działający szkielet v1, a nie tylko makietę. Część ekranów jest jednak nadal wersją demonstracyjną (największe luki: tworzenie zleceń, kreator faktury, wysyłka do KSeF z UI i panel administratora platformy). Dokładny stan opisuje [macierz wdrożenia](#3-status-wdrożenia).
+> **Ważne:** repozytorium zawiera działający produkt v1 w fazie twardnienia, a nie makietę: zlecenia, kalendarz, wyceny, portal, faktury z wysyłką do kolejki KSeF, billing Stripe i panel platformy działają na bazie. To **nie jest deklaracja gotowości produkcyjnej ani prawnej**: strony prawne są szkicami, integracja KSeF jest testowana na transporcie zastępczym (bez dowodu z prawdziwym MF w repozytorium), a część elementów pozostaje demonstracją (m.in. terminy w kreatorze wyceny, eksport JPK, podgląd papieru faktury). Dokładny stan opisuje [macierz wdrożenia](#3-status-wdrożenia), a otwarte luki — [sekcja 15](#15-luki-i-plan).
 
 ---
 
@@ -30,7 +30,7 @@ Ten plik jest **główną dokumentacją techniczną i produktową** repozytorium
 13. [Testowanie i jakość](#13-testowanie-i-jakość)
 14. [Wdrożenie i utrzymanie](#14-wdrożenie-i-utrzymanie)
 15. [Luki i plan](#15-luki-i-plan)
-16. [Dokumentacja źródłowa](#16-dokumentacja-źródlowa)
+16. [Dokumentacja źródłowa](#16-dokumentacja-źródłowa)
 17. [Praca z repozytorium](#17-praca-z-repozytorium)
 18. [Słownik](#18-słownik)
 19. [Troubleshooting](#19-troubleshooting)
@@ -70,7 +70,7 @@ Domknąć dzień studia **od przyjęcia auta do faktury KSeF i odbioru przez kli
 | Landing `detailflow.pl` | prospect | sprzedaż, trial, demo | `app/(marketing)/landing`, `components/landing` |
 | Panel studia | właściciel, manager, pracownik | operacje dnia | `app/(studio)`, `components/*` |
 | Portal klienta | klient studia, bez konta | status, wycena, decyzja | `app/p/[token]`, `components/portal` |
-| Panel platformy (A-01–A-10) | operatorzy Detailflow | SaaS, MRR, wsparcie, audyt | **brak implementacji** — tylko Figma i `audit/admin/README.md` |
+| Panel platformy (A-01–A-10) | operatorzy Detailflow | SaaS, MRR, wsparcie, audyt | `app/(platform)/admin` (`/admin`), `components/admin`, `src/server/admin` — [§9.15](#915-panel-platformy-admin) |
 
 ### 1.4 Role w studiu
 
@@ -101,7 +101,8 @@ Role są sprawdzane **przy każdym żądaniu** na podstawie `Membership`, a nie 
 
 - Trial: **14 dni, bez karty**.
 - Po trialu: Checkout Stripe albo dostęp tylko do odczytu (dane pozostają).
-- Abonament roczny, płatność klienta online i limity planów **nie są wdrożone**.
+- Abonament roczny i płatność klienta online **nie są wdrożone** (flagi `annual_billing` i `client_online_pay` w panelu platformy są wyłączone i niczego nie włączają).
+- Limity planów: **egzekwowany jest tylko limit boksów** (Solo 1, Studio 4, Pro bez limitu) przy dodawaniu boksu przez `POST /api/studios/:studioId/bays` (tylko API, bez ekranu; owner); istniejące boksy po obniżeniu planu zostają. Limit użytkowników (1 / 5 / bez limitu) jest tylko pokazywany w karcie studia A-03, nie jest egzekwowany przy zaproszeniach.
 - Cennik i obietnice z landingu wymagają zatwierdzenia prawnego przed publikacją.
 
 ### 1.7 Poza zakresem v1
@@ -162,6 +163,16 @@ E-mail:  michal.kowalski@example.com
 Hasło:   obsidian-demo-2026
 ```
 
+Panel platformy (`/admin`, osobne logowanie i cookie `df-plat`):
+
+```text
+URL:     http://localhost:3000/admin/login
+E-mail:  anna.nowak@detailflow.test
+Hasło:   platform-demo-2026
+```
+
+Operator demo (rola `owner`) nie ma włączonego MFA; zmiany ról i flag w A-08 wymagają najpierw jego włączenia i potwierdzenia kodem TOTP.
+
 - Portal klienta (ważny link demo): http://localhost:3000/p/obsidian-df-0248-demo
 - Portal klienta (wygasły link demo): http://localhost:3000/p/obsidian-df-0244-expired
 
@@ -183,7 +194,7 @@ pnpm dev
 pnpm worker
 ```
 
-`pnpm dev` wykonuje `prisma generate` i uruchamia Next.js z `--hostname 0.0.0.0`. `pnpm worker` uruchamia outbox mailowy, kolejkę KSeF i scheduler billingu. Do samego UI worker nie jest potrzebny, ale wysyłka maili i KSeF już go wymagają.
+`pnpm dev` wykonuje `prisma generate` i uruchamia Next.js z `--hostname 0.0.0.0`. `pnpm worker` uruchamia cykl co 15 s (maile: wyceny, decyzje portalu i faktury; odtwarzanie kolejki KSeF; wygaszanie wysłanych wycen; sprzątanie niepotwierdzonych uploadów zdjęć), kolejkę KSeF i scheduler billingu. Do samego UI worker nie jest potrzebny, ale wysyłka maili i KSeF już go wymagają.
 
 ### 2.4 Najważniejsze komendy
 
@@ -196,11 +207,13 @@ pnpm worker
 | `pnpm worker:start` | worker z bundla produkcyjnego |
 | `pnpm typecheck` | Prisma generate + `tsc --noEmit` |
 | `pnpm lint` | ESLint (flat config) |
-| `pnpm test` | Vitest, testy jednostkowe i integracyjne |
+| `pnpm test` | Vitest, testy jednostkowe i integracyjne (wymagają PostgreSQL po migracjach) |
+| `pnpm test:e2e` / `pnpm test:e2e:smoke` | Playwright (Chromium); `smoke` uruchamia testy z tagiem `@smoke` — po `pnpm build`, na osobnej bazie z seedem, z Redisem i `xmllint` ([`e2e/README.md`](e2e/README.md)) |
+| `pnpm backup` / `pnpm backup:cron` | jeden `pg_dump` do S3 / powtarzanie o `BACKUP_HOUR_UTC` (serwis Compose `backup`) |
 | `pnpm db:generate` | generuje klienta Prisma do `lib/db/generated` |
 | `pnpm db:migrate` | `prisma migrate dev` — **tylko lokalnie, tworzy migrację** |
 | `pnpm db:deploy` | `prisma migrate deploy` — stosuje istniejące migracje |
-| `pnpm db:seed` | seed Obsidian Studio (kasuje i odtwarza studio demo) |
+| `pnpm db:seed` | seed Obsidian Studio oraz demo platformy (kasuje i odtwarza oba zestawy demo, [§7.4](#74-seed)) |
 | `pnpm billing:setup` | tworzy produkty i ceny Stripe (osobno test/live) |
 
 ### 2.5 Baza testowa
@@ -216,45 +229,68 @@ DATABASE_URL=postgresql://detailflow:detailflow@localhost:5432/detailflow_test p
 
 ## 3. Status wdrożenia
 
-Legenda: **Działa** = realne dane i zapis; **Częściowo** = część przepływu realna, część demo; **Demo** = wyłącznie UI na danych scenariusza; **Brak** = nie ma implementacji.
+Legenda: **Działa** = realne dane z bazy i zapis; **Częściowo** = część przepływu realna, część demo lub bez dowodu na zewnętrznym systemie; **Demo** = wyłącznie UI na danych scenariusza; **Brak** = nie ma implementacji.
+
+Status opisuje **kod**, nie gotowość produkcyjną ani prawną. „Działa” znaczy: ekran czyta i zapisuje dane przez serwer i ma testy w repozytorium. Nie znaczy: sprawdzone z prawdziwym KSeF, prawdziwym Stripe live, zatwierdzone prawnie ani obciążone ruchem.
 
 ### 3.1 Ekrany i przepływy
 
 | Obszar | Status | Co działa | Główne ograniczenie |
 | --- | --- | --- | --- |
-| Landing L-01/L-02/L-03 | **Działa** | responsywny landing, cennik, FAQ, kalkulator, CTA `/start` | treści marketingowe do zatwierdzenia; brak prawdziwych case studies |
-| Logowanie | **Działa** | hasło (Argon2id) i magiczny link, reset hasła, wylogowanie | brak MFA studia; rate limit współdzielony w Redis |
+| Landing L-01/L-02/L-03 | **Działa** | responsywny landing, cennik, FAQ, kalkulator (estymacja), CTA `/start`, stopka z linkami do szkiców prawnych | treści marketingowe do zatwierdzenia; „Zobacz demo” to placeholder; podgląd pulpitu to statyczna kopia; brak prawdziwych case studies |
+| Strony prawne | **Częściowo** | `/regulamin`, `/polityka-prywatnosci`, `/umowa-powierzenia` renderują szkice z widocznym komunikatem „Projekt do zatwierdzenia prawnego” | **szkice, nie obowiązujące dokumenty**; brak zatwierdzenia prawnego i zgód marketingowych |
+| Logowanie | **Działa** | hasło (Argon2id) i magiczny link, reset hasła, wylogowanie, lockout po 5 błędnych hasłach, rate limit auth w Redis | brak MFA studia |
 | Rejestracja trialu | **Działa** | `/start`, konto + studio + owner + 14 dni, bez karty | brak weryfikacji e-mail przed wejściem |
-| Zaproszenia | **Działa** | `/team`, `/invite/[token]`, role manager/worker | brak listy członków i usuwania |
+| Zaproszenia i zespół | **Działa** | `/team`: zaproszenia, lista członków i zaproszeń, zmiana roli manager/worker, usunięcie członka (zdejmuje jego przypisania do zleceń), `/invite/[token]` | właściciel jest chroniony (nie zmienisz ani nie usuniesz go tą ścieżką); limit użytkowników planu nie jest egzekwowany |
 | Przełączanie studiów | **Działa** | cookie `df.active_studio`, picker w sidebarze i na ekranie Więcej (mobile); po zmianie pełne przeładowanie kontekstu | — |
-| Pulpit D-01 / M-01 | **Działa** | KPI, plan boksów, lista dnia, alerty z DB | akcje „nowe zlecenie”, „zdjęcie”, „zakończ etap” nadal „Wkrótce” |
-| Kalendarz D-02 / M-02 | **Działa** | rezerwacje boksów, dzień/tydzień, formularz, kolizje | brak przypisania pracownika w modelu; brak tworzenia zlecenia z kalendarza |
-| Klienci D-05 | **Działa** | lista 20/stronę, filtry, karta, wyszukiwanie | brak zdjęcia auta w modelu |
-| CRUD klientów/aut | **Działa** | dodawanie, edycja, usuwanie, import CSV/XLSX | import do 1 MB i 5000 wierszy, pierwszy arkusz XLSX |
-| Zlecenia D-03 / M-03 | **Demo** | tablica/lista na danych seeda, filtry, DnD wizualne | brak odczytu z DB; brak tworzenia zlecenia |
-| Szczegóły zlecenia D-04 / M-04 | **Demo** | przegląd, zakładki, historia wizualna, wycena | brak zapisu etapu, zdjęć, linku do portalu |
-| Backend zleceń | **Działa** | HTTP tworzenia i odczytu, maszyna stanów, historia, numeracja, `canInvoice` | UI nadal demo |
-| Wyceny D-06 / M-05 | **Działa** | kreator, katalog, zapis szkicu, wysyłka maila, link portalu | terminy w kreatorze są demonstracyjne, nie rezerwują boksu |
-| Portal P-01/P-02 | **Częściowo** | tokeny, decyzja o wycenie, P-02, mail do właścicieli | P-01 to statyczna makieta dla seeda; brak statusu zlecenia i zdjęć dla dowolnego linku |
-| Faktury D-07/D-10 | **Działa** | lista, filtry, wyszukiwanie, uwaga, płatność, korekta | lista pobiera wszystkie faktury i paginuje po 7 w UI |
-| Kreator faktury D-08 | **Demo** | kroki, walidacja, podgląd, autosave | **nie wywołuje POST** i nie wystawia dokumentu |
-| Szczegóły faktury D-09/M-08 | **Częściowo** | dane, PDF, XML, płatność, korekta, UPO z DB | „wyślij ponownie” jest demo; brak wysyłki maila i KSeF z UI |
-| KSeF TEST | **Częściowo** | klient API, szyfrowanie tokenu, worker, retry, historia | **brak endpointu/akcji enqueue**; seed tylko udaje dokumenty |
-| Stripe Billing | **Działa** | plany, Checkout, webhooki, portal, trial, read-only, MRR | wymaga konfiguracji; brak panelu admina |
-| Zdjęcia i protokół | **Częściowo** | presigned upload, S3, protokół, akceptacja | UI zlecenia nadal demo; brak sprzątania porzuconych plików |
-| Panel platformy A-01–A-10 | **Brak** | tylko makieta i definicje metryk | osobny produkt/etap |
+| Ustawienia i KSeF `/settings` | **Działa** | dane sprzedawcy (nazwa, NIP z sumą kontrolną, adres, telefon), przełącznik TEST/PROD, token KSeF — tylko owner, z wpisami w audycie | pełne „Ustawienia i Konto” są poza v1; przycisk „Konto” na ekranie Więcej jest „Wkrótce” |
+| Pulpit D-01 / M-01 | **Działa** | KPI, plan boksów, lista dnia, alerty z DB; „Nowe zlecenie” otwiera formularz zlecenia, „Zakończ etap” i „Zdjęcie” (mobile) oraz „Link dla klienta” (desktop) wołają API | brak fallbacku na demo; pracownik nie wystawia faktur (dostaje komunikat o uprawnieniach) |
+| Kalendarz D-02 / M-02 | **Działa** | rezerwacje boksów, dzień/tydzień, kolizje, pracownik na zleceniu i filtr osób, „Nowe zlecenie” z wolnego okna | wyszukiwarka w nagłówku mobile jest nieaktywna; boksy dodaje się tylko przez API |
+| Klienci D-05 | **Działa** | lista 20/stronę, filtry, karta, wyszukiwanie | brak zdjęcia auta w modelu; „Cała historia” na karcie to „Wkrótce” |
+| CRUD klientów/aut | **Działa** | dodawanie, edycja, usuwanie, import CSV/XLSX, eksport i anonimizacja danych klienta (owner/manager, z audytem) | import do 1 MB i 5000 wierszy, pierwszy arkusz XLSX; to narzędzie operacyjne, nie dowód zgodności z RODO |
+| Zlecenia D-03 / M-03 | **Działa** | tablica i lista z DB, filtry, tworzenie zlecenia (`POST /orders`), zmiana statusu przez DnD z cofnięciem przy błędzie | filtry po usłudze i tekście; brak wirtualizacji listy |
+| Szczegóły zlecenia D-04 / M-04 | **Częściowo** | odczyt z DB, zmiana etapu, zdjęcia (presigned upload do S3), protokół przyjęcia z punktami i akceptacją, historia | przycisk „Link dla klienta” na karcie zlecenia nadal otwiera dialog „Wkrótce” (link powstaje z pulpitu przez API); „⋯” na mobile nieaktywne |
+| Backend zleceń | **Działa** | HTTP: tworzenie, odczyt, status, etap; maszyna stanów, historia, numeracja `DF-####`, `canInvoice`, zlecenie z zaakceptowanej wyceny | — |
+| Wyceny D-06 / M-05 | **Działa** | kreator, katalog, zapis szkicu, wysyłka maila z linkiem portalu, lista i karta, zlecenie z zaakceptowanej wyceny, wygaszanie wysłanych wycen w workerze | **terminy w kreatorze są demonstracyjne** i nie rezerwują boksu; menu „Usługi i cennik” poza v1 |
+| Portal P-01/P-02 | **Działa** | tokeny, decyzja o wycenie, status zlecenia z bazy (3 etapy), zdjęcia zlecenia i akceptacja protokołu, P-02 dla złego/wygasłego/odwołanego linku, mail do właścicieli | `app/p/quote-preview` to placeholder; link samej wyceny nie pokazuje zdjęć ani protokołu |
+| Faktury D-07/D-10 | **Działa** | lista, filtry, wyszukiwanie, „wymagają uwagi”, płatność, korekta, ponowienie wysyłki KSeF i poprawa NIP odrzuconej faktury | lista pobiera wszystkie faktury środowiska i paginuje po 7 w UI; „Eksport JPK” pokazuje tylko komunikat, offline jest wyłączony |
+| Kreator faktury D-08 | **Działa** | kroki, walidacja, podgląd, autosave, `POST /invoices` ze zlecenia `completed`, obsługa 400/409 | wystawienie nie kolejkuje KSeF ani nie wysyła maila (to osobne akcje na szczegółach) |
+| Szczegóły faktury D-09/M-08 | **Działa** | dane, PDF, XML FA(3) także dla korekt, płatność, korekta, „Wyślij do KSeF”, „Wyślij ponownie” (PDF przez outbox), UPO z DB | podgląd „papieru” w UI jest oznaczony jako demonstracyjny (w tym ilustracyjny QR); UPO istnieje tylko po odpowiedzi MF (seed go nie ma) |
+| KSeF TEST/PROD | **Częściowo** | klient API, szyfrowanie tokenu per środowisko, kolejka i worker, retry, historia, UPO; wysyłka z UI do kolejki; PROD za flagą `ksef_prod` | brak dowodu z prawdziwym MF w repozytorium (testy używają transportu zastępczego); E2E kończy się na kolejce; seed tylko udaje dokumenty i UPO; brak offline |
+| Stripe Billing | **Działa** | plany, Checkout, webhooki, portal, trial, read-only, MRR i wpływy w panelu platformy | wymaga konfiguracji kluczy; testy i E2E używają atrapy Stripe — brak dowodu z kontem live w repozytorium |
+| Zdjęcia i protokół | **Działa** | presigned upload, S3, protokół, akceptacja w studiu i w portalu, sprzątanie niepotwierdzonych uploadów (24 h) | potwierdzone zdjęcia nie mają automatycznej retencji |
+| Panel platformy A-01–A-10 | **Działa / Częściowo** | `/admin` na agregatach z bazy, MFA TOTP, sesja wsparcia 15 min, audyt — szczegóły w [§3.3](#33-panel-platformy-a-01a-10) i [§9.15](#915-panel-platformy-admin) | A-06, A-08 i A-09 mają udokumentowane ograniczenia |
 | Magazyn/statystyki/portfolio | **Brak** | menu „Wkrótce” | poza v1 |
-| Wyszukiwarka ⌘K | **Działa** | Cmd/Ctrl+K i przyciski w topbarze oraz „Więcej”; wyniki aktywnego studia dla klientów, aut, zleceń i faktur | pracownicy nie widzą faktur; wyszukiwanie obejmuje do 4 wyników na kategorię |
-| E-mail transakcyjny | **Częściowo** | auth, zaproszenia, wycena, decyzja, trial | brak maila z fakturą; brak SMS |
-| Obserwowalność | **Częściowo** | `/api/health` (DB i Redis), logi pino JSON, Sentry web + worker | brak metryk i gotowych alertów; Sentry milczy bez `SENTRY_DSN` |
+| Wyszukiwarka ⌘K | **Działa** | Cmd/Ctrl+K i przyciski w topbarze oraz „Więcej”; wyniki aktywnego studia dla klientów, aut, zleceń i faktur | pracownicy nie widzą faktur; do 4 wyników na kategorię |
+| E-mail transakcyjny | **Częściowo** | auth, zaproszenia, wycena, decyzja, trial, faktura z PDF (outbox) | brak SMS; bez `SMTP_URL` w produkcji wysyłka czeka w outboxie; dostarczenie SMTP jest „co najmniej raz” |
+| Obserwacja i kopie | **Częściowo** | `/api/health` (DB i Redis), logi pino JSON, Sentry web + worker (po ustawieniu DSN), backup `pg_dump` do S3 z retencją | brak metryk i gotowych alertów; backup nie ma szyfrowania na poziomie aplikacji ani zautomatyzowanego testu odtworzenia ([§14.5](#145-backup-i-odtwarzanie)) |
+| Testy automatyczne | **Działa** | Vitest (jednostkowe i na Postgresie), Playwright `@smoke` w CI na PR, w tym ścieżka zlecenie → faktura → kolejka KSeF | brak progu coverage i testów obciążeniowych ([§13](#13-testowanie-i-jakość)) |
 
 ### 3.2 Co to oznacza przy testach ręcznych
 
-- **Dane demo są prawdziwe w bazie** dla pulpitu, kalendarza, klientów, wycen, faktur i portalu.
-- **Nie oczekuj** zapisu zmiany etapu z ekranu zlecenia — UI pokazuje „Wkrótce”.
-- **Nie oczekuj** wystawienia faktury przez kreator — użyj API `POST /api/studios/:studioId/invoices`.
-- **Nie oczekuj** wysłania faktury do KSeF — token można zapisać API, ale nie ma jeszcze akcji enqueue z aplikacji.
-- **Nie oczekuj** panelu admina — `/admin` nie istnieje.
+- **Dane demo są prawdziwe w bazie** dla pulpitu, kalendarza, klientów, zleceń, wycen, faktur, portalu i panelu platformy. Ekrany operacyjne nie mają fallbacku na dane demo; wyjątki to terminy w kreatorze wyceny i statyczny podgląd pulpitu na landingu.
+- **Możesz** zakończyć etap, zmienić status, dodać zdjęcie i protokół z karty zlecenia, utworzyć zlecenie z formularza, wystawić fakturę kreatorem i zakolejkować ją do KSeF TEST przyciskiem na szczegółach faktury.
+- **Nie oczekuj** pełnej wysyłki do MF bez uruchomionego workera, `KSEF_TOKEN_ENCRYPTION_KEY`, NIP i tokenu studia. Seedowe faktury FV/41 mają numer KSeF i historię, ale nie mają `KsefSubmission` ani UPO.
+- **Nie oczekuj** działającego eksportu JPK, trybu offline KSeF, linku portalu z przycisku na karcie zlecenia ani rezerwacji boksu z terminów kreatora wyceny.
+- Wystawienie faktury z `#DF-0248` jest odrzucane (zlecenie nie jest `completed`); seedowa FV/41 pochodzi z `#DF-0243`.
+- Panel platformy: `/admin/login` (operator demo z [§2.2](#22-wariant-docker-zalecany)). Zmiany ról i flag wymagają włączonego MFA operatora.
+
+### 3.3 Panel platformy (A-01–A-10)
+
+Wszystkie loadery `/admin` czytają `platformDb`; w kodzie ekranów nie ma fixture ani mocków (komponenty dostają dane z `src/server/admin/*`). Liczby z makiety (192 studia, MRR 16 672 zł, wpływy 14 980 zł) powstają dopiero po `pnpm db:seed`, który wstawia kohortę `df-demo-*`, płatności i koszty demo — bez seeda panel pokazuje wyłącznie to, co faktycznie zapisano w bazie. Testy: `src/server/admin/*.test.ts` (Postgres), `components/admin/*.test.tsx`, `prisma/seed.test.ts`, `e2e/billing.spec.ts`.
+
+| Ekran | Trasa | Status | Źródło danych i zakres |
+| --- | --- | --- | --- |
+| A-01 Przegląd | `/admin` | **Działa** | `getPlatformOverview`: MRR przez `calculateMrr` (tylko `active`), triale, zaległości, odrzucone faktury KSeF, aktywność studiów, aktywacja. Nie liczy „aktywnych użytkowników” z makiety (294/382) — tylko aktywność studiów |
+| A-02 Lista studiów | `/admin/studios` | **Działa** | `listStudios`: wyszukiwanie, filtry, 20/stronę, eksport CSV (`/admin/studios/export`); `canceled` trafia do filtra „Wstrzymane” |
+| A-03 Karta studia | `/admin/studios/[publicCode]` | **Działa** | `getStudioCard`: kontakt, liczba członków i boksów, limity planu (informacyjne), ostatnie 30 zdarzeń audytu. Każde otwarcie karty zapisuje `platform.studio.view` |
+| A-04 Abonamenty | `/admin/subscriptions` | **Działa** | skład MRR z `Studio`, wpływy z `SubscriptionPayment` (zapis z webhooka Stripe `invoice.paid`, netto PLN), zaległości, churn, koszty z `PlatformCost` (ręczny formularz, niedostępny dla roli `support`) |
+| A-05 Analityka | `/admin/analytics` | **Działa** | aktywacja, konwersja triala, retencja kohortowa, wykorzystanie funkcji z tabel operacyjnych; „Faktury PROD” liczy tylko `ksefEnv=production` |
+| A-06 System i KSeF | `/admin/system` | **Częściowo** | PostgreSQL (`SELECT 1`) i Redis (`PING`, 800 ms) sprawdzane na żywo; Stripe i poczta tylko jako „skonfigurowane” (bez wywołania API); KSeF TEST/PROD z faktur i zdarzeń w bazie, incydent gdy kolejka stoi > 15 min. Nie mierzy opóźnień ani dostępności MF |
+| A-07 Wsparcie | `/admin/support` | **Działa** | kolejka zgłoszeń (do 80), SLA 8 h / 1 h (pilne), otwarcie, odpowiedź i zamknięcie przez operatora. Studio nie ma własnego formularza zgłoszeń, a odpowiedź nie jest wysyłana mailem — zapisuje się w bazie |
+| A-08 Administracja | `/admin/operators` | **Częściowo** | role operatorów (zmienia tylko `owner`), flagi (`owner`/`admin`), MFA, 40 ostatnich wpisów audytu. Brak zaproszeń i tworzenia operatorów — konta operatorów powstają poza UI (seed/baza) |
+| A-09 Sesja wsparcia | karta studia | **Częściowo** | okno 15 min z powodem i zgłoszeniem, wpis `SupportSession` i audyt `support.session.started`; nie tworzy sesji studia i nie otwiera panelu studia (brak podglądu danych studia w trybie „tylko do odczytu”, brak ręcznego zakończenia — wygasa albo zastępuje ją nowa) |
+| A-10 Zawieszenie konta | karta studia | **Działa** | potwierdzenie nazwy i powód, `Studio.status = suspended`, audyt `studio.suspended`, odcięcie sesji użytkowników bez innego niezawieszonego studia; nie anuluje subskrypcji Stripe |
 
 ---
 
@@ -275,7 +311,7 @@ Next.js 15 — App Router
         ├──▶ S3 / MinIO (zdjęcia, PDF, UPO)
         ├──▶ SMTP / Mailpit (auth, outbox) ◀── worker
         ├──▶ Stripe API + webhook
-        └──▶ KSeF API TEST ◀── worker
+        └──▶ KSeF API (TEST; PROD za flagą) ◀── worker
 ```
 
 ### 4.2 Monolit modularny
@@ -286,9 +322,11 @@ To **jeden deploy Next.js** plus **jeden worker** z tego samego obrazu. Nie ma o
 - `components/` — UI i logika prezentacji,
 - `src/server/` — logika domenowa i operacje na bazie,
 - `src/domain/` — czyste funkcje domenowe (cena, katalog),
-- `src/ksef/` — adapter KSeF, XML FA(3), kolejka,
+- `src/ksef/` — adapter KSeF (TEST i PROD), XML FA(3), kolejka,
 - `src/invoices/` — PDF i walidacja dokumentu,
-- `lib/` — auth, db, env, storage, tokeny portalu,
+- `src/server/admin/` — logika panelu platformy (MFA, sesja wsparcia, audyt, metryki),
+- `src/observability/`, `src/backup/` — logi, Sentry, health, backup Postgres,
+- `lib/` — auth (studio i platforma), db, env, storage, tokeny portalu,
 - `worker/` — punkt wejścia procesu tła.
 
 ### 4.3 Cykl żądania
@@ -321,14 +359,17 @@ Izolacja tenantów jest dwuwarstwowa:
 - Sesja: 14 dni, odświeżanie co 24 h, cookie httpOnly z prefiksem `df`.
 - Reset hasła: token 60 min, unieważnia sesje.
 - Magic link: 15 min, token hashowany, tylko istniejące konta, odpowiedź zawsze taka sama.
+- Operatorzy platformy logują się osobną instancją Better Auth (`lib/auth/platform.ts`, ścieżka `/api/auth/platform`, cookie `df-plat`) na tych samych tabelach `User`/`Account`; sesja powstaje tylko dla konta z wpisem `PlatformOperator`, a członkostwo studia nie otwiera `/admin`.
+- Lockout logowania (studio i platforma osobno): 5 błędnych prób w 15 min blokuje ten e-mail na 15 min; w tabeli `AuthLockout` jest hash, nie adres.
 - Rate limit auth: 100 żądań/min, logowanie i magic link 5/min, reset 3–5/min; atomowe liczniki w Redis, osobne dla studia i panelu platformy. Zapis API studia: 60/min na użytkownika, wspólnie dla jego studiów; odczyty i publiczny portal nie zużywają limitu zapisów. Przekroczenie daje ogólne 429, API z `Retry-After`. Awaria Redisa blokuje auth (429) i zapisy API (503), bez awaryjnego limitu w pamięci. `REDIS_URL` jest wymagane przez walidację środowiska.
 
 ### 4.6 Tło i kolejki
 
 | Mechanizm | Nośnik | Uruchamiane przez | Przeznaczenie |
 | --- | --- | --- | --- |
-| Outbox maili | PostgreSQL | `setInterval` 15 s w workerze | wyceny, decyzje portalu |
-| `ksef-test` | BullMQ + Redis | worker | wysyłka i poll KSeF TEST |
+| Outbox maili | PostgreSQL | `setInterval` 15 s w workerze | wyceny, decyzje portalu, faktury z PDF (`InvoiceMail`) |
+| Sweepy w cyklu 15 s | PostgreSQL / S3 | ten sam `setInterval` | odtworzenie kolejki KSeF po awarii Redisa, wygaszanie wysłanych wycen (`expired`), usuwanie niepotwierdzonych uploadów starszych niż 24 h |
+| `ksef-test` | BullMQ + Redis | worker | wysyłka i poll KSeF (faktury TEST oraz PROD, gdy flaga `ksef_prod` jest włączona) |
 | `billing-daily` | BullMQ + Redis | worker | codzienny sweep trialu o 06:00 Europe/Warsaw + catch-up |
 
 Outbox w PostgreSQL jest używany celowo zamiast drugiej kolejki Redis dla maili: zapis jest trwały nawet przy wyłączonym workerze i braku SMTP, a ponowienia nie tworzą nowej wiadomości w bazie.
@@ -347,28 +388,36 @@ Outbox w PostgreSQL jest używany celowo zamiast drugiej kolejki Redis dla maili
 ```text
 app/
   (auth)/                 logowanie, trial, reset, zaproszenia, logout
-  (marketing)/landing/    landing publiczny
+  (marketing)/            landing publiczny oraz szkice stron prawnych
+                          (landing, regulamin, polityka-prywatnosci, umowa-powierzenia)
+  (platform)/admin/       panel platformy A-01–A-10 (login, logout, (console)/…)
   (studio)/               panel studia (sidebar/topbar/tabbar)
-  p/[token]/              portal klienta bez sesji
-  api/                    route handlery (auth, health, Stripe, studio API)
+  p/[token]/              portal klienta bez sesji (+ decision, protocol, media)
+  api/                    route handlery (auth, auth/platform, health, Stripe, studio API)
 components/
-  auth/ brand/ faktury/ kalendarz/ klienci/ landing/ portal/
+  admin/ auth/ brand/ faktury/ kalendarz/ klienci/ ksef/ landing/ portal/
   pulpit/ states/ studio/ ui/ wyceny/ zlecenia/
 lib/
-  auth.ts, auth/, db/, portal/, landing/, env.ts, storage.ts, utils.ts
+  auth.ts, auth/ (w tym platform.ts), db/, portal/, landing/, env.ts, storage.ts, utils.ts
 src/
+  backup/                 pg_dump do S3, retencja, cron
   domain/                 czysta domena (cena, katalog, terminy)
   invoices/               PDF i walidacja dokumentu
-  ksef/                   klient KSeF, FA(3), szyfrowanie, kolejka
+  ksef/                   klient KSeF, FA(3), XSD, szyfrowanie, kolejka, flaga PROD
+  observability/          logger pino, Sentry, health, scrubbing danych
   server/                 ACL, HTTP, moduły operacyjne, billing
+    admin/                logika panelu platformy (MFA, sesja wsparcia, metryki)
+    rate-limit/ search/ security/  limity w Redis, wyszukiwarka ⌘K, CSP
   worker/                 workery BullMQ
 worker/index.ts           punkt wejścia procesu tła
+e2e/                      Playwright (smoke) — osobna baza, Redis, bez workera KSeF
+scripts/                  pg-backup.ts (backup jednorazowy i cron)
 prisma/
   schema.prisma           model danych
-  migrations/             12 migracji
-  seed.ts                 Obsidian Studio
-audit/admin/              definicje panelu platformy (makieta, nie kod)
-docs/                     dokumentacja wdrożenia i naprawa migracji
+  migrations/             18 migracji
+  seed.ts, seed-platform.ts  Obsidian Studio + demo platformy
+audit/admin/              definicje metryk i projekt UX panelu platformy (Figma)
+docs/                     specyfikacja produktu i naprawa migracji
 branding/                 logo Flowcut (SVG)
 public/                   assety UI, ikony, zdjęcia demo
 ```
@@ -388,7 +437,13 @@ public/                   assety UI, ikony, zdjęcia demo
 | `src/ksef/fa3.ts` | generator XML FA(3) |
 | `src/invoices/pdf.ts` | PDF faktury |
 | `src/server/billing/webhook.ts` | idempotentne webhooki Stripe |
-| `worker/index.ts` | start workera i outboxa |
+| `worker/index.ts` | start workera, outboxa i sweepów |
+| `src/server/admin/` | panel platformy: `mfa.ts`, `studio-access.ts`, `operators.ts`, `metrics.ts` |
+| `lib/auth/platform.ts` | osobna instancja Better Auth dla operatorów (`df-plat`) |
+| `src/ksef/submissions.ts`, `src/ksef/flag.ts` | kolejkowanie, retry, flaga `ksef_prod` |
+| `src/server/faktury/mail.ts` | outbox maila faktury z PDF |
+| `src/server/rate-limit/index.ts` | współdzielone liczniki Redis (auth i zapisy API) |
+| `.github/workflows/ci.yml` | CI: `check`, `db`, `docker`, `e2e` |
 
 ---
 
@@ -425,7 +480,7 @@ Bez kluczy aplikacja działa, ale billing zwraca „Stripe nie jest skonfigurowa
 
 | Zmienna | Znaczenie |
 | --- | --- |
-| `KSEF_ENV` | musi być `test`; inna wartość rzuca błąd. To nie jest przełącznik studia |
+| `KSEF_ENV` | musi być `test`; inna wartość rzuca błąd. To nie jest przełącznik studia ani środowiska PROD |
 | `KSEF_API_URL` | `https://api-test.ksef.mf.gov.pl` (opcjonalnie `/v2`) |
 | `KSEF_TOKEN_ENCRYPTION_KEY` | dokładnie 32 losowe bajty w base64, klucz tokenów TEST |
 | `KSEF_PROD_API_URL` | opcjonalnie; dozwolony jest tylko `https://api.ksef.mf.gov.pl` |
@@ -439,7 +494,7 @@ Bez kluczy aplikacja działa, ale billing zwraca „Stripe nie jest skonfigurowa
 | --- | --- |
 | `SMTP_URL` | np. `smtp://mailpit:1025` lub URL dostawcy |
 | `EMAIL_FROM` | nadawca, np. `Detailflow <noreply@detailflow.local>` |
-| `RESEND_API_KEY` | zarezerwowane; obecnie **nieużywane** |
+| `RESEND_API_KEY` | zarezerwowane; aplikacja **nie wysyła** przez Resend. Panel A-06 uznaje ją jednak za ślad konfiguracji poczty (zielone „Poczta” bez `SMTP_URL` nie oznacza działającej wysyłki) |
 | `SMSAPI_TOKEN` | zarezerwowane; SMS **nie są wysyłane** |
 
 Bez `SMTP_URL` w trybie development maile auth trafiają do logu serwera; w produkcji wysyłka kończy się błędem, a outbox pozostaje oczekujący.
@@ -453,6 +508,7 @@ Bez `SMTP_URL` w trybie development maile auth trafiają do logu serwera; w prod
 | `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT` | opcjonalny upload source map przy buildzie. Bez kompletu upload jest wyłączony |
 | `BACKUP_RETENTION_DAYS` | domyślnie 14. `pnpm backup` robi jeden `pg_dump --format=custom` do S3; `backup:cron` i serwis Compose `backup` powtarzają go o `BACKUP_HOUR_UTC` (domyślnie 3) |
 | `BACKUP_S3_PREFIX` | domyślnie `backups/postgres` w `S3_BUCKET` |
+| `BACKUP_HOUR_UTC` | godzina (0–23, UTC) dziennego backupu w `backup:cron`; domyślnie 3 |
 | `SKIP_ENV_VALIDATION` | używane w buildzie Docker/CI; nie ustawiaj w runtime produkcyjnym |
 
 ### 6.6 Ważne zależności między zmiennymi
@@ -470,7 +526,7 @@ Bez `SMTP_URL` w trybie development maile auth trafiają do logu serwera; w prod
 
 - PostgreSQL **16**.
 - Zmiany schematu **wyłącznie migracjami**; `prisma db push` nie jest procesem produkcyjnym.
-- Migracje leżą w `prisma/migrations/`; jest ich **12**.
+- Migracje leżą w `prisma/migrations/`; jest ich **18**.
 - `prisma.config.ts` wskazuje seed `tsx prisma/seed.ts`.
 - Wygenerowany klient Prisma (`lib/db/generated/`) jest w `.gitignore`; trzeba go wygenerować (`pnpm db:generate`, `pnpm dev`, `pnpm build`).
 
@@ -483,7 +539,7 @@ pnpm db:migrate
 # wdrożenie istniejących migracji (dev/prod/CI)
 pnpm db:deploy
 
-# reset danych demo (kasuje studio Obsidian i odtwarza)
+# reset danych demo (kasuje i odtwarza Obsidian Studio oraz demo platformy)
 pnpm db:seed
 
 # weryfikacja, że schema i migracje są zgodne
@@ -509,23 +565,30 @@ pnpm prisma migrate diff \
 | `20261027210000_ksef_submissions` | snapshot XML i kolejka KSeF |
 | `20261027220000_invoice_corrections` | korekty faktur |
 | `20261027230000_trial_reminder` | przypomnienie o trialu |
+| `20261027240000_platform_operator` | `PlatformOperator`, rola platformy, `Studio.activatedAt` |
+| `20261028120000_platform_subscriptions` | `SubscriptionPayment`, `PlatformCost` |
+| `20261028140000_platform_ops` | `FeatureFlag`, zgłoszenia i sesje wsparcia, MFA operatora, indeks `AuditLog` |
+| `20261028160000_auth_lockout` | `AuthLockout` (lockout logowania) |
+| `20261029035000_invoice_mail` | `InvoiceMail` (outbox maila faktury) |
+| `20261029063430_work_order_assignee` | `WorkOrder.assigneeId` (pracownik na zleceniu) |
 
 ### 7.4 Seed
 
-`prisma/seed.ts` odtwarza **Obsidian Studio 1:1 z makiety**:
+`prisma/seed.ts` odtwarza **Obsidian Studio 1:1 z makiety**, a `prisma/seed-platform.ts` dokłada demo platformy:
 
-- studio `active`, plan `studio`, `ksefEnv=test`, Warszawa Mokotów,
-- właściciel Michał Kowalski (`michal.kowalski@example.com` / `obsidian-demo-2026`),
+- studio `active`, plan `studio`, `ksefEnv=test`, Warszawa Mokotów (`ST-00128`),
+- właściciel Michał Kowalski (`michal.kowalski@example.com` / `obsidian-demo-2026`); to jedyny członek studia, więc nikt nie ma przypisanych zleceń,
 - 124 klientów, 168 aut, 2 boksy,
-- 7 aktywnych zleceń (3 w trakcie, 2 do odbioru, 2 przyjęte) + zlecenia zakończone,
+- 7 aktywnych zleceń (3 w trakcie, 2 do odbioru, 2 przyjęte) + 12 zakończonych,
 - wycena Porsche #DF-0248: 4 000 zł × 1,20 × 1,00 = 4 800 zł, VAT 897,56 zł,
 - 8 faktur TEST, w tym FV/41/10/2026 z **#DF-0243** (nie z #DF-0248),
 - 3 przypomnienia o powłoce ceramicznej,
-- 2 linki portalu: ważny i wygasły.
+- 2 linki portalu: ważny i wygasły,
+- demo platformy: operator `anna.nowak@detailflow.test` (rola `owner`, bez MFA), 191 studiów `df-demo-*` (razem 192 z Obsidian: 128 aktywnych, 24 triale, 6 `past_due`, 8 wstrzymanych, 26 anulowanych), zlecenia do metryk aktywacji, `SubscriptionPayment` z października (14 980 zł netto), `PlatformCost` (1 860 + 1 300 + 1 100 zł), flagi `ksef_prod`, `annual_billing`, `client_online_pay` (wszystkie wyłączone) i 2 zgłoszenia wsparcia (`TK-00041`, `TK-00042`).
 
-Seed jest **destrukcyjny tylko dla studia demo**: `studio.deleteMany({ slug: "obsidian-studio" })` kaskadowo usuwa jego dane, po czym tworzy je od nowa. Inne studia zostają. Użytkownik właściciela jest `upsert`owany.
+Seed jest **destrukcyjny tylko dla zestawów demo**: usuwa i odtwarza studio `obsidian-studio` oraz kohortę `df-demo-*` (a także relikty `platform-demo-*` ze starszego seeda); kaskada usuwa ich dane. Inne studia zostają. Użytkownicy właściciela i operatora są `upsert`owani. Seed jest idempotentny — CI uruchamia go dwa razy.
 
-Seed nie tworzy `KsefSubmission`, więc UPO dla FV/41 nie istnieje; numer KSeF i historia są danymi demonstracyjnymi. Seed **nie wysyła nic do MF**.
+Seed nie tworzy `KsefSubmission`, więc UPO dla FV/41 nie istnieje; numer KSeF i historia są danymi demonstracyjnymi. Seed nie tworzy zdjęć ani protokołu przyjęcia. Seed **nie wysyła nic do MF** ani do Stripe — identyfikatory `cus_seed_…`/`sub_seed_…` i wpływy platformy są fikcyjne.
 
 ### 7.5 Naprawa historii migracji
 
@@ -547,13 +610,19 @@ Jeśli lokalna baza ma wpis `coating_reminders` pod starą nazwą i migracja si�
 
 | Model | Najważniejsze pola | Rola |
 | --- | --- | --- |
-| `Studio` | `name`, `slug`, `status`, `plan`, `trialEndsAt`, `stripeCustomerId`, `stripeSubscriptionId`, `ksefEnv`, `ksefTokenEnc` | tenant i stan billingu |
+| `Studio` | `publicCode`, `name`, `slug`, dane sprzedawcy (`ownerLegalName`, `nip`, adres), `status`, `plan`, `trialEndsAt`, `activatedAt`, `stripeCustomerId`, `stripeSubscriptionId`, `ksefEnv`, `ksefTokenEnc` | tenant i stan billingu |
 | `User` | `email`, `name`, `emailVerified` | konto osoby |
 | `Session` | `token`, `expiresAt`, `userId` | sesja Better Auth |
 | `Account` | `providerId`, `accountId`, `password` | hasło Argon2id / provider |
 | `Verification` | `identifier`, `value`, `expiresAt` | magic link / reset |
 | `StripeEvent` | `id` (`evt_...`), `type`, `processedAt` | idempotencja webhooków |
-| `AuditLog` | `actorId`, `studioId`, `action`, `meta` | audyt; obecnie zapisuje tylko billing |
+| `AuthLockout` | `subjectHash`, `failures`, `windowStart`, `lockedUntil` | lockout logowania (hash `realm:e-mail`) |
+| `AuditLog` | `actorId`, `studioId`, `action`, `meta`, `createdAt` | audyt wybranych operacji: billing (webhook Stripe), profil i token KSeF studia, zmiana środowiska KSeF, zespół (`studio.member.*`), eksport/anonimizacja klienta (`client.privacy.*`) oraz działania operatorów platformy (`platform.*`, `support.*`, `studio.suspended`). Nie obejmuje zleceń, wycen ani faktur |
+| `PlatformOperator` | `userId`, `role` (`owner`, `support`, `admin`) | operator panelu `/admin` |
+| `OperatorMfa`, `OperatorMfaBackup`, `PlatformMfaStepUp` | `secretEnc`, `enabledAt`, `lastAcceptedStep`; `codeHash`, `usedAt`; `sessionId`, `expiresAt` | MFA TOTP operatora, kody zapasowe, podniesienie uprawnień do 12 h |
+| `FeatureFlag` | `key`, `label`, `enabled`, `updatedById` | flagi platformy (`ksef_prod`, `annual_billing`, `client_online_pay`) |
+| `SupportTicket`, `SupportMessage`, `SupportSession` | `publicCode`, `status`, `priority`, `slaDueAt`; `fromStudio`, `body`; `reason`, `expiresAt`, `endedAt` | wsparcie w A-07 i A-09 |
+| `SubscriptionPayment`, `PlatformCost` | `stripeInvoiceId`, `amountNet`, `paidAt`; `year`, `month`, `category`, `amountNet` | wpływy abonamentowe (z webhooka Stripe) i koszty działania w A-04 |
 
 ### 8.3 Modele operacyjne
 
@@ -575,6 +644,7 @@ Jeśli lokalna baza ma wpis `coating_reminders` pod starą nazwą i migracja si�
 | `Quote` | `clientId`, `vehicleId`, `status`, `sizeMult`, `paintMult`, `totalGross`, `vatAmount`, `sentAt`, `decidedAt`, `revision`, `wizardStep` | wycena |
 | `QuoteItem` | `quoteId`, `name`, `basePrice`, `durationMin`, `sort` | snapshot pozycji |
 | `QuoteSendMail` | `quoteId`, `sentAt` | trwały outbox wysyłki wyceny |
+| `InvoiceMail` | `invoiceId`, `recipient`, `sentAt`, `attempts`, `nextAttemptAt` | trwały outbox maila faktury z PDF |
 | `QuoteDecisionMail` | `quoteId`, `sentAt` | outbox powiadomienia o decyzji |
 | `Invoice` | `number`, `workOrderId`, `status`, `kind`, `ksefEnv`, `ksefStatus`, `ksefNumber`, `buyer*`, `issuedAt`, `saleAt`, `dueAt`, `paidAt`, `emailedAt`, `totalNet/Vat/Gross`, `correctsInvoiceId` | faktura lub korekta |
 | `InvoiceItem` | `invoiceId`, `lp`, `name`, `quantity`, `unit`, `unitNet`, `vatRate`, `net`, `vat`, `gross` | pozycja faktury |
@@ -590,6 +660,10 @@ Jeśli lokalna baza ma wpis `coating_reminders` pod starą nazwą i migracja si�
 | `StudioStatus` | `trial`, `active`, `past_due`, `suspended`, `canceled` |
 | `Plan` | `solo`, `studio`, `pro` |
 | `MembershipRole` | `owner`, `manager`, `worker` |
+| `PlatformRole` | `owner`, `support`, `admin` |
+| `SupportTicketStatus` | `open`, `waiting`, `resolved` |
+| `SupportPriority` | `normal`, `urgent` |
+| `PlatformCostCategory` | `infrastructure`, `messaging`, `support` |
 | `VehicleSize` | `small`, `medium`, `suv` |
 | `OrderStatus` | `accepted`, `in_progress`, `ready_for_pickup`, `completed`, `canceled` |
 | `QuoteStatus` | `draft`, `sent`, `accepted`, `rejected`, `expired` |
@@ -651,14 +725,15 @@ Jeśli lokalna baza ma wpis `coating_reminders` pod starą nazwą i migracja si�
 | Uprawnienie | Role |
 | --- | --- |
 | `billing:manage` | owner |
-| `studio:settings` | owner |
+| `studio:settings` | owner (dane sprzedawcy, token i środowisko KSeF, dodawanie boksów) |
 | `studio:select` | owner, manager, worker |
 | `studio:read` | owner, manager, worker |
 | `orders:write` | owner, manager, worker |
 | `orders:update` | owner, manager, worker |
+| `clients:privacy` | owner, manager |
 | `quotes:write` | owner, manager |
 | `invoices:manage` | owner, manager |
-| `members:invite` | owner, manager |
+| `members:invite` | owner, manager (także lista członków, zmiana roli i usunięcie; właściciela nie da się zmienić ani usunąć tą ścieżką) |
 
 Zasady:
 
@@ -684,7 +759,7 @@ Dane pochodzą z `studioDb`; **nie ma fallbacku na dane demo**, gdy baza jest pu
 | Alert ceramiki | unikalni klienci z `CoatingReminder` po terminie lub do końca dnia za 7 dni |
 | Alert KSeF | faktury `rejected` w środowisku skonfigurowanym dla studia |
 
-„Na warsztacie”: pierwsze `in_progress` w boksie, którego przedział przecina dzisiejszy dzień. Plan dnia pokazuje 08:00–16:00. Akcje „nowe zlecenie”, „zdjęcie”, „zakończ etap” i „link do portalu” są nadal dialogami „Wkrótce”, mimo że backend dla części z nich istnieje.
+„Na warsztacie”: pierwsze `in_progress` w boksie, którego przedział przecina dzisiejszy dzień. Plan dnia pokazuje 08:00–16:00. Akcje są podłączone do API: „+ Nowe zlecenie” (pulpit i mobilny „+”) otwiera `/orders?new=1` z tym samym formularzem co tablica; „Zakończ etap” i „Zdjęcie” (mobile) wołają `POST …/advance` i upload zdjęcia; „Link dla klienta” (desktop) tworzy link przez `POST …/portal-links` i pokazuje go tylko do zamknięcia dialogu. „Wystaw fakturę” otwiera kreator (pracownik dostaje komunikat o uprawnieniach). Dzwonek mobilny pokazuje alerty ceramiki i KSeF z tych samych danych co pulpit.
 
 ### 9.4 Kalendarz i rezerwacje
 
@@ -697,6 +772,7 @@ Dane pochodzą z `studioDb`; **nie ma fallbacku na dane demo**, gdy baza jest pu
 - Kolizja w tym samym boksie → 409; inny boks → OK. Anulowane zlecenia nie blokują.
 - Zakończone zlecenia zachowują historię zajętości, ale nie można ich rezerwować ponownie ani przesuwać.
 - Zapis i sprawdzenie kolizji są w jednej transakcji Serializable z ograniczonym ponowieniem (Prisma P2034 / `TransactionWriteConflict`).
+- Boks dodaje się tylko przez `POST /api/studios/:studioId/bays` (owner) i podlega limitowi planu ([§1.6](#16-plany-i-trial)); UI do zarządzania boksami nie ma.
 - `POST` przypisuje boks do zlecenia bez rezerwacji; `PUT` zmienia; `DELETE` zwalnia boks, zachowując zlecenie i daty.
 - UI: widok dnia i tygodnia, pasek tygodnia na mobile, wolne okna ≥ 60 min, formularz rezerwacji. Filtr osób: „Wszystkie osoby”, „Nieprzypisane” i członkowie studia (`WorkOrder.assigneeId` → `Membership`). Wolne okno otwiera „Nowe zlecenie” z boksem i godzinami (`POST /orders` z `bayId`); 409 zostaje w formularzu.
 
@@ -707,7 +783,7 @@ Dane pochodzą z `studioDb`; **nie ma fallbacku na dane demo**, gdy baza jest pu
 - Lista D-05: 20 wierszy na stronę **w SQL** (`take`/`skip`), nie w przeglądarce.
 - Filtry: wszyscy / stali klienci / serwis powłoki; wyszukiwanie po nazwie, telefonie, rejestracji, marce i modelu.
 - Telefon jest normalizowany do wariantów (`600123`, `+48600123456`, `600 123`); rejestracja do wariantów `WA 911PC` / `wa911`.
-- Karta klienta: auta, ostatnie wizyty, aktywne zlecenie, suma brutto, informacja o powłoce.
+- Karta klienta: auta, ostatnie wizyty, aktywne zlecenie, suma brutto, informacja o powłoce; „Cała historia” jest jeszcze „Wkrótce”. Owner/manager eksportuje JSON albo anonimizuje/usuwa dane klienta ([§12.3](#123-rodo--praktyczne-uwagi)).
 - CRUD: klient, auto, zmiana właściciela auta w tym samym studiu.
 - **Duplikat tablicy nie jest błędem**: zapis przechodzi, odpowiedź zawiera `warnings: [{ code: "duplicate_plate", ... }]`. Powód: historyczne dane z Excela i sprzedaż auta.
 - Usunięcie klienta/auta z historią zleceń lub wycen → **409**.
@@ -718,7 +794,7 @@ Dane pochodzą z `studioDb`; **nie ma fallbacku na dane demo**, gdy baza jest pu
 
 **Implementacja:** `src/server/zlecenia/state.ts`, `src/server/zlecenia/README.md`.
 
-Logika i HTTP są gotowe i przetestowane. Route handlery wywołują `transitionOrder`/`advanceStage`; **ekrany D-03/D-04/M-03/M-04 są nadal demo** i wymagają osobnego podłączenia.
+Logika i HTTP są przetestowane, a ekrany D-03/D-04/M-03/M-04 są podłączone do bazy: lista i szczegóły czytają zlecenia przez `studioDb`, tworzenie idzie przez `POST /orders`, status przez `POST …/status` (DnD na tablicy z cofnięciem karty przy błędzie), a „Zakończ: etap” przez `POST …/advance`. Route handlery wywołują `transitionOrder`/`advanceStage`. `components/zlecenia/board-demo.ts` zawiera już tylko typy, kolumny i filtry współdzielone przez UI; `demo.ts` i `board-fixture.ts` są danymi wyłącznie dla testów komponentów.
 
 Maszyna stanów:
 
@@ -739,7 +815,7 @@ accepted ──▶ in_progress ──▶ ready_for_pickup ──▶ completed
 
 **HTTP** (`/api/studios/:studioId/orders`): `GET` zwraca listę, `POST` tworzy zlecenie (`clientId`, `vehicleId`, `service`, `totalGross` jako tekst dziesiętny, `scheduledFrom`, `scheduledTo`; opcjonalnie `bayId` — wtedy to rezerwacja boksu z kontrolą kolizji (409) — oraz `assigneeId`, członek tego studia albo `null`). Daty bez offsetu oznaczają Warszawę; luki i powtórzenia DST wymagają offsetu, jak w kalendarzu. Numer, status `accepted`, etap 1 i zdarzenie utworzenia zapisują się atomowo. Auto musi należeć do wskazanego klienta.
 
-`GET /:id` przyjmuje id albo `DF-####`. `POST /:id/status` przyjmuje `{ "status": "in_progress" }`; `POST /:id/advance` przesuwa etap bez body. Zapis wymaga Origin, wszystkie endpointy wymagają sesji i roli owner/manager/worker (`orders:write` dla odczytu/tworzenia, `orders:update` dla statusu/etapu). Cudze studio/rekord → 404, blokada zapisu przez billing → 403, nielegalny ruch lub konflikt → 409. **Brakuje:** podłączenia UI.
+`GET /:id` przyjmuje id albo `DF-####`. `POST /:id/status` przyjmuje `{ "status": "in_progress" }`; `POST /:id/advance` przesuwa etap bez body. Zapis wymaga Origin, wszystkie endpointy wymagają sesji i roli owner/manager/worker (`orders:write` dla odczytu/tworzenia, `orders:update` dla statusu/etapu). Cudze studio/rekord → 404, blokada zapisu przez billing → 403, nielegalny ruch lub konflikt → 409. Na karcie zlecenia przycisk „Link dla klienta” jest nadal dialogiem „Wkrótce” (API `portal-links` jest podłączone z pulpitu).
 
 ### 9.7 Wyceny
 
@@ -762,7 +838,7 @@ accepted ──▶ in_progress ──▶ ready_for_pickup ──▶ completed
 - Lista `/quotes` i karta `/quotes/:quoteId` są dostępne dla owner/manager. Zaakceptowana wycena otwiera istniejący formularz zlecenia z klientem, autem, nazwami usług i kwotą snapshotu. Termin i boks wybiera studio.
 - `POST /api/studios/:studioId/quotes/:quoteId/order` wymaga owner/manager, Origin i prawa zapisu w billingu. Serwer kopiuje kwotę Decimal i dane z zaakceptowanej wyceny; nie ufa tym polom z formularza. Unikalność `(quoteId, studioId)` i transakcja chronią także równoległe kliknięcia; retry zwraca istniejące zlecenie.
 - Terminy w kreatorze (`quoteSlots`) są **demonstracyjne** — nie rezerwują boksu i nie są częścią maila.
-- `expired` istnieje w enumie, ale **nie ma crona wygasającego wyceny**.
+- Wygasanie: ten sam cykl workera (15 s) ustawia `expired` dla wysłanych wycen bez decyzji po 14 dniach od ostatniego `sentAt` albo po utracie wszystkich ważnych linków (wyceny i powiązanego zlecenia) — co nastąpi wcześniej. Oczekująca pierwsza wysyłka (`sentAt: null`) nie wygasa. Decyzja jest możliwa tylko dla statusu `sent`, więc wygasła wycena nie może zostać zaakceptowana. Przypomnienia o wygasaniu nie ma.
 
 ### 9.8 Portal klienta
 
@@ -777,8 +853,9 @@ accepted ──▶ in_progress ──▶ ready_for_pickup ──▶ completed
 - W tej samej transakcji powstaje `QuoteDecisionMail` (bez tokenu/URL); worker wysyła powiadomienie do właścicieli.
 - Nieprawidłowy, wygasły i odwołany token pokazują **ten sam P-02** bez danych studia.
 - Nagłówki: `Referrer-Policy: no-referrer`, `Cache-Control: private, no-store`, `X-Robots-Tag: noindex, nofollow`; strona ma `robots: noindex`.
-- P-01 (status zlecenia) jest **statyczną makietą** dla seedowego tokenu z zaakceptowaną wyceną. Dla pozostałych linków portal pokazuje wycenę i decyzję, ale nie pokazuje na żywo etapów zlecenia ani zdjęć.
-- Akceptacja protokołu przyjęcia ma API (`POST .../protocol/accept`), ale **nie jest podłączona do portalu**.
+- P-01 (status zlecenia) czyta zlecenie, auto i klienta z bazy przez `studioDb`: numer, usługa, kwota brutto, kontakt studia, data odbioru (`dueAt` albo `scheduledTo`) i **3 etapy portalu** (etapy studia 1/2/3/4 → portal 1/2/3/3; anulowane ma jawny status). Ekran nie importuje danych demo, także dla seedowego tokenu.
+- Link zlecenia pokazuje zdjęcia tego zlecenia (tylko potwierdzone) przez `GET /p/media/:photoId` z osobnym podpisem HMAC (nie surowy token) oraz — gdy protokół istnieje — jego akceptację przez `POST /p/:token/protocol` (ta sama flaga `acceptedAt` co API studia; zły/wygasły/odwołany token → P-02). Link samej wyceny zachowuje formularz decyzji i **nie** pokazuje zdjęć ani protokołu, także gdy z wyceny powstało zlecenie.
+- Link do zlecenia tworzy studio przez `POST /api/studios/:studioId/portal-links` (obecnie z pulpitu; przycisk na karcie zlecenia jest „Wkrótce”).
 - `app/p/quote-preview` to placeholder „wkrótce”.
 
 ### 9.9 Faktury
@@ -794,7 +871,7 @@ accepted ──▶ in_progress ──▶ ready_for_pickup ──▶ completed
 - Paginacja: **7 dokumentów**, ale lista pobiera wszystkie faktury studia w danym środowisku i tnie je w UI.
 - Licznik „do uwagi” obejmuje `issued` + `ksefStatus` `rejected`/`retrying`.
 - Kwoty sumowane przez Decimal; karta brutto/VAT obejmuje przyjęte faktury, bez szkiców i odrzuceń.
-- „Ponów”, „popraw NIP”, eksport JPK i offline to jawna demonstracja UI — nie zapisują zmian i nie wysyłają nic do MF.
+- „Ponów wysyłkę” i „Popraw NIP i wyślij ponownie” wołają `POST …/ksef/retry` (tylko `rejected`/`retrying`, bez numeru KSeF; NIP można zmienić po potwierdzonym odrzuceniu — patrz [§9.10](#910-ksef-20-test-i-prod-za-flagą)). „Eksport JPK” pokazuje tylko komunikat o niedostępności, a „Offline” jest wyłączony (poza v1).
 
 #### Wystawianie
 
@@ -811,7 +888,7 @@ accepted ──▶ in_progress ──▶ ready_for_pickup ──▶ completed
 - transakcja Serializable; równoległe wystawienie → 409, nie duplikat,
 - zapis `issued`, pozycji i eventu `issued` w jednej transakcji.
 
-**Kreator D-08 wystawia fakturę** przez `POST /api/studios/:studioId/invoices`: ładuje zakończone zlecenia, pozwala sprawdzić nabywcę i pozycje, pokazuje błędy 400/409 oraz otwiera nowy dokument po zapisie. Środowisko wybiera serwer; przycisk jest blokowany podczas zapisu. Rabat jest wliczany w cenę netto zaokrągloną do grosza, a API sprawdza zgodność brutto ze zleceniem. Wystawienie nie kolejkuje KSeF ani nie wysyła maila.
+**Kreator D-08 wystawia fakturę** przez `POST /api/studios/:studioId/invoices`: ładuje zakończone zlecenia, pozwala sprawdzić nabywcę i pozycje, pokazuje błędy 400/409 oraz otwiera nowy dokument po zapisie. Środowisko wybiera serwer; przycisk jest blokowany podczas zapisu. Rabat jest wliczany w cenę netto zaokrągloną do grosza, a API sprawdza zgodność brutto ze zleceniem. Wystawienie nie kolejkuje KSeF ani nie wysyła maila — to osobne akcje na szczegółach faktury.
 
 #### Szczegóły, PDF i XML
 
@@ -819,12 +896,12 @@ accepted ──▶ in_progress ──▶ ready_for_pickup ──▶ completed
 - `env` jest obowiązkowy; brak/zły → 400. `format` to `pdf` albo `xml`.
 - Odpowiedzi są załącznikami z `Cache-Control: private, no-store` i `X-Content-Type-Options: nosniff`.
 - PDF: `@react-pdf/renderer`, A4, lokalny Inter z polskimi znakami; dane z zapisanego snapshotu, nie przeliczane z brutto.
-- XML: FA(3), namespace `http://crd.gov.pl/wzor/2025/06/25/13775/`, wariant 3, PLN, krajowy VAT 23/8/5/0, nabywca NIP albo `BrakID`. Korekty, zwolnienia i transakcje zagraniczne wymagają osobnego mapowania.
+- XML: FA(3), namespace `http://crd.gov.pl/wzor/2025/06/25/13775/`, wariant 3, PLN, krajowy VAT 23/8/5/0, nabywca NIP albo `BrakID`, korekty `KOR`. Zwolnienia i transakcje zagraniczne wymagają osobnego mapowania. Walidacja XSD (`xmllint --nonet`, schematy w `src/ksef/xsd/`) jest obowiązkowa przed kolejką KSeF.
 - Walidacja dokumentu odrzuca szkice, niezakończone zlecenia, ułamki grosza, niezgodne sumy i brutto różne od zlecenia (409).
 - Eksport **nie ustawia `emailedAt`**; pobranie to nie wysyłka.
 - PDF nie zawiera demonstracyjnego QR jako kodu weryfikacyjnego MF.
 - UPO jest pobierane z `Invoice.ksefUpoXml`, jeśli istnieje; seed nie ma UPO.
-- PDF/XML korekty nie są dostępne (409) — wymagają osobnego mapowania.
+- PDF i XML obsługują także korekty (`kind=correction`): dokument wskazuje pierwotną FV (nigdy inną korektę), powód i zapisane różnice netto/VAT/brutto; XML używa `KOR`, `PrzyczynaKorekty` i `DaneFaKorygowanej`. Brak numeru KSeF pierwotnej FV blokuje XML (409).
 
 #### Korekta
 
@@ -835,7 +912,7 @@ accepted ──▶ in_progress ──▶ ready_for_pickup ──▶ completed
 - body: `reason` + pozycje po korekcie (`lp`, `quantity`, `unitNet`); ilość 0 usuwa pozycję, pominięte bez zmian,
 - kwoty dokumentu to **różnica** względem stanu przed korektą (mogą być ujemne); kolejna korekta liczy od poprzedniej,
 - numer `KFV/n/MM/RRRR`, ten sam nabywca i środowisko,
-- pozycje korekty pokazywane jako różnice; eksport PDF/XML korekty jeszcze nie istnieje.
+- pozycje korekty pokazywane jako różnice; PDF/XML korekty eksportuje się jak zwykłą FV.
 
 #### „Opłacona”
 
@@ -846,6 +923,14 @@ accepted ──▶ in_progress ──▶ ready_for_pickup ──▶ completed
 - atomowe `paidAt: null` w warunku — drugi klik daje 409 i nie nadpisuje daty,
 - płatność jest niezależna od KSeF i Stripe.
 
+#### Wysyłka do KSeF z UI
+
+`POST /api/studios/:studioId/invoices/:invoiceId/ksef` (owner/manager, Origin) kolejkuje wystawioną fakturę `not_sent` po zakończonym zleceniu. Środowisko pochodzi z faktury, nie z body. Serwer generuje FA(3), waliduje XSD, zapisuje niezmienny `KsefSubmission` (XML + SHA-256), status `queued` i zdarzenie `validated` w jednej transakcji, dopiero potem robi enqueue; sweep workera naprawia brak enqueue po awarii Redisa. Odpowiedź 202. Brak tokenu, NIP, zły kontekst TEST/PROD, wyłączona flaga PROD albo błąd walidacji → 409/400. Przycisk „Wyślij do KSeF” jest na szczegółach faktury (desktop i mobile). Samo dotarcie do MF zależy od działającego workera, tokenu studia i dostępności MF — repozytorium nie zawiera testu z prawdziwym MF.
+
+#### E-mail z PDF
+
+`POST …/invoices/:invoiceId/email` z `{ env }` (owner/manager, Origin) zapisuje `InvoiceMail` dla adresu klienta powiązanego z fakturą (brak poprawnego adresu → 400). Worker co 15 s wysyła mail z PDF jako załącznikiem (bez XML i bez linku portalu), z backoffem do 1 h i stałym Message-ID; `Invoice.emailedAt` oznacza przyjęcie przez SMTP, nie doręczenie. Dokumenty TEST mają „[TEST]” w temacie i nazwie załącznika. Bez SMTP w dev worker loguje podgląd i zostawia zadanie niewysłane. Dostarczenie jest „co najmniej raz”. Eksport PDF/XML sam w sobie nie zmienia `emailedAt`.
+
 #### Numeracja i środowiska
 
 - `FV/41/10/2026` jest numerem **w środowisku TEST**; TEST i PROD mają osobne liczniki i unikalność.
@@ -853,25 +938,28 @@ accepted ──▶ in_progress ──▶ ready_for_pickup ──▶ completed
 - Seed FV/41 pochodzi z **#DF-0243** (zakończone 23.10.2026), nie z #DF-0248.
 - Fakturę wystawia się po zakończeniu zlecenia; to nie jest FV/41 z #DF-0248.
 
-### 9.10 KSeF 2.0 TEST
+### 9.10 KSeF 2.0 (TEST i PROD za flagą)
 
 **Implementacja:** `src/ksef/`, `src/worker/ksef.ts`, `app/(studio)/settings`, `app/api/studios/[studioId]/ksef/token`.
 
 - Domyślna ścieżka to **TEST**. `assertKsefTest()` odrzuca `KSEF_ENV` inne niż `test` oraz host inny niż `api-test.ksef.mf.gov.pl` (także przy `SKIP_ENV_VALIDATION=1`).
 - PROD jest per studio (`Studio.ksefEnv`) i wymaga flagi `ksef_prod`. Badge w sidebarze i na karcie studia pokazuje TEST albo PROD. Właściciel przełącza środowisko na liście faktur i w ustawieniach studia. Zmiana kasuje zapisany token i wymaga potwierdzenia.
+- Flaga `ksef_prod` (`FeatureFlag`) jest domyślnie **wyłączona** (seed, `ensureFeatureFlags`); brak wiersza też zamyka PROD. Przełącza ją operator `owner`/`admin` w A-08 po MFA (rola `support` nie może). Flaga nie zmienia `ksefEnv` żadnego studia — nie przenosi istniejących dokumentów ani tokenów.
 - `KsefClient` implementuje: challenge, token RSA-OAEP/SHA-256, sesję FA(3), XML AES-256-CBC, status dokumentu, UPO XML, zamknięcie sesji. Timeout 20 s, bez przekierowań. Host wynika ze środowiska faktury: TEST albo `api.ksef.mf.gov.pl`. Tryb offline nie jest obsługiwany.
 - Token studia jest szyfrowany AES-256-GCM. AAD i prefiks szyfrogramu wiążą go ze `studioId` i środowiskiem. TEST i PROD mają osobne klucze. Szyfrogram TEST nie odszyfruje się kluczem PROD.
 - `PUT /api/studios/:studioId/ksef/token` wymaga właściciela (`studio:settings`) i Origin. Środowisko bierze z studia, nie z body. Odpowiedź 204 **nie zwraca tokenu**. NIP jest sprawdzany dopiero przy kolejkowaniu faktury. Dane sprzedawcy (nazwa, nazwa prawna, NIP ze sumą kontrolną, adres, kod, miasto, telefon) zapisuje właściciel na `/settings`.
-- `queueTestInvoice` jest **serwerowym punktem wejścia**: wymaga wystawionej faktury TEST po zakończonym zleceniu, waliduje XML, zapisuje niezmienny snapshot + SHA-256 + status `queued` + event `validated`, dopiero potem enqueue.
+- `queueKsefInvoice` (oraz `queueTestInvoice` dla TEST) jest **serwerowym punktem wejścia**, wołanym przez `POST …/invoices/:invoiceId/ksef`: wymaga wystawionej faktury po zakończonym zleceniu, waliduje XML FA(3) lokalnym XSD, zapisuje niezmienny snapshot + SHA-256 + status `queued` + event `validated`, dopiero potem enqueue. Żaden endpoint nie przyjmuje XML ani flagi „validated” od klienta.
 - Kolejka `ksef-test`: 10 prób, backoff 5 s–5 min, respektuje `Retry-After`; payload zawiera tylko `studioId` i `invoiceId`.
 - Worker przed POST zapisuje `sendStartedAt` i referencję sesji; po utracie odpowiedzi szuka dokumentu po hashu w tej samej sesji i **nie wysyła ponownie**.
 - Odrzucenie danych (np. 450/NIP), błędy uprawnień i 4xx poza 429 kończą zadanie przez `UnrecoverableError` i status `rejected`, bez automatycznego retry.
 - Błędy przejściowe → `retrying`; po wyczerpaniu prób status `retrying` zostaje w D-10 z informacją dla operatora.
 - UPO jest zapisywane w `Invoice.ksefUpoXml`; numer i data przyjęcia pochodzą z MF.
 - Nie logujemy treści odpowiedzi MF ani wyjątków z danymi/sekretami.
-- `recoverKsefOutbox()` co 15 s znajduje faktury TEST `queued` z submission i ponawia enqueue po awarii Redisa. Faktury PROD dochodzą tylko przy włączonej fladze.
+- `recoverKsefOutbox()` co 15 s znajduje faktury `queued` z submission i ponawia enqueue po awarii Redisa; faktury PROD są uwzględniane tylko przy włączonej fladze.
 - `queueKsefInvoice` bierze środowisko z faktury. Token o prefiksie TEST przy env PROD kończy się 409, zanim powstanie XML.
-- **Brakuje:** publicznego route/akcji, która wywołuje `queueTestInvoice` z UI, oraz przycisku „Wyślij do KSeF”.
+- Ponowienie (`POST …/ksef/retry`, owner/manager): tylko dla faktur `rejected`/`retrying` bez numeru KSeF. Niejednoznaczny wynik (utracona odpowiedź, brak potwierdzonego odrzucenia) **nie** zastępuje XML i wymaga weryfikacji operatora; po potwierdzonym odrzuceniu danych XML jest generowany i walidowany od nowa, a NIP nabywcy można poprawić. Zaakceptowana faktura wymaga korekty, nie ponowienia.
+- Kolejka nadal nazywa się `ksef-test`, ale obsługuje też faktury PROD (gdy flaga `ksef_prod` jest włączona).
+- **Nie zweryfikowano w repozytorium:** wysyłki do prawdziwego MF (TEST ani PROD). Testy używają transportu zastępczego, a E2E Playwright kończy się na zadaniu w kolejce. Włączenie PROD wymaga decyzji operacyjnej i własnej weryfikacji; to nie jest deklaracja gotowości produkcyjnej.
 - Seed FV/41 jest demonstracją: 10:12:08 → 10:13:08, 60 s, DF-0243; brak `KsefSubmission` i UPO.
 
 ### 9.11 Stripe Billing
@@ -917,7 +1005,7 @@ accepted ──▶ in_progress ──▶ ready_for_pickup ──▶ completed
   - zaproszenia przez Server Action też sprawdzają blokadę,
   - przełączanie studia i billing pozostają dostępne,
   - dane są zachowane; publiczne odpowiedzi klientów i wcześniej przyjęte zadania outbox/KSeF kończą obieg.
-- MRR: `calculateMrr` liczy tylko `active`, netto PLN; trial/past_due/suspended/canceled wykluczone. Przykład audytu: 64×79 + 48×149 + 16×279 = **16 672 zł**. Funkcja **nie jest podłączona** do panelu admina.
+- MRR: `calculateMrr` liczy tylko `active`, netto PLN; trial/past_due/suspended/canceled wykluczone. Przykład audytu: 64×79 + 48×149 + 16×279 = **16 672 zł**. Ta sama funkcja zasila A-01 i A-04 w panelu platformy ([§9.15](#915-panel-platformy-admin)).
 - **Brak:** panelu A-01–A-10, egzekwowania limitów planów, raportów wpływów, retry Stripe w UI.
 
 ### 9.12 Zdjęcia i protokół przyjęcia
@@ -934,17 +1022,19 @@ accepted ──▶ in_progress ──▶ ready_for_pickup ──▶ completed
 - Worker sprząta niepotwierdzone uploady starsze niż 24 h (wiersz i obiekt S3); potwierdzone zdjęcia nie mają automatycznej retencji.
 - Protokół: jeden na zlecenie, numer `P-0248` z `DF-0248`, maks. 30 punktów, pozycja `x`/`y` jako ułamek 0–1, opcjonalne zdjęcie **tego samego zlecenia**.
 - Po akceptacji protokół jest niezmienny (409), także przy równoległym zapisie; akceptacja jest idempotentna.
-- UI D-04 nadal pokazuje dane demo i dialog „wkrótce”; API jest gotowe.
+- UI D-04/M-04 jest podłączone: lista zdjęć z podpisanego GET, upload presigned PUT + confirm, edytor punktów protokołu na schemacie i akceptacja (po niej formularz jest tylko do odczytu). W portalu klient widzi zdjęcia swojego zlecenia i może zaakceptować istniejący protokół ([§9.8](#98-portal-klienta)).
+- Zdjęcia aut mogą zawierać tablice rejestracyjne i otoczenie; retencja potwierdzonych zdjęć nie jest zautomatyzowana (okres prawny nie jest ustawiony).
 
 ### 9.13 Zespół
 
-**Implementacja:** `app/(studio)/team`, `src/server/studio/invitations.ts`.
+**Implementacja:** `app/(studio)/team`, `src/server/studio/invitations.ts`, `src/server/studio/members.ts`.
 
-- `/team` tylko owner/manager; formularz zaproszenia (e-mail + rola manager/worker).
+- `/team` tylko owner/manager (`members:invite`); lista członków, oczekujące zaproszenia i formularz zaproszenia (e-mail + rola manager/worker).
+- Zmiana roli (manager/worker) i usunięcie członka: `PATCH`/`DELETE /api/studios/:studioId/members/:membershipId`. Właściciel jest chroniony. Usunięcie zdejmuje przypisania tego członka do zleceń; obie operacje zapisują wpis `studio.member.*` w `AuditLog`.
 - Wysłanie przez SMTP; przy braku SMTP w dev mail trafia do logu, w produkcji błąd.
 - Link `/invite/[token]`; nowe konto bez hasła może zalogować się magicznym linkiem.
 - Po przyjęciu cookie aktywnego studia ustawiane jest na zaproszone studio.
-- Brak listy członków, zmiany roli, usuwania i dezaktywacji.
+- Brak dezaktywacji członka bez usuwania, przekazania własności studia i egzekwowania limitu użytkowników planu.
 
 ### 9.14 Landing
 
@@ -957,12 +1047,22 @@ accepted ──▶ in_progress ──▶ ready_for_pickup ──▶ completed
 - Kalkulator oszczędności jest **estymacją** na Decimal, z jawnymi założeniami; nie mierzy wyników klientów.
 - „Zobacz demo (2 min)” to placeholder przewijający do podglądu pulpitu.
 - Podgląd pulpitu to statyczna kopia D-01; zmiany D-01 trzeba przenieść ręcznie.
-- Stopka nie linkuje do nieistniejących stron.
-- Obietnice (KSeF, import Excel, brak karty, polski support) wymagają zatwierdzenia prawnego; pełna wysyłka KSeF pozostaje przed implementacją.
+- Stopka linkuje do trzech szkiców prawnych (`/regulamin`, `/polityka-prywatnosci`, `/umowa-powierzenia`); każda strona ma widoczny komunikat „Projekt do zatwierdzenia prawnego. To nie jest obowiązujący dokument.” FAQ landingu mówi, że regulamin i polityka są „w przygotowaniu”. Nie ma linków do innych nieistniejących stron.
+- Obietnice (KSeF, import Excel, brak karty, polski support) wymagają zatwierdzenia prawnego. Import XLSX istnieje; wysyłka KSeF z UI kolejkuje fakturę, ale nie ma dowodu z prawdziwym MF w repozytorium.
 
-### 9.15 Panel platformy (poza implementacją)
+### 9.15 Panel platformy (/admin)
 
-`audit/admin/README.md` opisuje A-01–A-10: MRR, studia, kartę konta, abonamenty, analitykę, system/KSeF, wsparcie, administrację, sesję wsparcia 15 min i zawieszenie konta. To **projekt UX i definicje metryk**, nie działający panel. W kodzie nie ma `/admin`, MFA ani sesji wsparcia.
+**Implementacja:** `app/(platform)/admin/**`, `src/server/admin/`, `components/admin/`, `lib/auth/platform.ts`. Specyfikacja ekranów i definicje metryk: `audit/admin/README.md` (jest to projekt UX z danymi demonstracyjnymi; stan implementacji opisuje [§3.3](#33-panel-platformy-a-01a-10)).
+
+- **Osobna autoryzacja:** instancja Better Auth `platform` z cookie `df-plat`, bez wspólnej sesji ze studiem. Logowanie pod `/admin/login`; dostęp mają tylko użytkownicy z wierszem `PlatformOperator` (`owner`, `support`, `admin`). Lockout po błędnych hasłach ma osobny realm `platform`.
+- **Dane:** wyłącznie `platformDb` (bez `studioDb`), czyli agregaty po wszystkich studiach. Panel nie ma dostępu do treści zleceń, zdjęć ani danych klientów studiów; karta studia pokazuje liczniki i metadane.
+- **MFA TOTP:** sekret szyfrowany AES-256-GCM (klucz pochodny od `AUTH_SECRET`, dane powiązane z operatorem), kod 30 s z oknem ±1, ochrona przed powtórzeniem kroku (`lastAcceptedStep`), 8 jednorazowych kodów zapasowych (hash), potwierdzenie kodem na `PlatformMfaStepUp` ważne 12 h dla danej sesji. **MFA jest wymagane tylko do zmian ról i flag w A-08** (`assertMfaReady`); pozostałe akcje operatora — w tym zawieszenie konta, start sesji wsparcia i odpowiedzi na zgłoszenia — wymagają zalogowanego operatora, ale nie wymagają ponownego kodu. Operator demo z seeda nie ma włączonego MFA.
+- **Role:** zmianę ról operatorów wykonuje tylko `owner` (nie można zdegradować ostatniego); flagi zmieniają `owner` i `admin`; `support` nie edytuje flag ani kosztów.
+- **Sesja wsparcia (A-09):** wymaga powodu i numeru zgłoszenia, trwa 15 min (`SupportSession.expiresAt`) i zapisuje audyt. To **rekord autoryzacji**, nie podszywanie się pod użytkownika: nie ma sesji studia ani widoku danych studia „tylko do odczytu”, nie ma ręcznego zakończenia.
+- **Zawieszenie (A-10):** wymaga wpisania nazwy studia i powodu; ustawia `Studio.status = suspended`, kasuje sesje użytkowników mających tylko to studio i blokuje zapisy przez billing. Nie anuluje subskrypcji w Stripe ani nie wysyła powiadomienia.
+- **Audyt:** `AuditLog` (append-only z poziomu kodu aplikacji, bez UI do edycji/usuwania) zapisuje m.in. `platform.studio.view`, `platform.mfa.enabled`, `platform.operator.role`, `platform.flag.set`, `support.ticket.opened|replied|resolved`, `support.session.started`, `studio.suspended`. Nie zapisuje zmian kosztów (A-04) ani eksportu CSV; nie jest to dowód niezmienności na poziomie bazy (brak triggera ani WORM).
+- **Metryki:** MRR to suma cen planów studiów `active` (`calculateMrr`); triale, `past_due`, `suspended` i `canceled` są poza MRR. Wpływy pochodzą z `SubscriptionPayment` zapisywanych idempotentnie z webhooka Stripe `invoice.paid`. To nie jest księgowość ani dowód płatności.
+- **Czego nie ma:** zaproszeń i tworzenia operatorów w UI, wersji mobilnej panelu, formularza zgłoszeń po stronie studia, wysyłki odpowiedzi support mailem, mierzonych opóźnień/dostępności KSeF i zewnętrznych sond Stripe/poczty.
 
 ### 9.16 Design system i frontend
 
@@ -1039,9 +1139,12 @@ Assety: logo Flowcut w `branding/`, ikony i zdjęcia demo w `public/`; część 
 | Metoda | Ścieżka | Dostęp | Opis |
 | --- | --- | --- | --- |
 | `GET` | `/api/health` | publiczny | `{ status, time, checks: { db, redis } }`. 200 gdy oba żyją, inaczej 503. Nie sprawdza S3 i nie zwraca szczegółów połączenia |
-| `GET/POST` | `/api/auth/[...all]` | publiczny | Better Auth (login, magic link, reset itd.) |
+| `GET/POST` | `/api/auth/[...all]` | publiczny | Better Auth studia (login, magic link, reset itd.) |
+| `GET/POST` | `/api/auth/platform/[...all]` | publiczny | osobna instancja Better Auth operatorów platformy (cookie `df-plat`); UI pod `/admin/login` |
 | `GET` | `/p/:token` | token | portal; brak efektów ubocznych |
 | `POST` | `/p/:token/decision` | token + Origin | decyzja o wycenie; formularz, 303 |
+| `POST` | `/p/:token/protocol` | token + Origin | akceptacja protokołu przyjęcia (link zlecenia); 303 |
+| `GET` | `/p/media/:photoId?l=&e=&s=` | podpis HMAC | zdjęcie zlecenia dla portalu; podpis obejmuje id linku i zdjęcia oraz wygaśnięcie, nie zawiera tokenu; `no-store` |
 | `GET` | `/p/quote-preview` | publiczny | placeholder „wkrótce” |
 
 #### Studio i billing
@@ -1050,6 +1153,11 @@ Assety: logo Flowcut w `branding/`, ikony i zdjęcia demo w `public/`; część 
 | --- | --- | --- | --- |
 | `POST` | `/api/studios/active` | sesja + `studio:select` + Origin | zapis aktywnego studia w cookie |
 | `POST` | `/api/studios/:studioId/invitations` | owner/manager + Origin | zaproszenie `{ email, role }` |
+| `GET` | `/api/studios/:studioId/members` | sesja + członkostwo | zespół i zaproszenia (`no-store`) |
+| `PATCH/DELETE` | `/api/studios/:studioId/members/:membershipId` | `members:invite` + Origin | zmiana roli manager/worker, usunięcie; właściciel chroniony; wpis audytu |
+| `PATCH` | `/api/studios/:studioId/settings` | owner + Origin | dane sprzedawcy i profil studia; wpis audytu |
+| `POST` | `/api/studios/:studioId/bays` | owner + Origin | nowy boks; limit planu |
+| `GET` | `/api/studios/:studioId/search?q=` | sesja | wyszukiwarka globalna (min. 2 znaki, po 4 wyniki: klienci, auta, zlecenia, faktury tylko owner/manager) |
 | `POST` | `/api/studios/:studioId/billing/checkout` | owner + Origin | `{ plan }` → `{ url }` |
 | `POST` | `/api/studios/:studioId/billing/portal` | owner + Origin | `{ url }` do Customer Portal |
 | `POST` | `/api/stripe/webhook` | podpis Stripe | idempotentny webhook |
@@ -1063,6 +1171,7 @@ Assety: logo Flowcut w `branding/`, ikony i zdjęcia demo w `public/`; część 
 | `GET/PATCH/DELETE` | `/api/studios/:studioId/clients/:clientId` | sesja (+ Origin dla zapisu) | karta/edycja/usunięcie; 409 przy historii |
 | `POST` | `/api/studios/:studioId/clients/:clientId/vehicles` | sesja + Origin | dodanie auta |
 | `PATCH/DELETE` | `/api/studios/:studioId/vehicles/:vehicleId` | sesja + Origin | edycja/usunięcie auta |
+| `POST` | `/api/studios/:studioId/clients/:clientId/privacy` | `clients:privacy` + Origin | `{ action: "export" \| "erase" }`: eksport JSON (`no-store`, attachment) albo anonimizacja/usunięcie; wpis audytu |
 | `POST` | `/api/studios/:studioId/clients/import` | sesja + Origin | CSV w JSON, `text/csv` lub multipart `file`; XLSX multipart `file` |
 
 #### Kalendarz
@@ -1098,6 +1207,7 @@ Assety: logo Flowcut w `branding/`, ikony i zdjęcia demo w `public/`; część 
 | `GET` | `/api/studios/:studioId/quotes/:quoteId` | owner/manager | odczyt wyceny |
 | `PUT` | `/api/studios/:studioId/quotes/:quoteId` | owner/manager + Origin | zapis szkicu i pozycji (Serializable) |
 | `POST` | `/api/studios/:studioId/quotes/:quoteId/send` | owner/manager + Origin | `sent` + outbox, 202 |
+| `POST` | `/api/studios/:studioId/quotes/:quoteId/order` | `quotes:write` + Origin | zlecenie z zaakceptowanej wyceny; kwota i pozycje z snapshotu |
 | `POST` | `/api/studios/:studioId/portal-links` | `orders:update` + Origin | `{ quoteId }` lub `{ workOrderId }` → `{ id, expiresAt, path }` (201) |
 | `DELETE` | `/api/studios/:studioId/portal-links/:linkId` | `orders:update` + Origin | odwołanie linku (204, idempotentne) |
 
@@ -1111,9 +1221,14 @@ Assety: logo Flowcut w `branding/`, ikony i zdjęcia demo w `public/`; część 
 | `POST` | `/api/studios/:studioId/invoices/:invoiceId/corrections` | owner/manager + Origin | korekta (201) |
 | `GET` | `/api/studios/:studioId/invoices/:invoiceId/pdf?env=test\|production` | owner/manager | PDF |
 | `GET` | `/api/studios/:studioId/invoices/:invoiceId/xml?env=test\|production` | owner/manager | FA(3) XML |
-| `PUT` | `/api/studios/:studioId/ksef/token` | owner/manager + Origin | zapis tokenu TEST (204); NIP wymagany dopiero przy wysyłce |
+| `POST` | `/api/studios/:studioId/invoices/:invoiceId/ksef` | `invoices:manage` + Origin | walidacja XSD, snapshot i kolejka KSeF dla środowiska faktury (202) |
+| `POST` | `/api/studios/:studioId/invoices/:invoiceId/ksef/retry` | `invoices:manage` + Origin | ponowienie po `rejected`/`retrying`; opcjonalnie poprawiony NIP po potwierdzonym odrzuceniu |
+| `POST` | `/api/studios/:studioId/invoices/:invoiceId/email` | `invoices:manage` + Origin | `{ env }` → outbox maila z PDF (202) |
+| `PUT` | `/api/studios/:studioId/ksef/token` | owner (`studio:settings`) + Origin | zapis tokenu dla środowiska studia (204); NIP wymagany dopiero przy wysyłce |
 
-Brak endpointu do enqueue faktury do KSeF.
+#### Panel platformy (`/admin`)
+
+Panel używa Server Actions i stron RSC pod `/admin/**` (osobna sesja operatora, [§9.15](#915-panel-platformy-admin)). Jedyny route handler to `GET /admin/studios/export` (CSV listy studiów, sesja operatora). Stripe webhook zapisuje także `SubscriptionPayment`.
 
 ### 10.3 Przykład wywołania
 
@@ -1179,7 +1294,7 @@ Suma brutto musi równać się `totalGross` zlecenia; w przeciwnym razie API zwr
 
 - `WorkOrder.status` to status operacyjny; `stage` to etap 1–4.
 - `Invoice.status` to stan dokumentu (`draft`, `issued`, `canceled`); płatność to `paidAt`, a KSeF to `ksefStatus`.
-- `Quote.status` to stan wyceny; `expired` nie jest jeszcze automatyzowany.
+- `Quote.status` to stan wyceny; `expired` ustawia worker ([§9.7](#97-wyceny)).
 - `Studio.status` to stan billingu; `trial` po wygaśnięciu nadal jest `trial`, ale zapisy są zablokowane.
 
 ### 11.5 Ważne zakazy
@@ -1190,7 +1305,7 @@ Suma brutto musi równać się `totalGross` zlecenia; w przeciwnym razie API zwr
 - Nie edytuj wysłanej wyceny.
 - Nie zmieniaj zaakceptowanego protokołu.
 - Nie mieszaj TEST i PROD KSeF.
-- Nie używaj `platformDb` w kodzie studia.
+- Nie używaj `platformDb` w kodzie studia (wyjątek: panel `/admin`, gdzie jest jedynym klientem bazy).
 - Nie dodawaj modelu operacyjnego bez `studioId` i wpisu w `TENANT_MODELS`.
 - Nie loguj surowych tokenów portalu, sekretów KSeF ani payloadów Stripe.
 
@@ -1208,17 +1323,27 @@ Suma brutto musi równać się `totalGross` zlecenia; w przeciwnym razie API zwr
 - **Stripe**: weryfikacja podpisu, idempotencja, lock per studio, walidacja tenanta i subskrypcji.
 - **KSeF**: TEST domyślnie; PROD per studio za flagą `ksef_prod`. Token AES-256-GCM z AAD `studioId` i środowiska, osobny klucz PROD. Brak surowych błędów MF w logach.
 - **Nagłówki**: CSP, `X-Frame-Options`, `nosniff`, Permissions-Policy. Portal dodatkowo `no-referrer`, `no-store`, `noindex`.
-- **Lockout logowania**: 5 błędnych haseł w 15 min blokuje ten adres na 15 min. W bazie jest hash, nie e-mail. Rate limit auth jest dodatkowo współdzielony w Redis.
+- **Lockout logowania**: 5 błędnych haseł w 15 min blokuje ten adres na 15 min (osobno dla studia i platformy). W bazie jest hash, nie e-mail. Rate limit auth jest dodatkowo współdzielony w Redis.
+- **Panel platformy**: osobna sesja `df-plat`, rola operatora, MFA TOTP dla zmian ról i flag, audyt działań operatorów, sesja wsparcia jako rekord 15 min ([§9.15](#915-panel-platformy-admin)).
+- **Audyt studia** (`AuditLog`): billing, profil/token/środowisko KSeF, zespół i RODO. Nie obejmuje zleceń, wycen ani faktur.
+- **Nagłówki produkcyjne**: CSP i HSTS włącza `next.config.ts` tylko w `NODE_ENV=production`.
+- **Observability**: logi pino JSON, Sentry (serwer, edge, klient, worker) z czyszczeniem sekretów (`src/observability/scrub.ts`) — aktywne dopiero po ustawieniu DSN.
+- **Backup**: `pg_dump --format=custom` do prywatnego S3 z retencją; serwis Compose `backup`.
+- **CI**: GitHub Actions (`check`, `db`, `docker`, `e2e`), w tym smoke Playwright (tylko na PR) na lokalnym buildzie z Postgresem i Redisem ([§13.3](#133-ci)).
 
 ### 12.2 Czego brakuje
 
-- MFA i osobnej sesji administratora platformy,
-- sesji wsparcia 15 min i audytu dostępu admina,
-- pełnego `AuditLog` dla operacji studia (obecnie tylko billing),
-- limitów API per plan (zapisy studia mają wspólny limit 60/min na użytkownika),
-- szyfrowania backupów,
-- Sentry/monitoringu i alertów,
-- testów E2E i testów obciążeniowych uploadu.
+Brak wymienionych elementów oznacza niezweryfikowane lub niezaimplementowane w repozytorium — nie dowód, że ryzyko nie istnieje.
+
+- zatwierdzonych prawnie regulaminu, polityki prywatności i umowy powierzenia (strony `/regulamin` itd. to szkice),
+- dowodu wysyłki do prawdziwego KSeF (TEST/PROD) i wyniku z MF; JPK, KSeF offline,
+- MFA dla studia i MFA przy każdej akcji operatora platformy (kod jest wymagany tylko do zmian ról i flag),
+- widoku „tylko do odczytu” i ręcznego zakończenia sesji wsparcia; audytu zleceń, wycen i faktur; niezmienności audytu na poziomie bazy,
+- limitów API per plan i egzekwowania limitu użytkowników (zapisy studia mają wspólny limit 60/min na użytkownika),
+- szyfrowania backupów po stronie aplikacji (zależy od konfiguracji bucketu), zautomatyzowanego testu odtwarzania i PITR,
+- gotowych alertów i metryk (Sentry zbiera błędy; reguły alertów są poza repo),
+- testów obciążeniowych oraz E2E poza 10 smoke (m.in. brak E2E logowania operatora z MFA i sesji wsparcia — pokrywają je testy integracyjne `src/server/admin`),
+- automatycznej retencji zdjęć i konfiguracji proxy/APM maskującej `/p/*`.
 
 ### 12.3 RODO — praktyczne uwagi
 
@@ -1266,16 +1391,20 @@ Testy integracyjne wymagają PostgreSQL po migracjach. Testy S3/MinIO i Redis/KS
 - **Faktury:** walidacja dokumentu, PDF, FA(3), XSD, numeracja TEST/PROD, korekty, płatność.
 - **KSeF:** kontrakt HTTP z podmienionym transportem, kryptografia, worker, retry, UPO, restart.
 - **UI:** kluczowe ekrany, stany, dostępność podstawowa, mobile.
+- **Panel platformy:** agregaty (MRR, aktywacja, KSeF), MFA TOTP i step-up, polityka ról, sesja wsparcia i zawieszenie, wsparcie/SLA, koszty, flagi, audyt — `src/server/admin/*.test.ts` na prawdziwym Postgresie, `components/admin/*.test.tsx`, `prisma/seed.test.ts`.
+- **Obserwacja i kopie:** scrubbing sekretów Sentry, konfiguracja, `pg_dump`, retencja i harmonogram backupu, health, logger.
+- **RODO, zespół, wyszukiwanie, boksy, wygasanie wycen, sprzątanie zdjęć:** testy w odpowiednich `src/server/*`.
 
 ### 13.3 CI
 
-`.github/workflows/ci.yml` ma trzy joby:
+`.github/workflows/ci.yml` uruchamia się na `pull_request` i `push` do `main`; ma cztery joby:
 
-1. **typecheck + build:** `prisma validate`, `lint`, `typecheck`, `build` z `SKIP_ENV_VALIDATION=1`.
-2. **migrate + seed + test:** PostgreSQL 16 + Redis 7, `migrate deploy`, `migrate diff --exit-code`, seed **dwa razy** (test resetu), `libxml2-utils`, `pnpm test`.
-3. **docker build:** build target `runner`.
+1. **typecheck + build** (`check`): `prisma validate`, `lint`, `typecheck`, `build` z `SKIP_ENV_VALIDATION=1`.
+2. **migrate + seed + test** (`db`): PostgreSQL 16 + Redis 7, `migrate deploy`, `migrate diff --exit-code`, seed **dwa razy** (test resetu), `libxml2-utils`, `pnpm test` (z `KSEF_REDIS_TEST_URL` i `RATE_LIMIT_REDIS_TEST_URL`).
+3. **docker build** (`docker`): build target `runner`, bez push.
+4. **playwright smoke** (`e2e`): **tylko na `pull_request`**; Postgres + Redis, migracje, seed, `pnpm build`, `pnpm test:e2e:smoke` (testy z tagiem `@smoke`: pulpit, wycena, wycena → zlecenie, portal, klienci, zespół, billing → A-04, faktura blokowana dla otwartego zlecenia, golden path zlecenie → faktura → kolejka KSeF TEST, akcje pulpitu). Stripe jest tam zastąpiony lokalnym stubem, a KSeF nie łączy się z MF.
 
-Brak progu coverage i brak E2E Playwright w CI.
+Brak progu coverage, testów obciążeniowych i testów z prawdziwym Stripe/MF.
 
 ### 13.4 Zasady testów
 
@@ -1330,7 +1459,7 @@ Wymaga `DATABASE_URL`, `REDIS_URL`, `S3_*`, `AUTH_SECRET`, `APP_URL` i konfigura
 - S3-compatible storage (MinIO/R2) z prywatnym bucketem,
 - SMTP (Mailpit lokalnie, dostawca produkcyjny),
 - reverse proxy z HTTPS (Caddy/Traefik/nginx),
-- Stripe (test/live) i KSeF TEST.
+- Stripe (test/live) i KSeF TEST (PROD tylko po osobnej decyzji operacyjnej i włączeniu flagi `ksef_prod`).
 
 ### 14.4 Checklist produkcyjny
 
@@ -1342,7 +1471,9 @@ Wymaga `DATABASE_URL`, `REDIS_URL`, `S3_*`, `AUTH_SECRET`, `APP_URL` i konfigura
 - [ ] `STRIPE_SECRET_KEY` live, `STRIPE_WEBHOOK_SECRET` live, endpoint `POST /api/stripe/webhook`.
 - [ ] `pnpm billing:setup` z kluczem live; ceny i `lookup_key` zgodne.
 - [ ] Stripe Tax i Customer Portal skonfigurowane osobno dla live.
-- [ ] `KSEF_ENV=test`, `KSEF_API_URL` test, `KSEF_TOKEN_ENCRYPTION_KEY` 32 bajty.
+- [ ] `KSEF_ENV=test`, `KSEF_API_URL` test, `KSEF_TOKEN_ENCRYPTION_KEY` 32 bajty. Dla PROD osobny klucz produkcyjny, flaga `ksef_prod` świadomie włączona i token studia z MF; repozytorium nie zawiera dowodu wysyłki do prawdziwego MF.
+- [ ] **Nie uruchamiaj `pnpm db:seed` na produkcji**: tworzy dane demo, w tym operatora platformy z jawnym hasłem z README. Operatorzy produkcyjni (`PlatformOperator`) nie mają UI zaproszeń ani skryptu w repo — wymagają osobnej, kontrolowanej procedury, a każdy musi włączyć MFA.
+- [ ] `AUTH_SECRET` (≥ 32 znaki) jest też źródłem klucza szyfrującego sekrety MFA operatorów; jego rotacja unieważnia zapisane sekrety MFA (operatorzy muszą wtedy zainicjować MFA od nowa).
 - [ ] Worker działa i ma połączenie z Redis/SMTP/KSeF.
 - [ ] `SENTRY_DSN` (i ewentualnie `NEXT_PUBLIC_SENTRY_DSN`) wskazują projekt Sentry. Bez DSN błędy nie wychodzą z procesu.
 - [ ] `pnpm backup` przechodzi, a serwis `backup` zostawia dumpy w `BACKUP_S3_PREFIX` i kasuje starsze niż `BACKUP_RETENTION_DAYS`. Odtworzenie: `pg_restore` na kopię.
@@ -1371,44 +1502,39 @@ Wymaga `DATABASE_URL`, `REDIS_URL`, `S3_*`, `AUTH_SECRET`, `APP_URL` i konfigura
 
 ## 15. Luki i plan
 
-### 15.1 Luki krytyczne dla v1
+### 15.1 Co jest zamknięte względem wcześniejszego planu
+
+Wcześniejsza wersja tej sekcji wymieniała jako luki rzeczy, które dziś istnieją w kodzie i testach: tworzenie zleceń (`POST /orders`, formularz), status i etapy z UI, kreator faktury wystawiający FV, wysyłkę KSeF z UI, mail z fakturą, wygasanie wycen, status/zdjęcia/protokół w portalu, listę członków, wyszukiwarkę, PDF/XML korekt, ponowienie KSeF, CSP/HSTS, Sentry, backup, E2E w CI oraz panel `/admin` z MFA, audytem i sesją wsparcia. Stan każdej z tych funkcji jest w [§3](#3-status-wdrożenia).
+
+### 15.2 Luki i ryzyka przed realnym użyciem
+
+To nie jest lista blokad „kodowych” — część pozycji wymaga decyzji, dowodów lub zasobów poza repozytorium.
 
 | Luka | Wpływ | Co trzeba zrobić |
 | --- | --- | --- |
-| Brak tworzenia zleceń (API/UI) | nie da się prowadzić nowego auta | endpointy + formularz + podłączenie kalendarza/pulpitu |
-| Brak zapisu statusu/etapu z UI | pracownik nie może przesuwać pracy | podłączyć `transitionOrder`/`advanceStage` do API i D-03/D-04/M-04 |
-| Kreator faktury nie wystawia FV | faktura tylko przez API | wywołać `POST /invoices` z wizarda, obsłużyć 409/400 |
-| Wysyłka KSeF z UI | działa dla wystawionej faktury po zakończeniu zlecenia | POST `/api/studios/:studioId/invoices/:invoiceId/ksef`, walidacja XSD, token w ustawieniach |
-| Brak maila z fakturą | klient nie dostaje PDF | outbox `InvoiceMail` + worker + „Wyślij ponownie” |
-| Panel admina nie istnieje | brak operacji SaaS | A-01–A-10 na agregatach i audycie |
-| Brak MFA/admin sesji | ryzyko bezpieczeństwa | TOTP, role platformy, sesja wsparcia 15 min, audyt |
+| Brak dowodu wysyłki do prawdziwego KSeF (TEST ani PROD) | nie wiadomo, jak kod zachowa się wobec rzeczywistego MF | test na koncie TEST MF z tokenem studia, zapis wyniku i UPO; dopiero potem decyzja o PROD |
+| Szkice prawne (`/regulamin`, `/polityka-prywatnosci`, `/umowa-powierzenia`) | nie można publikować jako obowiązujących | zatwierdzenie przez prawnika, DPA, zgody, procedura naruszeń |
+| Retencja zdjęć i danych klientów | RODO | ustalić okres i automatyczne usuwanie; maskowanie `/p/*` w proxy/APM |
+| Operatorzy platformy bez UI zaproszeń; MFA tylko przy zmianie ról/flag | ryzyko operacyjne | procedura tworzenia operatorów, rozważyć MFA przy zawieszeniu i sesji wsparcia |
+| Sesja wsparcia to rekord, nie podgląd danych studia; brak ręcznego zakończenia | A-09 niepełne | zaprojektować widok tylko do odczytu z audytem każdego odczytu |
+| Metryki A-06 nie mierzą dostępności MF, Stripe ani poczty | operator nie widzi realnego stanu zależności | sondy zewnętrzne i alerty (poza repo) |
+| Backup bez automatycznego testu odtwarzania i PITR | nieznany RTO/RPO | cykliczny restore na kopię, PITR w bazie zarządzanej |
+| Brak limitów planów dla liczby użytkowników; boksy tylko przez API | plany nie są w pełni egzekwowane | UI boksów i egzekwowanie limitów |
+| Poza v1 | — | JPK, KSeF offline, abonament roczny, płatność online klienta, magazyn, statystyki, portfolio, pełny cennik CMS, SMS |
 
-### 15.2 Luki ważne, ale nieblokujące
+### 15.3 Znane drobne niedokończenia
 
-- status zlecenia i zdjęcia w portalu dla dowolnego linku (P-01 jest statyczne),
-- akceptacja protokołu w portalu,
-- wygasanie wycen (`expired`) i przypomnienia,
-- wysyłka SMS,
-- wyszukiwarka ⌘K,
-- limity planów i egzekwowanie liczby użytkowników/boksów,
-- lista członków, zmiana roli, usunięcie z zespołu,
-- PDF/XML korekty,
-- eksport JPK,
-- panel błędów KSeF i ręczne ponawianie,
-- CSP/HSTS, Sentry, metryki, E2E.
+- terminy w kreatorze wyceny (`quoteSlots`) są demonstracyjne,
+- przycisk „Link dla klienta” na karcie zlecenia jest „Wkrótce” (API i pulpit działają),
+- `app/p/quote-preview` to placeholder,
+- „Cała historia” na karcie klienta jest „Wkrótce”,
+- „Usługi i cennik”, „Magazyn”, „Statystyki”, „Portfolio” to ekrany „Wkrótce” (zgodnie z zakresem v1),
+- brak przypomnień o wygasających wycenach, brak wysyłki SMS,
+- brak panelu zgłoszeń po stronie studia i wysyłki odpowiedzi supportu e-mailem.
 
-### 15.3 Kierunek rozwoju
+### 15.4 Kierunek
 
-Zgodnie z dokumentacją wdrożenia budujemy **pionami wartości**, nie „najpierw cały admin”:
-
-1. fundament: auth, tenant, seed, shell, CI — **zrobione**,
-2. operacje: klienci, zlecenia, kalendarz, pulpit, zdjęcia — **częściowo** (brak create/status UI),
-3. pieniądz studia: wycena, portal, faktury, KSeF — **częściowo** (brak enqueue i maila FV),
-4. SaaS: landing, trial, Stripe — **zrobione**,
-5. platforma: A-01–A-10 — **brak**,
-6. twardnienie: KSeF PROD, E2E, backup, monitoring, prawo — **brak**.
-
-Priorytet najbliższego etapu: **domknąć obieg zlecenia i faktury end-to-end**, bo bez tego produkt nie prowadzi dnia studia mimo gotowych modułów domenowych.
+Kolejność prac wynika z issue i faz w [`docs/dokumentacja-wdrozenia.md`](docs/dokumentacja-wdrozenia.md). Fundament, operacje studia, obieg wycena → zlecenie → faktura → kolejka KSeF, billing, landing i panel platformy mają implementację; następny etap to **weryfikacja z zewnętrznymi systemami (MF, prawnik, operacje)** i dopiero później funkcje spoza v1.
 
 ---
 
@@ -1417,14 +1543,16 @@ Priorytet najbliższego etapu: **domknąć obieg zlecenia i faktury end-to-end**
 | Dokument | Co zawiera |
 | --- | --- |
 | [`AGENTS.md`](AGENTS.md) | zasady pracy agentów, etykiety, twarde reguły produktu |
-| [`docs/dokumentacja-wdrozenia.md`](docs/dokumentacja-wdrozenia.md) | pierwotna specyfikacja produktu, architektury, Prisma, Stripe, KSeF, faz |
+| [`docs/dokumentacja-wdrozenia.md`](docs/dokumentacja-wdrozenia.md) | specyfikacja docelowego produktu (nie opis stanu kodu): architektura, Prisma, Stripe, KSeF, fazy |
 | [`docs/README.md`](docs/README.md) | indeks dokumentacji |
 | [`file-structure.md`](file-structure.md) | mapa ekranów Figmy, dane demo, zakres prototypu |
-| [`audit/admin/README.md`](audit/admin/README.md) | definicje metryk i panelu platformy A-01–A-10 |
+| [`audit/admin/README.md`](audit/admin/README.md) | projekt UX i definicje metryk panelu platformy A-01–A-10 (dane demo; stan kodu: [§3.3](#33-panel-platformy-a-01a-10)) |
+| [`src/server/admin/README.md`](src/server/admin/README.md) | logika panelu platformy |
+| [`e2e/README.md`](e2e/README.md) | smoke Playwright |
 | [`docs/naprawa-migracji-coating-reminders.md`](docs/naprawa-migracji-coating-reminders.md) | procedura naprawy historii migracji |
 | [`src/server/README.md`](src/server/README.md) | ACL, zlecenia, wyceny, klienci — skrót |
 | [`src/server/billing/README.md`](src/server/billing/README.md) | Stripe, webhooki, trial, read-only, MRR |
-| [`src/ksef/README.md`](src/ksef/README.md) | KSeF TEST, token, worker, retry |
+| [`src/ksef/README.md`](src/ksef/README.md) | KSeF TEST/PROD, token, worker, retry |
 | [`src/server/zlecenia/README.md`](src/server/zlecenia/README.md) | zdjęcia, protokół, stan zlecenia |
 | [`src/server/wyceny/README.md`](src/server/wyceny/README.md) | zapis i wysyłka wycen |
 | [`src/server/portal/README.md`](src/server/portal/README.md) | tokeny i decyzja portalu |
@@ -1435,7 +1563,7 @@ Priorytet najbliższego etapu: **domknąć obieg zlecenia i faktury end-to-end**
 | [Figma](https://www.figma.com/design/3pssHgZjGzo0UeyBC8yZ3S) | źródło prawdy UI |
 | [Issues](https://github.com/JaMkAAaa/detailflow/issues) | backlog, epiki, zadania `agent-ready` |
 
-**Uwaga o rozbieżności:** `docs/dokumentacja-wdrozenia.md` opisuje docelowy produkt i miejscami wyprzedza kod (np. panel admina, KSeF PROD, pełne Ustawienia). Ten README opisuje **stan faktyczny** i wskazuje luki. Przy sprzeczności: kod i migracje > ten README > dokumentacja wdrożenia > makieta.
+**Uwaga o rozbieżności:** `docs/dokumentacja-wdrozenia.md` opisuje docelowy produkt i miejscami wyprzedza kod albo go nie zawiera (np. pełne Ustawienia, JPK, wersja roczna, magazyn). Ten README opisuje **stan faktyczny** i wskazuje luki. Przy sprzeczności: kod i migracje > ten README > dokumentacja wdrożenia > makieta.
 
 ---
 
@@ -1495,19 +1623,22 @@ Next.js 15 App Router, PostgreSQL 16, Prisma (migracje), Docker Compose, Stripe 
 | **Zlecenie** | `WorkOrder`, numer `DF-####`; etapy 1–4 |
 | **Wycena** | `Quote` z pozycjami i mnożnikami; może być wysłana i zaakceptowana |
 | **FA(3)** | polski schemat XML faktury VAT dla KSeF |
-| **KSeF** | Krajowy System e-Faktur; w kodzie tylko środowisko TEST |
+| **KSeF** | Krajowy System e-Faktur; w kodzie TEST domyślnie, PROD per studio za flagą `ksef_prod` (bez dowodu z prawdziwym MF) |
 | **UPO** | Urzędowe Poświadczenie Odbioru dokumentu z KSeF |
 | **Trial** | 14-dniowy okres próbny bez karty |
 | **Read-only** | tryb po wygaśnięciu trialu/`past_due`/`suspended`/`canceled`; GET działa, zapisy 403 |
 | **Outbox** | trwała tabela zadań do wysłania (mail), przetwarzana przez workera |
 | **BullMQ** | kolejka Redis dla KSeF i billing-daily |
+| **Operator platformy** | użytkownik `PlatformOperator` (owner/support/admin) z dostępem do `/admin`; nie jest członkiem studia |
+| **Sesja wsparcia** | 15-minutowy, audytowany rekord zgody na obsługę konkretnego studia; nie loguje jako użytkownik |
+| **Step-up MFA** | potwierdzenie kodem TOTP ważne 12 h dla sesji operatora |
 | **Presigned URL** | czasowy podpisany URL do S3, ważny 5 min |
 | **Tenant guard** | `studioDb` + złożone FK wymuszające `studioId` |
 | **RSC** | React Server Components w Next.js App Router |
 | **MRR** | miesięczny przychód z aktywnych abonamentów netto; bez trialów i zaległości |
-| **P-01 / P-02** | ekrany portalu: status i wygasły link |
+| **P-01 / P-02** | ekrany portalu: status zlecenia (3 etapy) i wygasły/nieprawidłowy link |
 | **D-01…D-10 / M-01…M-08** | ekrany desktop/mobile w Figmie |
-| **A-01…A-10** | ekrany panelu właściciela platformy (niezaimplementowane) |
+| **A-01…A-10** | ekrany panelu platformy pod `/admin` ([§3.3](#33-panel-platformy-a-01a-10)) |
 
 ---
 
@@ -1602,6 +1733,13 @@ Dla ścieżki TEST `Studio.ksefEnv` musi być `test`, a `Studio.nip` ustawiony. 
 
 Przycisk „Wyślij do KSeF” jest na szczegółach wystawionej faktury o statusie `not_sent`, na desktopie i mobile. Token zapisuje właściciel w `/settings`; lista faktur i szczegóły mają link do ustawień. Endpoint wybiera środowisko z faktury. Brak tokenu, zły kontekst TEST/PROD lub błąd walidacji dają 409. Walidacja wymaga `xmllint` i lokalnych plików `src/ksef/xsd/`; obraz Docker zawiera oba. Ponowienia odrzuconych dokumentów pozostają osobnym zakresem #138.
 
+### Panel `/admin`: nie mogę się zalogować / MFA
+
+- Panel ma własne logowanie `/admin/login` i cookie `df-plat`; konto studia nie działa. Operator musi mieć wiersz `PlatformOperator` (po `pnpm db:seed` jest `anna.nowak@detailflow.test`, dane w [§2.2](#22-wariant-docker-zalecany)).
+- Zmiany ról i flag w A-08 wymagają włączonego MFA i kodu z ostatnich 12 h. Utracone urządzenie: kody zapasowe; jeśli ich brak, reset wymaga ręcznej interwencji w bazie (brak UI).
+- Zmiana `AUTH_SECRET` unieważnia zapisane sekrety MFA.
+- Pusty panel po świeżej migracji bez seeda jest poprawny: liczby w A-01–A-05 pochodzą z danych w bazie.
+
 ### Portal: link wygasł / P-02
 
 Token jest ważny 14 dni, może być odwołany, a seedowy wygasły link ma własny token. Sprawdź `expiresAt`/`revokedAt`; nie próbuj zgadywać tokenu.
@@ -1630,4 +1768,4 @@ To znany przypadek lokalnej historii migracji. Nie usuwaj tabel. Wykonaj procedu
 
 ## Podsumowanie
 
-Detailflow ma już solidny fundament: izolację tenantów, auth, dane demo, kalendarz, klientów, wyceny, faktury z PDF/FA(3), billing Stripe, KSeF TEST i outbox. Największa wartość do domknięcia to **połączenie gotowych modułów domenowych z UI** — przede wszystkim zleceń, kreatora faktury i wysyłki KSeF — oraz **panel platformy**. Ten README jest punktem startowym; szczegóły modułów znajdują się w linkowanych dokumentach.
+Repozytorium zawiera działającą aplikację v1 na danych z bazy: izolację tenantów, auth, kalendarz, klientów, zlecenia, wyceny, portal klienta, faktury z PDF/FA(3), kolejkę KSeF TEST (PROD za flagą), billing Stripe, backup, Sentry, CI z E2E i panel platformy `/admin` z MFA, audytem i sesją wsparcia. Nie ma natomiast dowodów, które nie mogą pochodzić z repozytorium: wysyłki do prawdziwego MF, zatwierdzenia prawnego dokumentów, testu odtwarzania backupu ani zewnętrznego monitoringu — dlatego README nie deklaruje gotowości produkcyjnej ani prawnej. Szczegóły i ograniczenia: [§3](#3-status-wdrożenia) i [§15](#15-luki-i-plan); szczegóły modułów — w linkowanych dokumentach.

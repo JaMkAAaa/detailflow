@@ -3,7 +3,9 @@
 **Wersja:** 1.0  
 **Data:** 26 października 2026  
 **Źródło projektu graficznego:** [Figma — Detailflow](https://www.figma.com/design/3pssHgZjGzo0UeyBC8yZ3S)  
-**Stan projektu UX:** prototyp po audycie, dane demonstracyjne, nie podłączony system  
+**Stan projektu UX:** makieta w Figmie po audycie (dane demonstracyjne); aplikacja w repozytorium jest od tej wersji podłączona do bazy — jej stan opisuje [`../README.md`](../README.md)  
+
+> **Specyfikacja, nie opis kodu.** Ten dokument to **specyfikacja docelowego produktu** (wersja z 26.10.2026). Rzeczywisty stan implementacji, odstępstwa od specyfikacji i znane luki opisuje [`README.md`](../README.md) w katalogu głównym. Przy sprzeczności obowiązuje kolejność: kod i migracje > README > ta specyfikacja > makieta. Opisy zachowań w czasie przyszłym i listy „do zbudowania” poniżej **nie są deklaracją, że funkcja istnieje albo została zweryfikowana** — w szczególności szkice prawne nie są zatwierdzone, a wysyłka do prawdziwego KSeF nie ma dowodu w repozytorium.
 
 Ten dokument jest instrukcją wdrożenia produktu na podstawie gotowego projektu graficznego. Opisuje **co budujemy**, **dla kogo**, **jakie problemy rozwiązujemy**, **jakie ekrany i przepływy są w zakresie**, oraz **jak złożyć to na stacku PostgreSQL + Next.js + Prisma + Docker + Stripe**.
 
@@ -87,6 +89,8 @@ Nie zakłada konta. Dostaje **wygasający link**. Widzi auto, postęp, termin od
 ### 3.3 Operatorzy platformy Detailflow
 
 Role z A-08: właściciel platformy, wsparcie, administracja. **MFA obowiązkowe**. Sesja wsparcia to **audytowany tryb tylko do odczytu, max 15 min** — nigdy ciche „zaloguj się jako studio”.
+
+*Stan kodu (szczegóły w README §9.15):* zbudowane są role, TOTP z kodami zapasowymi, 15-minutowy audytowany rekord sesji wsparcia i zawieszenie konta; kod MFA jest egzekwowany przy zmianie ról i flag, a sesja wsparcia nie daje jeszcze podglądu danych studia.
 
 ---
 
@@ -897,3 +901,5 @@ Produkt jest wdrożony, gdy:
 6. TEST i PROD KSeF są rozdzielone, sekrety nie są w git, Compose wstaje jednym `docker compose up`.
 
 Do tego momentu makieta pozostaje **specyfikacją wizualną i dziedzinową**, a ten dokument — **specyfikacją implementacji**.
+
+*Stan względem kryteriów:* kryteria 1–3 i 5–6 mają implementację i testy w repozytorium (Stripe w trybie testowym/stubie, portal, A-01 z bazy, rozdział TEST/PROD, Compose). Kryterium 4 jest zaimplementowane do kolejki i walidacji XSD; **numer KSeF z prawdziwego środowiska MF nie ma dowodu w repozytorium** (testy używają transportu zastępczego). Zatem „wdrożone” w sensie tego dokumentu nie jest jeszcze potwierdzone, a gotowość prawna i produkcyjna nie jest deklarowana. Aktualna lista luk: README §15.
