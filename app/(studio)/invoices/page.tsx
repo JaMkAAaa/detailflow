@@ -13,7 +13,7 @@ export default async function InvoicesPage() {
     <div className="space-y-6">
       {current.role === "owner" && <KsefEnvForm env={status.env} prodAllowed={status.prodAllowed} tokenSet={status.tokenSet} />}
       {current.role === "owner" && <Link href="/settings" className="inline-block text-df-label text-df-lime">Ustawienia i token KSeF</Link>}
-      <InvoicesScreen key={`${context.studioId}:${status.env}`} invoices={await invoiceList(context.studioId, status.env)} env={status.env} now={new Date().toISOString()} />
+      <InvoicesScreen studioId={context.studioId} key={`${context.studioId}:${status.env}`} invoices={await invoiceList(context.studioId, status.env)} env={status.env} now={new Date().toISOString()} />
     </div>
   );
 }

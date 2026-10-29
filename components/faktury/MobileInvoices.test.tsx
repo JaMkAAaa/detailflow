@@ -92,6 +92,7 @@ it("filters and searches compact cards, preserving the KSeF environment", async 
   const user = userEvent.setup();
   render(
     <InvoicesScreen
+      studioId="studio-a"
       invoices={[
         base,
         {

@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { Queue } from "bullmq";
+import { AccessError } from "../server/access-error";
 import { assertKsefTest } from "./config";
 
 export const KSEF_QUEUE = "ksef-test";
@@ -22,5 +23,16 @@ export function ksefQueue() {
     defaultJobOptions: { attempts: KSEF_ATTEMPTS, backoff: { type: "ksef" }, removeOnComplete: { age: 86400 }, removeOnFail: { age: 604800 } } });
 }
 export async function enqueueKsef(job: KsefJob) {
-  return ksefQueue().add("send", job, { jobId: ksefJobId(job) });
+  const queue = ksefQueue();
+  const previous = await queue.getJob(ksefJobId(job));
+  if (previous && ["failed", "completed"].includes(await previous.getState())) await previous.remove();
+  return queue.add("send", job, { jobId: ksefJobId(job) });
+}
+
+/** Never change a snapshot while a worker can still use it. */
+export async function assertKsefRetryIdle(job: KsefJob) {
+  const previous = await ksefQueue().getJob(ksefJobId(job));
+  if (previous && !["failed", "completed"].includes(await previous.getState())) {
+    throw new AccessError(409, "Wysyłka jest w toku lub czeka na automatyczne ponowienie.");
+  }
 }

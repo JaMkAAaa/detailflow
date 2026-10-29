@@ -1,10 +1,10 @@
-import { studioDb } from "@/lib/db/tenant";
+import { studioDb, type StudioDb } from "@/lib/db/tenant";
 import { AccessError } from "../acl";
 import type { Environment } from "@/components/faktury/model";
 import { InvoiceDocumentError, validateInvoiceDocument, type InvoiceDocument } from "@/src/invoices/document";
 
-export async function invoiceDocument(studioId: string, invoiceId: string, environment: Environment): Promise<InvoiceDocument> {
-  const invoice = await studioDb(studioId).invoice.findFirst({
+export async function invoiceDocument(studioId: string, invoiceId: string, environment: Environment, db: Pick<StudioDb, "invoice"> = studioDb(studioId)): Promise<InvoiceDocument> {
+  const invoice = await db.invoice.findFirst({
     where: { studioId, id: invoiceId, ksefEnv: environment },
     include: {
       items: { where: { studioId }, orderBy: { lp: "asc" } },

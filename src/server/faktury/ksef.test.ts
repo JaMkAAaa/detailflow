@@ -3,6 +3,7 @@ import { afterAll, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import { platformDb } from "@/lib/db/client";
 import { studioDb } from "@/lib/db/tenant";
 import { invoiceFixture } from "@/src/invoices/fixtures/document";
+import { POST as RETRY } from "@/app/api/studios/[studioId]/invoices/[invoiceId]/ksef/retry/route";
 import { POST } from "@/app/api/studios/[studioId]/invoices/[invoiceId]/ksef/route";
 import { saveTestToken } from "@/src/ksef/submissions";
 import { encryptToken } from "@/src/ksef/secrets";
@@ -14,7 +15,7 @@ const mocks = vi.hoisted(() => {
   return { session: vi.fn() };
 });
 vi.mock("@/lib/auth", () => ({ auth: { api: { getSession: mocks.session } } }));
-vi.mock("@/src/ksef/queue", () => ({ enqueueKsef: vi.fn() }));
+vi.mock("@/src/ksef/queue", () => ({ enqueueKsef: vi.fn(), assertKsefRetryIdle: vi.fn() }));
 const call = (studioId: string, invoiceId: string, origin = "http://localhost:3000") => POST(new Request("http://localhost:3000/api/invoices/ksef", { method: "POST", headers: { origin, "content-type": "application/json" }, body: JSON.stringify({ env: "production", xml: "untrusted" }) }), { params: Promise.resolve({ studioId, invoiceId }) });
 let userId: string;
 
@@ -87,5 +88,37 @@ it("uses invoice environment despite caller body and commits validated XML and h
   expect(await db.ksefEvent.findFirst({ where: { invoiceId: testId } })).toMatchObject({ kind: "validated", message: expect.stringContaining("TEST") });
   expect(enqueueKsef).toHaveBeenCalledWith({ studioId: b, invoiceId: testId });
   expect((await call(b, testId)).status).toBe(409);
+  expect(enqueueKsef).toHaveBeenCalledTimes(1);
+});
+
+const retry = (studioId: string, body: unknown = {}) => RETRY(new Request("http://localhost:3000/api/retry", { method: "POST", headers: { origin: "http://localhost:3000", "content-type": "application/json" }, body: JSON.stringify(body) }), { params: Promise.resolve({ studioId, invoiceId: testId }) });
+it("isolates retries and rejects bad NIP before touching the queue", async () => {
+  expect((await retry(a)).status).toBe(404);
+  expect((await retry(b, { buyerNip: "5260250275" })).status).toBe(400);
+  expect(enqueueKsef).not.toHaveBeenCalled();
+});
+it("preserves an ambiguous submission during retry and refuses NIP changes", async () => {
+  const db = studioDb(b);
+  await db.invoice.update({ where: { id: testId }, data: { ksefStatus: "retrying" } });
+  await db.ksefSubmission.updateMany({ where: { invoiceId: testId }, data: { sendStartedAt: new Date(), sessionReference: "ambiguous-session" } });
+  const before = await db.ksefSubmission.findFirstOrThrow({ where: { invoiceId: testId } });
+  expect((await retry(b, { buyerNip: "5260250274" })).status).toBe(409);
+  expect(enqueueKsef).not.toHaveBeenCalled();
+  expect((await retry(b)).status).toBe(202);
+  expect(await db.ksefSubmission.findFirstOrThrow({ where: { invoiceId: testId } })).toEqual(before);
+  expect(enqueueKsef).toHaveBeenCalledTimes(1);
+});
+it("rolls back NIP on ambiguous rejection, regenerates only confirmed rejected XML, and protects accepted invoices", async () => {
+  const db = studioDb(b);
+  await db.invoice.update({ where: { id: testId }, data: { ksefStatus: "rejected" } });
+  expect((await retry(b, { buyerNip: "5260250274" })).status).toBe(409);
+  expect(enqueueKsef).not.toHaveBeenCalled();
+  await db.ksefSubmission.updateMany({ where: { invoiceId: testId }, data: { invoiceReference: "rejected-ref" } });
+  await db.ksefEvent.create({ data: { studioId: b, invoiceId: testId, kind: "rejected", at: new Date(), message: "KSeF TEST: odrzucono fakturę (450); sprawdź XML i dane nabywcy, w tym NIP" } });
+  expect((await retry(b, { buyerNip: "526-025-02-74" })).status).toBe(202);
+  expect(await db.invoice.findFirstOrThrow({ where: { id: testId } })).toMatchObject({ buyerNip: "5260250274", ksefStatus: "queued" });
+  expect(await db.ksefSubmission.findFirstOrThrow({ where: { invoiceId: testId } })).toMatchObject({ sendStartedAt: null, invoiceReference: null, sessionReference: null, xml: expect.stringContaining("5260250274") });
+  await db.invoice.update({ where: { id: testId }, data: { ksefStatus: "accepted", ksefNumber: "accepted-number" } });
+  expect((await retry(b, { buyerNip: "7012345671" })).status).toBe(409);
   expect(enqueueKsef).toHaveBeenCalledTimes(1);
 });

@@ -2,6 +2,8 @@ import { platformDb } from "../../lib/db/client";
 import { restrictedMessage } from "./billing/access";
 import { studioDb } from "../../lib/db/tenant";
 import type { MembershipRole } from "../../lib/db/generated/client";
+import { AccessError } from "./access-error";
+export { AccessError } from "./access-error";
 
 export const permissions = {
   "billing:manage": ["owner"],
@@ -16,10 +18,6 @@ export const permissions = {
   "members:invite": ["owner", "manager"],
 } as const satisfies Record<string, readonly MembershipRole[]>;
 export type Permission = keyof typeof permissions;
-
-export class AccessError extends Error {
-  constructor(public status: 400 | 401 | 403 | 404 | 409, message: string) { super(message); }
-}
 
 export async function authorizeStudio(userId: string, studioId: string, permission: Permission = "studio:read", write = false) {
   const db = studioDb(studioId);
