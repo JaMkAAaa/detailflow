@@ -724,7 +724,7 @@ export function GlobalSearch({
       onClick={(event) => {
         if (event.target === dialog.current) close();
       }}
-      className="fixed inset-0 m-auto flex max-h-[calc(100dvh-32px)] w-[620px] max-w-[calc(100%-32px)] flex-col overflow-hidden rounded-2xl border border-df-line p-0 text-df-text shadow-2xl backdrop:bg-black/70 max-lg:m-0 max-lg:h-dvh max-lg:max-h-[100dvh] max-lg:w-full max-lg:max-w-none max-lg:rounded-none max-lg:border-0"
+      className="fixed inset-0 m-auto hidden max-h-[calc(100dvh-32px)] w-[620px] max-w-[calc(100%-32px)] flex-col overflow-hidden rounded-2xl border border-df-line p-0 text-df-text shadow-2xl backdrop:bg-black/70 open:flex max-lg:m-0 max-lg:h-dvh max-lg:max-h-[100dvh] max-lg:w-full max-lg:max-w-none max-lg:rounded-none max-lg:border-0"
       style={{ background: "linear-gradient(180deg, #1c1f23 0%, #1a1d20 100%)" }}
     >
       {state === "loading" ? (
