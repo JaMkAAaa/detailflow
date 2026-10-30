@@ -36,15 +36,12 @@ export async function invoiceDetail(studioId: string, number: string, env: Envir
   };
 }
 export async function invoiceOrders(studioId: string, env: Environment): Promise<Order[]> {
-  const orders = await studioDb(studioId).workOrder.findMany({ where: { studioId, status: "completed", completedAt: { not: null } }, orderBy: { completedAt: "desc" }, include: {
-    client: true, vehicle: true,
-    invoices: { where: { studioId, ksefEnv: env, kind: "invoice" }, orderBy: { createdAt: "asc" }, take: 1, include: { items: { where: { studioId }, orderBy: { lp: "asc" } } } },
-  } });
+  const orders = await studioDb(studioId).workOrder.findMany({ where: {
+    studioId, status: "completed", completedAt: { not: null },
+    invoices: { none: { studioId, ksefEnv: env, kind: "invoice", status: { not: "canceled" } } },
+  }, orderBy: { completedAt: "desc" }, include: { client: true, vehicle: true } });
   return orders.map(order => {
-    // Istniejąca FV jest źródłem pozycji scenariusza demo. Bez niej zakres pochodzi ze zlecenia.
-    const source = order.invoices[0]?.items;
-    const items = source?.length ? source.map(item => ({ name: item.name, quantity: item.quantity.toString(), unitNet: item.unitNet.toString(), vatRate: item.vatRate, discount: "0" }))
-      : [{ name: order.service, quantity: "1", unitNet: order.totalGross.div("1.23").toFixed(2), vatRate: 23, discount: "0" }];
+    const items = [{ name: order.service, quantity: "1", unitNet: order.totalGross.div("1.23").toFixed(2), vatRate: 23, discount: "0" }];
     return { id: order.id, number: order.number, vehicle: `${order.vehicle.make} ${order.vehicle.model}`, completedAt: order.completedAt!.toISOString(),
       buyer: { name: order.client.name, nip: order.client.nip ?? "", street: order.client.street ?? "", postal: order.client.postal ?? "", city: order.client.city ?? "", email: order.client.email ?? "" }, items };
   });

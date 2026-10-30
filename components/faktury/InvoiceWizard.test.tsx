@@ -13,6 +13,29 @@ const orders: Order[] = [{ id: "order", number: "DF-0243", vehicle: "BMW X3", co
 const invoice: InvoiceView = { id: "invoice", number: "FV/41/10/2026", env: "test", status: "issued", ksefStatus: "accepted", ksefNumber: "demo-number", acceptedAt: "2026-10-24T08:13:08Z", issuedAt: "2026-10-24T08:12:08Z", saleAt: "2026-10-24T08:12:08Z", dueAt: "2026-10-31T12:00:00Z", paidAt: null, emailedAt: "2026-10-24T08:13:30Z", upoXml: null, kind: "invoice", correctsNumber: null, correctionReason: null, corrections: [], current: [], orderNumber: "DF-0243", buyer: orders[0]!.buyer, items: orders[0]!.items, totalNet: "3902.44", totalVat: "897.56", totalGross: "4800", events: [] };
 beforeAll(() => { HTMLDialogElement.prototype.showModal = function () { this.setAttribute("open", ""); }; HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); }; });
 afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+it("defaults to the first eligible order rather than the demo order number", async () => {
+  const latest: Order = { ...orders[0]!, id: "latest", number: "DF-0250", completedAt: "2026-10-24T14:30:00Z" };
+  render(<InvoiceWizard studioId="a" userId="u" seller={seller} orders={[latest, ...orders]} />);
+  expect((await screen.findByLabelText("Zakończone zlecenie") as HTMLSelectElement).value).toBe("latest");
+});
+
+it("shows the empty state and orders link when no eligible orders remain, even with a saved draft", () => {
+  localStorage.setItem(invoiceDraftKey("a", "u", "test"), JSON.stringify({ orderId: "order", step: 3, company: false, buyer: orders[0]!.buyer, items: orders[0]!.items }));
+  render(<InvoiceWizard studioId="a" userId="u" seller={seller} orders={[]} />);
+  expect(screen.getByText(/Brak zakończonych zleceń/)).toBeTruthy();
+  expect(screen.getByRole("link", { name: /Przejdź do zleceń/ }).getAttribute("href")).toBe("/orders");
+  expect(screen.queryByLabelText("Zakończone zlecenie")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Wystaw fakturę" })).toBeNull();
+});
+
+it("replaces a saved draft for an already invoiced order with the first eligible order", async () => {
+  localStorage.setItem(invoiceDraftKey("a", "u", "test"), JSON.stringify({ orderId: "invoiced", step: 3, company: false, buyer: orders[0]!.buyer, items: orders[0]!.items }));
+  render(<InvoiceWizard studioId="a" userId="u" seller={seller} orders={orders} />);
+  expect((await screen.findByLabelText("Zakończone zlecenie") as HTMLSelectElement).value).toBe("order");
+  expect(screen.getByRole("alert").textContent).toContain("Szkic jest nieaktualny");
+  expect(screen.getByRole("button", { name: /Dalej: pozycje/ })).toBeTruthy();
+});
+
 it("decodes invoice route segments and preserves the environment in links", () => {
   expect(invoiceNumberFromSegment("FV%2F41%2F10%2F2026")).toBe("FV/41/10/2026");
   expect(invoiceNumberFromSegment("FV/41/10/2026")).toBe("FV/41/10/2026");

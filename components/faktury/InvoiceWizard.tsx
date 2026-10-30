@@ -18,7 +18,7 @@ export function InvoiceWizard({ studioId, userId, seller, orders }: { studioId: 
   const submitting = useRef(false);
   const [pending, setPending] = useState(false);
   const [submitError, setSubmitError] = useState("");
-  const first = orders.find(order => order.number === "DF-0243") ?? orders[0];
+  const first = orders[0];
   const [draft, setDraft] = useState<Draft | null>(first ? { orderId: first.id, step: 1, company: !!first.buyer.nip, buyer: first.buyer, items: first.items as Draft["items"] } : null);
   const [ready, setReady] = useState(false);
   const [saved, setSaved] = useState("");
