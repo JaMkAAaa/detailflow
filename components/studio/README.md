@@ -38,8 +38,8 @@ Poniżej `lg` (1024 px) layout `(studio)` chowa sidebar i topbar, a `TabBar`
 `min-w-[1024px]` shellu został usunięty; ekrany bez wersji mobilnej (np. tablica
 zleceń, M-03) nadal przewijają się poziomo — dostaną własne issue.
 
-- **+** otwiera sheet (natywny `<dialog>`, `Sheet.tsx`) z „Nowe zlecenie” i „Nowa
-  wycena”. Nowa wycena prowadzi do `/quotes/new`; nowe zlecenie nadal pokazuje „wkrótce”.
+- **+** prowadzi do `/orders/new` (pełny ekran, tab bar schowany). Na desktopie
+  „+ Nowe zlecenie” nadal otwiera dialog na `/orders?new=1`.
 - **Więcej** prowadzi do `/more` (M-06), z linkami do Faktur, Klientów i aut,
   zaproszeń i wylogowania. Pracownik nie widzi Faktur ani zaproszeń, jak w sidebarze.
   Zakładka świeci się na `/more`, `/invoices`, `/customers`, `/services`, `/team`.

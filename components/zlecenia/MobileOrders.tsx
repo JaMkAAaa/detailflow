@@ -8,7 +8,6 @@ import { MaskIcon } from "@/components/studio/MaskIcon";
 import { EmptyState, NoResultsState } from "@/components/states";
 import { cn } from "@/lib/utils";
 import { filterOrders, type BoardOrder, type OrderStatus } from "./board-demo";
-import { OrderCreateDialog, type OrderClientChoice, type OrderServiceChoice } from "./OrderCreateDialog";
 
 type ActiveStatus = Exclude<OrderStatus, "completed" | "canceled">;
 
@@ -57,12 +56,9 @@ function OrderCardBody({ order }: { order: BoardOrder }) {
 /**
  * M-03 — lista aktywnych zleceń w układzie telefonu. Dane pochodzą z API zleceń.
  */
-export function MobileOrders({ orders, studioId = "", clients = [], services = [], onCreated = () => undefined }: {
-  orders: BoardOrder[]; studioId?: string; clients?: OrderClientChoice[]; services?: OrderServiceChoice[]; onCreated?: (order: unknown) => void;
-}) {
+export function MobileOrders({ orders }: { orders: BoardOrder[] }) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<ActiveStatus | null>(null);
-  const [createOpen, setCreateOpen] = useState(false);
   const active = orders.filter((order) => order.status !== "completed" && order.status !== "canceled");
   const found = filterOrders(active, { query, service: "" });
   const visible = status ? found.filter((order) => order.status === status) : found;
@@ -77,7 +73,7 @@ export function MobileOrders({ orders, studioId = "", clients = [], services = [
     <div className="flex flex-col gap-4">
       <header>
         <p className="text-df-body font-medium text-df-muted">{active.length} aktywnych</p>
-        <div className="flex items-center gap-3"><h1 className="flex-1 text-[26px] leading-[1.15] font-bold">Zlecenia</h1><button type="button" onClick={() => setCreateOpen(true)} className="h-10 rounded-lg bg-df-lime px-3 text-df-body font-semibold text-df-bg">＋ Nowe</button></div>
+        <div className="flex items-center gap-3"><h1 className="flex-1 text-[26px] leading-[1.15] font-bold">Zlecenia</h1><Link href="/orders/new" className="inline-flex h-10 items-center rounded-lg bg-df-lime px-3 text-df-body font-semibold text-df-bg">＋ Nowe</Link></div>
       </header>
 
       <label className="flex items-center gap-2.5 rounded-[14px] bg-df-panel px-3.5 py-[13px] text-df-muted">
@@ -110,7 +106,7 @@ export function MobileOrders({ orders, studioId = "", clients = [], services = [
       </div>
 
       {active.length === 0 ? (
-        <EmptyState title="Brak aktywnych zleceń" description="Nowe zlecenia pojawią się tutaj po ich utworzeniu." actions={<button type="button" onClick={() => setCreateOpen(true)} className="rounded-lg bg-df-lime px-4 py-2 text-df-body font-semibold text-df-bg">＋ Nowe zlecenie</button>} />
+        <EmptyState title="Brak aktywnych zleceń" description="Nowe zlecenia pojawią się tutaj po ich utworzeniu." actions={<Link href="/orders/new" className="inline-flex rounded-lg bg-df-lime px-4 py-2 text-df-body font-semibold text-df-bg">＋ Nowe zlecenie</Link>} />
       ) : visible.length === 0 ? (
         <NoResultsState query={query} onClearFilters={clearFilters} />
       ) : (
@@ -134,7 +130,6 @@ export function MobileOrders({ orders, studioId = "", clients = [], services = [
           );
         })
       )}
-      {createOpen && <OrderCreateDialog studioId={studioId} clients={clients} services={services} onCreated={onCreated} onClose={() => setCreateOpen(false)} />}
     </div>
   );
 }

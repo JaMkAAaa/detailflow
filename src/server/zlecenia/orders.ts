@@ -69,8 +69,19 @@ export async function loadOrderChoices(studioId: string) {
     clients: clients.map(({ id, name, vehicles }) => ({
       id, name, vehicles: vehicles.map((vehicle) => ({ id: vehicle.id, label: `${vehicle.make} ${vehicle.model} · ${vehicle.plate}` })),
     })),
-    services: services.map(({ id, name, basePrice }) => ({ id, name, basePrice: basePrice.toFixed(2) })),
+    services: services.map(({ id, name, basePrice, durationMin }) => ({ id, name, basePrice: basePrice.toFixed(2), durationMin })),
   };
+}
+
+/** Pełny ekran „Nowe zlecenie” na telefonie: cennik z czasem, boksy i zespół studia. */
+export async function loadOrderCreate(studioId: string) {
+  const db = studioDb(studioId);
+  const [choices, bays, team] = await Promise.all([
+    loadOrderChoices(studioId),
+    db.bay.findMany({ orderBy: [{ sort: "asc" }, { id: "asc" }], select: { id: true, name: true } }),
+    db.membership.findMany({ orderBy: { createdAt: "asc" }, select: { user: { select: { id: true, name: true } } } }),
+  ]);
+  return { ...choices, bays, members: team.map(({ user }) => ({ id: user.id, name: user.name })) };
 }
 
 export async function createOrder(db: StudioDb, studioId: string, actorId: string, input: unknown, quoteId?: string) {

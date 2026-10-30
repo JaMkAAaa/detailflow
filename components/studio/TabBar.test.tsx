@@ -51,9 +51,9 @@ it("opens the full More screen", () => {
   expect(link.getAttribute("aria-current")).toBe("page");
 });
 
-it("opens the shared order form directly from +", () => {
+it("opens the mobile create-order page from +", () => {
   render(<TabBar />);
-  expect(screen.getByRole("link", { name: "Nowe zlecenie" }).getAttribute("href")).toBe("/orders?new=1");
+  expect(screen.getByRole("link", { name: "Nowe zlecenie" }).getAttribute("href")).toBe("/orders/new");
   expect(screen.queryByRole("dialog")).toBeNull();
 });
 
@@ -67,7 +67,7 @@ it("gives way to the order action bar on order details (M-04) but not on the lis
   expect(screen.getByRole("navigation", { name: "Nawigacja mobilna" }).className).not.toContain("max-lg:hidden");
 });
 
-it.each(["/quotes/new", "/invoices/FV%2F41?env=test"])("gives way to mobile actions on %s", (route) => {
+it.each(["/orders/new", "/quotes/new", "/invoices/FV%2F41?env=test"])("gives way to mobile actions on %s", (route) => {
   pathname.current = route;
   render(<TabBar />);
   expect(screen.getByRole("navigation").className).toContain("max-lg:hidden");
