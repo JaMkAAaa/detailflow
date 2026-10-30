@@ -37,8 +37,9 @@ it("links existing modules, displays attention and keeps future modules inside a
   expect(screen.getByRole("link", { name: "Usługi i cennik" }).getAttribute("href")).toBe("/services");
   expect(screen.getByRole("link", { name: "Magazyn" }).getAttribute("href")).toBe("/inventory");
   expect(screen.getByRole("link", { name: "Portfolio" }).getAttribute("href")).toBe("/portfolio");
-  await user.click(screen.getByRole("button", { name: /Michał Kowalski/ }));
-  expect(screen.getByRole("dialog", { name: "Konto · Wkrótce" })).toBeTruthy();
+  expect(screen.getByRole("link", { name: /Konto — Michał Kowalski/ }).getAttribute("href")).toBe("/account");
+  await user.click(screen.getByRole("button", { name: /Pomoc/ }));
+  expect(screen.getByRole("dialog", { name: "Pomoc · Wkrótce" })).toBeTruthy();
 });
 it("opens statistics for the owner instead of a 'Wkrótce' notice", () => {
   render(<MoreScreen {...props} role="owner" />);

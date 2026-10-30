@@ -83,3 +83,5 @@ jest nazwa bez kontrolki wyboru. Wybór wysyła `POST /api/studios/active`; serw
 sprawdza membership przed ustawieniem cookie. Sukces prowadzi pełną nawigacją
 na pulpit, usuwając cache i stan klienta poprzedniego studia. Błąd pozostawia
 poprzedni wybór i pozwala ponowić próbę.
+
+Konto (#151): desktopowy link „Konto” i mobilna karta osoby prowadzą do `/account` dla wszystkich ról. Hasło, aktywne sesje i preferencja przypomnienia trialowego: [kontrakt](../../docs/konto.md).

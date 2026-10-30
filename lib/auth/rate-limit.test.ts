@@ -20,6 +20,7 @@ it("enforces the existing auth thresholds through the configured custom storage"
     ["/sign-in/email", 5, { email, password: "invalid-password" }],
     ["/request-password-reset", 3, { email }],
     ["/reset-password", 5, { token: "invalid-token", newPassword: "new-invalid-password" }],
+    ["/change-password", 5, { currentPassword: "invalid-password", newPassword: "new-invalid-password" }],
     ["/sign-in/magic-link", 5, { email }],
   ] as const;
   for (const [path, max, body] of cases) {

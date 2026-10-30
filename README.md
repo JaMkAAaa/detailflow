@@ -108,13 +108,13 @@ Role są sprawdzane **przy każdym żądaniu** na podstawie `Membership`, a nie 
 ### 1.7 Poza zakresem v1
 
 - statystyki zaawansowane (podstawowe statystyki studia są wdrożone w #144),
-- pełne Ustawienia i Konto,
+- dalsze rozszerzenia ustawień,
 - KSeF offline,
 - panel właściciela platformy na mobile,
 - płatność klienta online za detailing,
 - tryb jasny.
 
-Katalog **Usługi i cennik** jest wdrożony (`/services`), **Magazyn chemii** działa pod `/inventory` (#143), **Statystyki studia** pod `/statistics` (#144, tylko owner), a **Portfolio realizacji** pod `/portfolio` i `/realizacje/[slug]` (#145). Właściciel produktu autoryzował 29.10.2026 wykonanie wszystkich #142–#151, po jednym PR z testami i merge po zielonym CI; #146 zakończył badanie/dokumentację; #147 jest zaimplementowany w PR #186 przed końcowym CI/review/merge. #148–#151 nie są jeszcze ukończone. Płatność klienta za detailing nie jest częścią Stripe Billing. Brak opublikowanych zdjęć to pusty stan, nie 404.
+Katalog **Usługi i cennik** jest wdrożony (`/services`), **Magazyn chemii** działa pod `/inventory` (#143), **Statystyki studia** pod `/statistics` (#144, tylko owner), a **Portfolio realizacji** pod `/portfolio` i `/realizacje/[slug]` (#145). Właściciel produktu autoryzował 29.10.2026 wykonanie wszystkich #142–#151, po jednym PR z testami i merge po zielonym CI; #146 zakończył badanie/dokumentację; #147 jest zaimplementowany w PR #186 przed końcowym CI/review/merge. #151 dodaje konto użytkownika: hasło, sesje i preferencję przypomnienia trialowego ([kontrakt](docs/konto.md)). Stan #148–#150 opisują kontrakty modułów. Płatność klienta za detailing nie jest częścią Stripe Billing. Brak opublikowanych zdjęć to pusty stan, nie 404.
 
 ---
 
@@ -239,7 +239,7 @@ Status opisuje **kod**, nie gotowość produkcyjną ani prawną. „Działa” z
 | Rejestracja trialu | **Działa** | `/start`, konto + studio + owner + 14 dni, bez karty | brak weryfikacji e-mail przed wejściem |
 | Zaproszenia i zespół | **Działa** | `/team`: zaproszenia, lista członków i zaproszeń, zmiana roli manager/worker, usunięcie członka (zdejmuje jego przypisania do zleceń), `/invite/[token]` | właściciel jest chroniony (nie zmienisz ani nie usuniesz go tą ścieżką); limit użytkowników planu nie jest egzekwowany |
 | Przełączanie studiów | **Działa** | cookie `df.active_studio`, picker w sidebarze i na ekranie Więcej (mobile); po zmianie pełne przeładowanie kontekstu | — |
-| Ustawienia i KSeF `/settings` | **Działa** | dane sprzedawcy (nazwa, NIP z sumą kontrolną, adres, telefon), przełącznik TEST/PROD, token KSeF — tylko owner, z wpisami w audycie | pełne „Ustawienia i Konto” są poza v1; przycisk „Konto” na ekranie Więcej jest „Wkrótce” |
+| Ustawienia i KSeF `/settings` | **Działa** | dane sprzedawcy (nazwa, NIP z sumą kontrolną, adres, telefon), przełącznik TEST/PROD, token KSeF — tylko owner, z wpisami w audycie | konto osoby jest osobnym ekranem `/account` (#151), dostępnym dla każdej roli |
 | Pulpit D-01 / M-01 | **Działa** | KPI, plan boksów, lista dnia, alerty z DB; „Nowe zlecenie” otwiera formularz zlecenia, „Zakończ etap” i „Zdjęcie” (mobile) oraz „Link dla klienta” (desktop) wołają API | brak fallbacku na demo; pracownik nie wystawia faktur (dostaje komunikat o uprawnieniach) |
 | Kalendarz D-02 / M-02 | **Działa** | rezerwacje boksów, dzień/tydzień, kolizje, pracownik na zleceniu i filtr osób, „Nowe zlecenie” z wolnego okna | wyszukiwarka w nagłówku mobile jest nieaktywna; boksy dodaje się tylko przez API |
 | Klienci D-05 | **Działa** | lista 20/stronę, filtry, karta, wyszukiwanie | brak zdjęcia auta w modelu; „Cała historia” na karcie to „Wkrótce” |
@@ -610,7 +610,7 @@ Jeśli lokalna baza ma wpis `coating_reminders` pod starą nazwą i migracja si�
 | Model | Najważniejsze pola | Rola |
 | --- | --- | --- |
 | `Studio` | `publicCode`, `name`, `slug`, dane sprzedawcy (`ownerLegalName`, `nip`, adres), `status`, `plan`, `trialEndsAt`, `activatedAt`, `stripeCustomerId`, `stripeSubscriptionId`, `ksefEnv`, `ksefTokenEnc` | tenant i stan billingu |
-| `User` | `email`, `name`, `emailVerified` | konto osoby |
+| `User` | `email`, `name`, `emailVerified`, `trialReminderEnabled` | konto osoby i preferencja przypomnienia trialowego |
 | `Session` | `token`, `expiresAt`, `userId` | sesja Better Auth |
 | `Account` | `providerId`, `accountId`, `password` | hasło Argon2id / provider |
 | `Verification` | `identifier`, `value`, `expiresAt` | magic link / reset |
@@ -1797,3 +1797,7 @@ Repozytorium zawiera działającą aplikację v1 na danych z bazy: izolację ten
 ### Płatności klientów studia (#148)
 
 Connect Standard + direct charges, prowizja Detailflow 0%, wyłącznie sandbox. Owner łączy konto w `/settings`, owner/manager tworzy link Checkout na szczegółach faktury (desktop/mobile). Środki, opłaty, zwroty i spory należą do studia. Podpisany webhook Connect ustawia `paidAt` idempotentnie; Billing i KSeF pozostają oddzielne. Otwartą sesję trzeba wygasić w Stripe przed ręcznym oznaczeniem płatności lub korektą. Faktury z korektą rozlicza się ręcznie. [Konfiguracja, testy i ograniczenia bez kluczy](docs/platnosci-klientow.md). Brak potwierdzonego hosted sandbox smoke; live nie jest włączone.
+
+## Konto użytkownika — #151
+
+`/account` dla ownera, managera i pracownika: zmiana hasła z wymuszoną rotacją sesji, lista aktywnych własnych sesji i wylogowanie pozostałych, preferencja maila trialowego. Dostęp z desktopowego menu i mobilnej karty użytkownika. Preferencja jest wspólna dla studiów osoby i nie blokuje faktur, resetu hasła ani magicznego linku. [Kontrakt, migracja i testy](docs/konto.md).

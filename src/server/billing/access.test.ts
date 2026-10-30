@@ -33,6 +33,7 @@ beforeAll(async () => {
   await studioDb(studioId).membership.createMany({ data: [{ studioId, userId: ownerId, role: "owner" }, { studioId, userId: workerId, role: "worker" }] });
 });
 beforeEach(async () => {
+  await platformDb.user.update({ where: { id: ownerId }, data: { trialReminderEnabled: true } });
   mocks.session.mockResolvedValue({ user: { id: ownerId } });
   mocks.sendMail.mockReset().mockResolvedValue({});
   await platformDb.studio.update({ where: { id: studioId }, data: { status: "trial", trialEndsAt: new Date(now.getTime() + 3 * DAY), trialReminderSentAt: null, stripeCustomerId: `cus_${tag}` } });
@@ -96,6 +97,23 @@ describe("restricted billing (Postgres)", () => {
 });
 
 describe("trial reminders (Postgres)", () => {
+  it("honors the owner's account preference without sending an empty recipient list", async () => {
+    await platformDb.user.update({ where: { id: ownerId }, data: { trialReminderEnabled: false } });
+    await sendTrialReminders(now);
+    await sendTrialReminders(now);
+    expect(mocks.sendMail).not.toHaveBeenCalled();
+    expect((await platformDb.studio.findUniqueOrThrow({ where: { id: studioId } })).trialReminderSentAt).toEqual(now);
+  });
+  it("sends only to opted-in owners across two studios", async () => {
+    await platformDb.user.update({ where: { id: ownerId }, data: { trialReminderEnabled: false } });
+    await studioDb(foreignId).membership.create({ data: { studioId: foreignId, userId: workerId, role: "owner" } });
+    await platformDb.studio.update({ where: { id: foreignId }, data: { status: "trial", trialEndsAt: new Date(now.getTime() + DAY), trialReminderSentAt: null } });
+    try {
+      await sendTrialReminders(now);
+      expect(mocks.sendMail).toHaveBeenCalledTimes(1);
+      expect(mocks.sendMail.mock.calls[0]![0].to).toEqual([`${tag}-worker@example.com`]);
+    } finally { await platformDb.studio.update({ where: { id: foreignId }, data: { status: "active" } }); }
+  });
   it("wysyła raz na trial także przy równoległych uruchomieniach, tylko do właściciela tenanta", async () => {
     await Promise.all([sendTrialReminders(now), sendTrialReminders(now)]);
     await sendTrialReminders(now);

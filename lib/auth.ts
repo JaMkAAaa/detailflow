@@ -1,5 +1,5 @@
 import { authCounter } from "../src/server/rate-limit";
-import { APIError } from "better-auth/api";
+import { APIError, createAuthMiddleware } from "better-auth/api";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
@@ -56,15 +56,26 @@ export const auth = betterAuth({
       "/sign-in/email": { window: 60, max: 5 },
       "/request-password-reset": { window: 60, max: 3 },
       "/reset-password": { window: 60, max: 5 },
+      "/change-password": { window: 60, max: 5 },
     },
   },
 
   advanced: {
     cookiePrefix: AUTH_COOKIE_PREFIX,
     database: { generateId: false },
+    disableOriginCheck: false,
   },
 
-  hooks: loginLockoutHooks("studio"),
+  hooks: {
+    ...loginLockoutHooks("studio"),
+    before: createAuthMiddleware(async (ctx) => {
+      await loginLockoutHooks("studio").before(ctx);
+      // Polityka serwera: klient nie może zachować pozostałych sesji.
+      if (ctx.path === "/change-password") {
+        return { context: { ...ctx, body: { ...ctx.body, revokeOtherSessions: true } } };
+      }
+    }),
+  },
 
   databaseHooks: {
     session: {

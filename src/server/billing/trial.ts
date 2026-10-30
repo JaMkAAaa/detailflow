@@ -21,12 +21,13 @@ export async function sendTrialReminders(now = new Date()) {
         const studio = await tx.studio.findUniqueOrThrow({ where: { id: studioId } });
         if (studio.status !== "trial" || studio.trialReminderSentAt || !studio.trialEndsAt || studio.trialEndsAt <= now || studio.trialEndsAt.getTime() > now.getTime() + 3 * DAY) return;
         const owners = await studioDb(studioId).membership.findMany({
-          where: { role: "owner" }, select: { user: { select: { email: true } } },
+          where: { role: "owner" }, select: { user: { select: { email: true, trialReminderEnabled: true } } },
         });
         if (!owners.length) throw new Error("Missing studio owner");
-        await transport.sendMail({
+        const recipients = owners.filter(owner => owner.user.trialReminderEnabled);
+        if (recipients.length) await transport.sendMail({
           from: process.env.EMAIL_FROM ?? "Detailflow <noreply@detailflow.local>",
-          to: owners.map(owner => owner.user.email),
+          to: recipients.map(owner => owner.user.email),
           messageId: `<trial-${studioId}-${studio.trialEndsAt.getTime()}@detailflow.local>`,
           subject: "Detailflow — Twój okres próbny wkrótce się kończy",
           text: `Okres próbny studia ${studio.name} kończy się ${studio.trialEndsAt.toLocaleDateString("pl-PL", { timeZone: "Europe/Warsaw" })}.\n\nPo jego zakończeniu dane pozostaną dostępne tylko do odczytu. Aby dalej pracować, wybierz abonament po zakończeniu trialu: ${new URL("/billing", process.env.APP_URL).href}\n\nTrial nie wymaga karty i nie powoduje automatycznego obciążenia.`,

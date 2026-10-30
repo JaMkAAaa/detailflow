@@ -150,3 +150,5 @@ PostgreSQL po migracjach. Obejmują izolację tenantów, CSRF/role portalu, anul
 MRR roczny = cena / 12, Decimal bez zaokrąglania per konto. `invoice.paid`
 po proration zapisuje faktyczne netto faktury; zerowe pobranie z kredytu nie
 zapisuje fikcyjnego wpływu. `Invoice` KSeF pozostaje osobnym obiegiem.
+
+Przypomnienie trialowe (#151) uwzględnia `User.trialReminderEnabled` każdego ownera, domyślnie true. Bez odbiorców nie wysyła SMTP i oznacza przebieg jako obsłużony. Nie dotyczy faktur i auth. [Kontrakt konta](../../../docs/konto.md).
