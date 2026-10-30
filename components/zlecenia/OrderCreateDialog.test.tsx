@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, expect, it, vi } from "vitest";
 import { OrderCreateDialog } from "./OrderCreateDialog";
 
@@ -17,8 +18,10 @@ it("hides the order form until the studio has an active service", () => {
   expect(screen.getByText("Dodaj klienta z autem i usługę w bazie, aby utworzyć zlecenie.")).toBeTruthy();
 });
 
-it("offers the client once an active service exists", () => {
+it("offers the client once an active service exists", async () => {
+  const user = userEvent.setup();
   render(<OrderCreateDialog studioId="studio-a" clients={[client]} services={[{ id: "svc", name: "E2E Korekta", basePrice: "123.00" }]} onCreated={vi.fn()} onClose={vi.fn()} />);
   expect(screen.getByLabelText("Klient")).toBeTruthy();
+  await user.click(screen.getByRole("combobox", { name: "Usługa" }));
   expect(screen.getByRole("option", { name: "E2E Korekta" })).toBeTruthy();
 });

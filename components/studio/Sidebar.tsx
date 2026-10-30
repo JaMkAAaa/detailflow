@@ -5,6 +5,7 @@ import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { LogoMark } from "@/components/brand/Logo";
 import { KsefEnvBadge } from "@/components/ksef/KsefEnvBadge";
+import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { activeStudioItem, studioNavigation } from "./navigation";
 
@@ -69,32 +70,19 @@ export function Sidebar({
         <span className="font-brand text-df-wordmark">detailflow</span>
       </Link>
 
-      <div className="relative h-[60px] shrink-0 rounded-[10px] bg-df-raised text-df-label">
-        <select
-          aria-label="Wybierz studio"
-          value={studioId}
-          disabled={pending}
-          onChange={(event) => void switchStudio(event.target.value)}
-          className="h-full w-full cursor-pointer appearance-none rounded-[10px] bg-transparent px-3 pt-3 pb-[30px] text-df-text"
-        >
-          {choices.map((choice) => (
-            <option key={choice.studioId} value={choice.studioId}>
-              {choice.studio.name}
-            </option>
-          ))}
-        </select>
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute right-3 bottom-3 left-3 flex justify-between text-df-muted"
-        >
-          <span>
-            {[current.studio.city, current.studio.district]
-              .filter(Boolean)
-              .join(", ")}
-          </span>
-          <span>⌄</span>
-        </span>
-      </div>
+      <Select
+        aria-label="Wybierz studio"
+        size="studio"
+        className="shrink-0"
+        value={studioId}
+        disabled={pending}
+        onChange={(event) => void switchStudio(event.target.value)}
+        options={choices.map((choice) => ({
+          value: choice.studioId,
+          label: choice.studio.name,
+          description: [choice.studio.city, choice.studio.district].filter(Boolean).join(", ") || undefined,
+        }))}
+      />
 
       <div className="px-1"><KsefEnvBadge env={current.studio.ksefEnv} /></div>
       {error && <p role="alert">Nie udało się zmienić studia.</p>}

@@ -4,6 +4,7 @@ import { Fragment, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { bookingHref, bookings, bookingsOnDay, freeWindows, layoutBookings, matchesEmployee, timeLabel, UNASSIGNED, type Booking } from "./demo";
 import { ReservationSlotContext, type ReservationSlot } from "./slot";
 
@@ -43,7 +44,7 @@ export function DayGrid({ events = bookings, bays, members = [], today = "2026-1
       <p aria-live="polite" className="text-df-section">{label(date)}</p>
       <div className="ml-auto flex gap-3" aria-label="Widok kalendarza">
         {([['day', 'Dzień'], ['week', 'Tydzień']] as const).map(([value, title]) => <button key={value} aria-pressed={view === value} onClick={() => setView(value)} className={`h-7 rounded-md border px-2.5 text-df-label ${view === value ? "border-df-muted bg-df-line" : "border-transparent bg-df-raised text-df-muted"}`}>{title}</button>)}
-        <select aria-label="Filtruj pracownika" value={employee} onChange={(event) => setEmployee(event.target.value)} className="h-10 w-[170px] rounded-lg bg-df-raised px-4 text-df-label"><option value="">Wszystkie osoby</option>{live ? <><option value={UNASSIGNED}>Nieprzypisane</option>{members.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}</> : <><option>Michał</option><option>Kamil</option></>}</select>
+        <Select aria-label="Filtruj pracownika" size="filter" className="w-[170px] shrink-0" value={employee} onChange={(event) => setEmployee(event.target.value)} options={live ? [{ value: "", label: "Wszystkie osoby" }, { value: UNASSIGNED, label: "Nieprzypisane" }, ...members.map((member) => ({ value: member.id, label: member.name }))] : [{ value: "", label: "Wszystkie osoby" }, { value: "Michał", label: "Michał" }, { value: "Kamil", label: "Kamil" }]} />
       </div>
     </div>
     {view === "day" ? <section aria-label={`Plan boksów: ${label(date)}`} className="h-[710px] rounded-xl bg-df-panel p-5">

@@ -16,7 +16,7 @@ afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); vi.unst
 it("defaults to the first eligible order rather than the demo order number", async () => {
   const latest: Order = { ...orders[0]!, id: "latest", number: "DF-0250", completedAt: "2026-10-24T14:30:00Z" };
   render(<InvoiceWizard studioId="a" userId="u" seller={seller} orders={[latest, ...orders]} />);
-  expect((await screen.findByLabelText("Zakończone zlecenie") as HTMLSelectElement).value).toBe("latest");
+  expect((await screen.findByLabelText("Zakończone zlecenie")).getAttribute("data-value")).toBe("latest");
 });
 
 it("shows the empty state and orders link when no eligible orders remain, even with a saved draft", () => {
@@ -31,7 +31,7 @@ it("shows the empty state and orders link when no eligible orders remain, even w
 it("replaces a saved draft for an already invoiced order with the first eligible order", async () => {
   localStorage.setItem(invoiceDraftKey("a", "u", "test"), JSON.stringify({ orderId: "invoiced", step: 3, company: false, buyer: orders[0]!.buyer, items: orders[0]!.items }));
   render(<InvoiceWizard studioId="a" userId="u" seller={seller} orders={orders} />);
-  expect((await screen.findByLabelText("Zakończone zlecenie") as HTMLSelectElement).value).toBe("order");
+  expect((await screen.findByLabelText("Zakończone zlecenie")).getAttribute("data-value")).toBe("order");
   expect(screen.getByRole("alert").textContent).toContain("Szkic jest nieaktualny");
   expect(screen.getByRole("button", { name: /Dalej: pozycje/ })).toBeTruthy();
 });

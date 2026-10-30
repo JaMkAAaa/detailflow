@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import type { ChemicalRecord } from "@/src/server/magazyn/inventory";
 
 type Result = { ok: true; value: ChemicalRecord } | { ok: false; error: string };
@@ -47,7 +48,7 @@ export function InventoryScreen({ studioId, chemicals, canManage, actions }: {
       <h2 className="text-df-strong">{editing ? `Korekta: ${editing.name}` : "Nowa pozycja"}</h2>
       {!editing && <>
         <label className="flex flex-col gap-2 text-df-label text-df-muted">Nazwa<Input required maxLength={120} value={fields.name} onChange={e => setFields({ ...fields, name: e.target.value })} /></label>
-        <label className="flex flex-col gap-2 text-df-label text-df-muted">Jednostka<select className="rounded-lg bg-df-raised p-3 text-df-text" value={fields.unit} onChange={e => setFields({ ...fields, unit: e.target.value as "ml" | "piece" })}><option value="ml">ml</option><option value="piece">szt.</option></select></label>
+        <label className="flex flex-col gap-2 text-df-label text-df-muted">Jednostka<Select aria-label="Jednostka" value={fields.unit} onChange={e => setFields({ ...fields, unit: e.target.value as "ml" | "piece" })} options={[{ value: "ml", label: "ml" }, { value: "piece", label: "szt." }]} /></label>
       </>}
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="flex flex-col gap-2 text-df-label text-df-muted">{editing ? "Nowy stan" : "Stan początkowy"}<Input required inputMode="numeric" value={fields.quantity} onChange={e => setFields({ ...fields, quantity: e.target.value })} /></label>

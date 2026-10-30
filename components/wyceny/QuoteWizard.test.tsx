@@ -22,7 +22,8 @@ it("shows D-06 totals, recalculates size, paint and duration using Decimal", asy
   await user.click(screen.getByRole("radio", { name: /SUV/ }));
   expect(total()).toBe("5 400 zł");
   expect(screen.getByText("2 usługi · 13,5 h pracy")).toBeTruthy();
-  await user.selectOptions(screen.getByLabelText("Stan lakieru"), "worn");
+  await user.click(screen.getByLabelText("Stan lakieru"));
+  await user.click(screen.getByRole("option", { name: "Wymaga korekty · ×1,2" }));
   expect(total()).toBe("6 480 zł");
 });
 
@@ -68,8 +69,9 @@ it("autosaves notes and the step across remounts while keeping studio/user draft
 it("changes the vehicle with the client, previews their data, and requires confirmation", async () => {
   const user = userEvent.setup();
   renderWizard();
-  await user.selectOptions(screen.getByLabelText("Klient"), "anna");
-  expect((screen.getByLabelText("Samochód") as HTMLSelectElement).value).toBe("audi");
+  await user.click(screen.getByLabelText("Klient"));
+  await user.click(screen.getByRole("option", { name: "Anna Wiśniewska" }));
+  expect(screen.getByLabelText("Samochód").getAttribute("data-value")).toBe("audi");
   await user.click(screen.getByRole("button", { name: "Termin i potwierdzenie" }));
   const submit = screen.getByRole("button", { name: "Potwierdź wysyłkę (demo)" }) as HTMLButtonElement;
   expect(submit.disabled).toBe(true);
@@ -233,7 +235,8 @@ it("disables SMS for a client without a phone and clears consent when changing c
   await user.click(screen.getByRole("button", { name: "Termin i potwierdzenie" }));
   await user.click(screen.getByRole("checkbox", { name: /Wyślij także jeden SMS/ }));
   await user.click(screen.getByRole("button", { name: "Klient i auto" }));
-  await user.selectOptions(screen.getByLabelText("Klient"), "b");
+  await user.click(screen.getByLabelText("Klient"));
+  await user.click(screen.getByRole("option", { name: "B" }));
   await user.click(screen.getByRole("button", { name: "Termin i potwierdzenie" }));
   const consent = screen.getByRole("checkbox", { name: /Wyślij także jeden SMS/ }) as HTMLInputElement;
   expect(consent.disabled).toBe(true); expect(consent.checked).toBe(false);

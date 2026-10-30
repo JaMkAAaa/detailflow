@@ -3,6 +3,7 @@
 import { useContext, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { OrderCreateForm, type OrderClientChoice, type OrderServiceChoice } from "@/components/zlecenia/OrderCreateForm";
 import { ReservationSlotContext, type ReservationSlot } from "./slot";
 
@@ -60,12 +61,12 @@ function BookingFormBody({ studioId, orders, bays, members = [], clients = [], s
         onCreated={() => { router.refresh(); root.current?.closest("dialog")?.close(); }} />
     </> : <form className="mt-4 space-y-3" onSubmit={(event) => { event.preventDefault(); void submit(event.currentTarget); }}>
       <p className="text-df-label text-df-muted">Terminy w strefie Europe/Warsaw. Wybierz zlecenie, aby dodać lub zmienić rezerwację.</p>
-      <label className="block text-df-label">Zlecenie<select className={fieldClass} value={orderId} disabled={busy} onChange={(event) => { setOrderId(event.target.value); setError(""); }} required><option value="" disabled>Wybierz zlecenie</option>{orders.map((item) => <option key={item.id} value={item.id}>{item.number}{item.bayId ? " · zarezerwowane" : ""}</option>)}</select></label>
+      <label className="block text-df-label">Zlecenie<Select className="mt-1" aria-label="Zlecenie" value={orderId} disabled={busy} placeholder="Wybierz zlecenie" onChange={(event) => { setOrderId(event.target.value); setError(""); }} required options={orders.map((item) => ({ value: item.id, label: `${item.number}${item.bayId ? " · zarezerwowane" : ""}` }))} /></label>
       {order && <div key={`${order.id}-${order.bayId}-${order.assigneeId}-${order.from}-${order.to}`} className="space-y-3">
-        <label className="block text-df-label">Boks<select name="bayId" className={fieldClass} defaultValue={order.bayId ?? bays[0]?.id} required>{bays.map((bay) => <option key={bay.id} value={bay.id}>{bay.name}</option>)}</select></label>
+        <label className="block text-df-label">Boks<Select className="mt-1" name="bayId" aria-label="Boks" defaultValue={order.bayId ?? bays[0]?.id ?? ""} required options={bays.map((bay) => ({ value: bay.id, label: bay.name }))} /></label>
         <label className="block text-df-label">Od<input name="scheduledFrom" type="datetime-local" className={fieldClass} defaultValue={order.from} required /></label>
         <label className="block text-df-label">Do<input name="scheduledTo" type="datetime-local" className={fieldClass} defaultValue={order.to} required /></label>
-        {members.length > 0 && <label className="block text-df-label">Pracownik<select name="assigneeId" className={fieldClass} defaultValue={order.assigneeId ?? ""}><option value="">Nieprzypisane</option>{members.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}</select></label>}
+        {members.length > 0 && <label className="block text-df-label">Pracownik<Select className="mt-1" name="assigneeId" aria-label="Pracownik" defaultValue={order.assigneeId ?? ""} options={[{ value: "", label: "Nieprzypisane" }, ...members.map((member) => ({ value: member.id, label: member.name }))]} /></label>}
         <div className="flex gap-3"><Button disabled={busy || !bays.length} type="submit">{busy ? "Zapisywanie…" : "Zapisz rezerwację"}</Button>{order.bayId && <Button variant="secondary" disabled={busy} type="button" onClick={(event) => { void submit(event.currentTarget.form!, true); }}>Usuń rezerwację</Button>}</div>
       </div>}
       {!orders.length && <p className="text-df-muted">Brak aktywnych zleceń do rezerwacji.</p>}

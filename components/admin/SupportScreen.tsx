@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useActionState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { idleForm, type FormState } from "@/src/server/admin/errors";
 import type { getSupportQueue } from "@/src/server/admin/support";
 
@@ -72,10 +73,7 @@ function OpenForm({ action }: { action: Action }) {
       </label>
       <label className="text-df-label text-df-muted">
         Priorytet
-        <select name="priority" defaultValue="normal" className="mt-1 h-10 w-full rounded-lg bg-df-raised px-3 text-df-body text-df-text">
-          <option value="normal">Zwykły · 8 godz.</option>
-          <option value="urgent">Pilny · 1 godz.</option>
-        </select>
+        <Select className="mt-1" name="priority" defaultValue="normal" aria-label="Priorytet" options={[{ value: "normal", label: "Zwykły · 8 godz." }, { value: "urgent", label: "Pilny · 1 godz." }]} />
       </label>
       <label className="text-df-label text-df-muted">
         Opis
