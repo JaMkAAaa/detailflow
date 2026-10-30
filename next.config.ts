@@ -14,6 +14,7 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["bullmq", "pino", "pdfkit", "sharp"],
   outputFileTracingIncludes: {
     "/*": [pdfkitStandardFonts],
+    "/api/studios/*/invoices/jpk": ["./src/jpk/xsd/**/*"],
     "/api/studios/*/invoices/*/*": ["./app/fonts/Inter.ttf", pdfkitStandardFonts, "./src/ksef/xsd/**/*"],
   },
   // Next dev loguje domyślnie pełny URL, w tym sekret portalu.

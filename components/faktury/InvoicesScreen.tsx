@@ -4,7 +4,7 @@ import { useMobile } from "@/components/studio/useMobile";
 import { MobileInvoices } from "./MobileInvoices";
 import Link from "next/link";
 import { useState } from "react";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { NoResultsState } from "@/components/states/no-results-state";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,8 @@ import { isOverdue, isUnpaid, matchesInvoiceFilter, matchesInvoiceSearch, requir
 import { EnvironmentBanner, Panel } from "./shared";
 import { RetryInvoiceButton } from "./RetryInvoiceButton";
 import { InvoiceStatus } from "./InvoiceStatus";
+
+import { JpkExport } from "./JpkExport";
 
 const filters: { key: InvoiceFilter; label: string }[] = [
   { key: "all", label: "Wszystkie" }, { key: "accepted", label: "Przyjęte" },
@@ -43,7 +45,7 @@ export function InvoicesScreen({ invoices, env, now, studioId }: { studioId: str
   }
   if (mobile) return <MobileInvoices invoices={invoices} env={env} now={now} visible={visible} query={query} filter={filter} setQuery={value => { setQuery(value); setPage(1); }} setFilter={value => { setFilter(value); setPage(1); }} page={currentPage} pages={pages} setPage={setPage} total={results.length} />;
   return <div className="space-y-6">
-    <header className="flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-[34px] font-bold leading-tight">Faktury</h1><p className="mt-2 text-df-body text-df-muted">{invoices.length} dokumentów · faktury klientów studia</p></div><div className="flex flex-wrap gap-3"><Button variant="secondary" className="h-10 text-df-label" onClick={() => setMessage("Eksport JPK nie jest dostępny w tym podglądzie UI.")}>Eksport JPK</Button><Link href="/invoices/new" className={buttonVariants({ className: "h-10 text-df-label" })}>+ Wystaw fakturę</Link></div></header>
+    <header className="flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-[34px] font-bold leading-tight">Faktury</h1><p className="mt-2 text-df-body text-df-muted">{invoices.length} dokumentów · faktury klientów studia</p></div><div className="flex flex-wrap gap-3"><JpkExport studioId={studioId} env={env} now={now} /><Link href="/invoices/new" className={buttonVariants({ className: "h-10 text-df-label" })}>+ Wystaw fakturę</Link></div></header>
     <EnvironmentBanner env={env} />
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <Panel><p className="text-df-body text-df-muted">Wystawione</p><p className="my-1 text-[28px] font-bold">{issued.length}</p><p className="text-df-label text-df-lime">{accepted.length} przyjętych{env === "test" ? " (test)" : ""}</p></Panel>
