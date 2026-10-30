@@ -41,7 +41,7 @@ export default async function StudioLayout({
         </main>
       </div>
       <TabBar />
-      <GlobalSearch studioId={context.studioId} />
+      <GlobalSearch studioId={context.studioId} studioName={current.studio.name} canInvoice={role !== "worker"} />
     </div>
   );
 }

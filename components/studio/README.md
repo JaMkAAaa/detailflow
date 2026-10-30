@@ -25,6 +25,18 @@ Picker, aktywne studio i rola pochodzą z sesji. Wyszukiwarka ⌘K działa z top
 oraz ekranu „Więcej”; endpoint wyszukuje przez `studioDb(studioId)` i zwraca
 klientów, auta, zlecenia oraz faktury tylko właścicielom i managerom.
 
+## Wyszukiwarka globalna (⌘K)
+
+Modal ma 620 px; poniżej `lg` jest pełnoekranowym sheetem. Wyniki są grupowane
+po typie (Klienci / Auta / Zlecenia / Faktury) z filtrami i licznikami. Wejście
+obsługuje `↑`/`↓`, `Home`/`End`, `↵`, `Esc` oraz `⌘K`; aktywny wiersz jest
+wskazywany przez `aria-activedescendant`, a licznik wyników przez live region.
+Pusty stan pokazuje ostatnio otwierane (`localStorage`, per studio; faktury
+tylko gdy `canInvoice`), przykłady zapytań i szybkie akcje. Ładowanie ma
+szkielet, błąd — ponowienie, brak wyników — wyczyszczenie zapytania.
+Zapytanie ma minimum 2 znaki i 180 ms debounce; uprawnienia nadal egzekwuje
+endpoint, a `prefers-reduced-motion` wyłącza animacje szkieletu.
+
 ---
 
 # Tab bar mobilny + M-01 — #46
