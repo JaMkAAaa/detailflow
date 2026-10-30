@@ -7,7 +7,7 @@ test("@smoke faktura nie powstaje z otwartego zlecenia DF-0248", async ({ page }
   const before = await one<{ count: string }>(`SELECT count(*)::text AS count FROM "Invoice" WHERE "studioId" = $1 AND "workOrderId" = $2`, [studio.id, openOrder.id]);
 
   await page.goto("/invoices/new");
-  const source = page.getByLabel("Zakończone zlecenie");
+  const source = page.getByRole("combobox", { name: "Zakończone zlecenie" });
   await expect(source).toBeVisible();
   await source.click();
   const options = page.getByRole("listbox", { name: "Zakończone zlecenie" });

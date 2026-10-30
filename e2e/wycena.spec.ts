@@ -4,7 +4,7 @@ test("@smoke wycena 4 000 × 1,2 × 1,0 daje 4 800 zł i VAT 897,56", async ({ p
   await page.goto("/quotes/new");
   await expect(page.getByRole("heading", { name: "Nowa wycena" })).toBeVisible();
   await expect(page.getByRole("radio", { name: /Średnie/ })).toBeChecked();
-  await expect(page.getByLabel("Stan lakieru")).toHaveValue("standard");
+  await expect(page.getByRole("combobox", { name: "Stan lakieru" })).toHaveAttribute("data-value", "standard");
 
   const summary = page.getByRole("complementary", { name: "Podsumowanie" });
   await expect(summary.getByText("4 000 zł")).toBeVisible();
