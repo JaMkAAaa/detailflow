@@ -33,10 +33,8 @@ it("isolates invoice numbers, IDs, lines, events and completed work orders by st
   expect(invoice?.items).toHaveLength(1);
   expect(invoice?.events).toHaveLength(1);
   const orders = await invoiceOrders(b, "test");
-  expect(orders.map(order => order.number)).toEqual(["DF-0243"]);
-  expect(orders[0]?.items[0]?.unitNet).toBe("3902.44");
-  expect(orders[0]?.items[0]?.name).toBe("Korekta test");
-  expect((await invoiceOrders(b, "production"))[0]?.items[0]?.name).toBe("Korekta production");
+  expect(orders).toEqual([]);
+  expect(await invoiceOrders(b, "production")).toEqual([]);
 });
 it("keeps identically numbered TEST and PROD invoices separate", async () => {
   expect((await invoiceDetail(b, "FV/41/10/2026", "test"))?.buyer.name).toBe("test");

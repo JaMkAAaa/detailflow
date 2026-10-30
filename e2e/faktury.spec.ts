@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { one } from "./db";
+import { many, one } from "./db";
 
 test("@smoke faktura nie powstaje z otwartego zlecenia DF-0248", async ({ page }) => {
   const studio = await one<{ id: string }>(`SELECT id FROM "Studio" WHERE slug = 'obsidian-studio'`);
@@ -9,8 +9,22 @@ test("@smoke faktura nie powstaje z otwartego zlecenia DF-0248", async ({ page }
   await page.goto("/invoices/new");
   const source = page.getByLabel("Zakończone zlecenie");
   await expect(source).toBeVisible();
-  await expect(source).toContainText("DF-0243");
+  await expect(source).not.toContainText("DF-0243");
   await expect(source).not.toContainText("DF-0248");
+  const eligible = await many<{ id: string }>(`
+    SELECT w.id FROM "WorkOrder" w
+    WHERE w."studioId" = $1 AND w.status = 'completed' AND w."completedAt" IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM "Invoice" i WHERE i."studioId" = w."studioId" AND i."workOrderId" = w.id
+          AND i."ksefEnv" = (SELECT "ksefEnv" FROM "Studio" WHERE id = $1)
+          AND i.kind = 'invoice' AND i.status <> 'canceled'
+      )
+    ORDER BY w."completedAt" DESC
+  `, [studio.id]);
+  expect(eligible.length).toBeGreaterThan(0);
+  await expect(source.locator("option")).toHaveCount(eligible.length);
+  expect(await source.locator("option").evaluateAll(options => options.map(option => (option as HTMLOptionElement).value))).toEqual(eligible.map(order => order.id));
+  await expect(source).toHaveValue(eligible[0]!.id);
 
   const response = await page.request.post(`/api/studios/${studio.id}/invoices`, {
     headers: { origin: "http://127.0.0.1:3100" },
