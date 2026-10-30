@@ -78,3 +78,14 @@ it("shows a muted placeholder until a value is chosen and lists a studio with it
   await user.click(screen.getByRole("combobox", { name: "Studio" }));
   expect(screen.getByRole("option", { name: "Obsidian Studio" }).textContent).toContain("Mokotów");
 });
+
+it("portals its menu into an open modal dialog so it stays interactive", async () => {
+  const user = userEvent.setup();
+  render(
+    <dialog open>
+      <Select aria-label="Klient" value="anna" options={[{ value: "anna", label: "Anna" }]} />
+    </dialog>,
+  );
+  await user.click(screen.getByRole("combobox", { name: "Klient" }));
+  expect(screen.getByRole("listbox").closest("dialog")).not.toBeNull();
+});

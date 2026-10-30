@@ -107,6 +107,10 @@ export function Select({
   const current = value !== undefined ? value : uncontrolled;
   const selected = options.find((option) => option.value === current);
   const display = selected?.label ?? placeholder;
+  // A portaled menu outside an open modal <dialog> is inert, so keep it in the dialog.
+  const portalTarget = open && triggerRef.current
+    ? triggerRef.current.closest("dialog[open]") ?? document.body
+    : null;
 
   function commit(option: SelectOption) {
     if (disabled || option.disabled) return;
@@ -293,7 +297,7 @@ export function Select({
         </svg>
       </button>
       {name && <input type="hidden" name={name} value={current} disabled={disabled} onChange={() => undefined} />}
-      {open && createPortal(menu, document.body)}
+      {open && portalTarget ? createPortal(menu, portalTarget) : null}
     </div>
   );
 }
