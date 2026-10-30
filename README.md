@@ -261,7 +261,7 @@ Status opisuje **kod**, nie gotowość produkcyjną ani prawną. „Działa” z
 | Statystyki studia `/statistics` | **Działa** | tylko owner: przychód z zakończonych zleceń (brutto PLN, Decimal), udział usług, obłożenie boksów 08–16, zakres dat Europe/Warsaw, „Brak danych” zamiast zer; menu desktop i Więcej | definicje w [§6.5 docs](docs/dokumentacja-wdrozenia.md#65-statystyki-studia-144--definicje-metryk); obłożenie to rezerwacje z kalendarza, bez konfiguracji godzin pracy; bez eksportu i rozbić po pracownikach |
 | Portfolio `/portfolio`, `/realizacje/[slug]` | **Działa** | ręczna publikacja owner/manager, domyślnie nic publiczne; pochodna JPEG z maską tablicy albo świadomie widoczną tablicą; pusty stan zamiast 404; odpublikowanie kasuje pochodną | oryginał S3 zostaje prywatny i nie jest podpisywany na stronie publicznej; Instagram nie wchodzi w zakres |
 | Wyszukiwarka ⌘K | **Działa** | Cmd/Ctrl+K i przyciski w topbarze oraz „Więcej”; wyniki aktywnego studia dla klientów, aut, zleceń i faktur | pracownicy nie widzą faktur; do 4 wyników na kategorię |
-| E-mail transakcyjny | **Częściowo** | auth, zaproszenia, wycena, decyzja, trial, faktura z PDF (outbox) | brak SMS; bez `SMTP_URL` w produkcji wysyłka czeka w outboxie; dostarczenie SMTP jest „co najmniej raz” |
+| E-mail transakcyjny | **Częściowo** | auth, zaproszenia, wycena, decyzja, trial, faktura z PDF (outbox) | opcjonalny SMS wyceny (#149), [kontrakt](docs/sms-klienta.md); bez `SMTP_URL` w produkcji wysyłka czeka w outboxie; dostarczenie SMTP jest „co najmniej raz” |
 | Obserwacja i kopie | **Częściowo** | `/api/health` (DB i Redis), logi pino JSON, Sentry web + worker (po ustawieniu DSN), backup `pg_dump` do S3 z retencją | brak metryk i gotowych alertów; backup nie ma szyfrowania na poziomie aplikacji ani zautomatyzowanego testu odtworzenia ([§14.5](#145-backup-i-odtwarzanie)) |
 | Testy automatyczne | **Działa** | Vitest (jednostkowe i na Postgresie), Playwright `@smoke` w CI na PR, w tym ścieżka zlecenie → faktura → kolejka KSeF | brak progu coverage i testów obciążeniowych ([§13](#13-testowanie-i-jakość)) |
 
@@ -494,7 +494,7 @@ Bez kluczy aplikacja działa, ale billing zwraca „Stripe nie jest skonfigurowa
 | `SMTP_URL` | np. `smtp://mailpit:1025` lub URL dostawcy |
 | `EMAIL_FROM` | nadawca, np. `Detailflow <noreply@detailflow.local>` |
 | `RESEND_API_KEY` | zarezerwowane; aplikacja **nie wysyła** przez Resend. Panel A-06 uznaje ją jednak za ślad konfiguracji poczty (zielone „Poczta” bez `SMTP_URL` nie oznacza działającej wysyłki) |
-| `SMSAPI_TOKEN` | zarezerwowane; SMS **nie są wysyłane** |
+| `SMSAPI_TOKEN` / `SMSAPI_SENDER` | opcjonalny SMS z linkiem wyceny (#149); oba wymagane, [kontrakt i uruchomienie](docs/sms-klienta.md) |
 
 Bez `SMTP_URL` w trybie development maile auth trafiają do logu serwera; w produkcji wysyłka kończy się błędem, a outbox pozostaje oczekujący.
 
@@ -1544,7 +1544,7 @@ To nie jest lista blokad „kodowych” — część pozycji wymaga decyzji, dow
 | Metryki A-06 nie mierzą dostępności MF, Stripe ani poczty | operator nie widzi realnego stanu zależności | sondy zewnętrzne i alerty (poza repo) |
 | Backup bez automatycznego testu odtwarzania i PITR | nieznany RTO/RPO | cykliczny restore na kopię, PITR w bazie zarządzanej |
 | Brak limitów planów dla liczby użytkowników; boksy tylko przez API | plany nie są w pełni egzekwowane | UI boksów i egzekwowanie limitów |
-| Poza ukończonym zakresem | — | JPK, KSeF offline, płatność online klienta (osobno od Stripe Billing), SMS, zaawansowane statystyki. Katalog usług, magazyn chemii, statystyki studia i portfolio realizacji są wdrożone. Moduły #142–#151 wchodzą pojedynczo |
+| Poza ukończonym zakresem | — | JPK, KSeF offline, płatność online klienta (osobno od Stripe Billing), zaawansowane statystyki. SMS wyceny (#149) jest opcjonalny po konfiguracji i zgodzie, bez dowodu rzeczywistej dostawy. Katalog usług, magazyn chemii, statystyki studia i portfolio realizacji są wdrożone. Moduły #142–#151 wchodzą pojedynczo |
 
 ### 15.3 Znane drobne niedokończenia
 
@@ -1553,7 +1553,7 @@ To nie jest lista blokad „kodowych” — część pozycji wymaga decyzji, dow
 - `app/p/quote-preview` to placeholder,
 - „Cała historia” na karcie klienta jest „Wkrótce”,
 - „Usługi i cennik” jest katalogiem `/services`, „Magazyn” prowadzi do `/inventory`, „Statystyki” (tylko owner) do `/statistics`, a „Portfolio” do `/portfolio`,
-- brak przypomnień o wygasających wycenach, brak wysyłki SMS,
+- brak przypomnień o wygasających wycenach; SMS tylko przy wycenie (#149), opcjonalnie po zgodzie i konfiguracji SMSAPI,
 - brak panelu zgłoszeń po stronie studia i wysyłki odpowiedzi supportu e-mailem.
 
 ### 15.4 Kierunek

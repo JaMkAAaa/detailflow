@@ -40,6 +40,7 @@ export const env = createEnv({
     SMTP_URL: z.url().optional(),
     RESEND_API_KEY: z.string().min(1).optional(),
     EMAIL_FROM: z.string().min(1).optional(),
+    SMSAPI_SENDER: z.string().min(1).max(11).optional(),
     SMSAPI_TOKEN: z.string().min(1).optional(),
     SENTRY_DSN: z.url().optional(),
   },

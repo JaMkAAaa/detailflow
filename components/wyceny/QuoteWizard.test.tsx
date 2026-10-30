@@ -197,3 +197,44 @@ it("keeps a saved hidden service on the quote and out of new choices", async () 
   expect(screen.queryByRole("checkbox", { name: /Stara korekta/ })).toBeNull();
   expect(screen.getByRole("checkbox", { name: /Mycie detailingowe/ })).toBeTruthy();
 });
+
+it("hides SMS without configuration and sends only after an explicit consent", async () => {
+  const clients = [{ id: "real-client", name: "Klient z bazy", email: "real@example.test", phone: "48500600700", vehicles: [{ id: "real-car", label: "Porsche Panamera" }] }];
+  const user = userEvent.setup();
+  const first = render(<QuoteWizard studioId="studio-a" userId="user-a" clientChoices={clients} />);
+  await user.click(screen.getByRole("button", { name: "Termin i potwierdzenie" }));
+  expect(screen.queryByRole("checkbox", { name: /Wyślij także jeden SMS/ })).toBeNull();
+  first.unmount(); localStorage.clear();
+  const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ smsStatus: "pending" }) });
+  vi.stubGlobal("fetch", fetchMock);
+  try {
+    render(<QuoteWizard studioId="studio-a" userId="user-a" clientChoices={clients} smsAvailable />);
+    await user.click(screen.getByRole("button", { name: "Termin i potwierdzenie" }));
+    const consent = screen.getByRole("checkbox", { name: /Wyślij także jeden SMS/ }) as HTMLInputElement;
+    expect(consent.checked).toBe(false);
+    await user.click(consent);
+    await user.click(screen.getByRole("checkbox", { name: /Sprawdziłem/ }));
+    await user.click(screen.getByRole("button", { name: "Wyślij wycenę" }));
+    await screen.findByText(/SMS z linkiem oczekuje/);
+    expect(JSON.parse(fetchMock.mock.calls[1]![1].body)).toEqual({ sms: { phone: "48500600700", consent: true } });
+    expect(localStorage.getItem(draftKey("studio-a", "user-a"))).not.toContain("consent");
+    await user.click(screen.getByRole("button", { name: "Wyślij ponownie" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    expect(JSON.parse(fetchMock.mock.calls[2]![1].body)).toEqual({});
+  } finally { vi.unstubAllGlobals(); }
+});
+
+it("disables SMS for a client without a phone and clears consent when changing client", async () => {
+  const user = userEvent.setup();
+  render(<QuoteWizard studioId="studio-a" userId="user-a" smsAvailable clientChoices={[
+    { id: "a", name: "A", email: "a@example.test", phone: "48500600700", vehicles: [{ id: "car-a", label: "Auto A" }] },
+    { id: "b", name: "B", email: "b@example.test", phone: null, vehicles: [{ id: "car-b", label: "Auto B" }] },
+  ]} />);
+  await user.click(screen.getByRole("button", { name: "Termin i potwierdzenie" }));
+  await user.click(screen.getByRole("checkbox", { name: /Wyślij także jeden SMS/ }));
+  await user.click(screen.getByRole("button", { name: "Klient i auto" }));
+  await user.selectOptions(screen.getByLabelText("Klient"), "b");
+  await user.click(screen.getByRole("button", { name: "Termin i potwierdzenie" }));
+  const consent = screen.getByRole("checkbox", { name: /Wyślij także jeden SMS/ }) as HTMLInputElement;
+  expect(consent.disabled).toBe(true); expect(consent.checked).toBe(false);
+});

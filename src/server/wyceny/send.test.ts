@@ -1,9 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { platformDb } from "@/lib/db/client";
 import { studioDb } from "@/lib/db/tenant";
 import { hashPortalToken } from "@/lib/portal/token";
 import { saveQuote, sendQuote } from "./send";
+import { deliverQuoteSms } from "./sms";
+import { normalizeSmsPhone } from "./sms-config";
 import { deliverQuoteMails } from "./mail";
 import { PUT, GET } from "@/app/api/studios/[studioId]/quotes/[quoteId]/route";
 import { POST } from "@/app/api/studios/[studioId]/quotes/[quoteId]/send/route";
@@ -38,6 +40,7 @@ beforeAll(async () => {
     await studioDb(studios[0]!).membership.create({ data: { studioId: studios[0]!, userId: id, role } });
   }
 });
+afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 beforeEach(() => { mocks.send.mockReset().mockResolvedValue({}); mocks.session.mockResolvedValue({ user: { id: userId } }); });
 afterAll(async () => {
   await platformDb.studio.deleteMany({ where: { id: { in: studios } } });
@@ -136,7 +139,128 @@ describe("quote persistence and e-mail jobs (Postgres)", () => {
     expect((await PUT(request("http://evil.test"), context)).status).toBe(403);
     expect((await PUT(request(), context)).status).toBe(200);
     expect((await GET(request(), { params: Promise.resolve({ studioId: studios[1]!, quoteId: f.id }) })).status).toBe(403);
-    expect((await POST(request(), context)).status).toBe(202);
+    expect((await POST(new Request(request().url, { method: "POST", headers: { origin: "http://localhost:3000" } }), context)).status).toBe(202);
     await deliverQuoteMails();
   });
+});
+
+
+describe("optional quote SMS (Postgres + mocked SMSAPI)", () => {
+  const sms = { phone: "+48 500 600 700", consent: true };
+  async function smsFixture(index = 0) {
+    vi.stubEnv("SMSAPI_TOKEN", "test-secret"); vi.stubEnv("SMSAPI_SENDER", "Detailflow");
+    const f = await fixture(index);
+    await f.db.client.updateMany({ where: { id: f.input.clientId }, data: { phone: sms.phone } });
+    await saveQuote(f.studioId, f.id, f.input);
+    return f;
+  }
+  function provider() {
+    const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ count: 1, list: [{ id: "provider-id" }] }) });
+    vi.stubGlobal("fetch", fetch);
+    return fetch;
+  }
+  it("normalizes only a single Polish recipient", () => {
+    for (const phone of ["500600700", "+48 (500) 600-700", "0048500600700", "48500600700"]) expect(normalizeSmsPhone(phone)).toBe("48500600700");
+    for (const phone of [null, "500600700,600700800", "+44500600700", "abc", "000000000"]) expect(normalizeSmsPhone(phone)).toBeNull();
+  });
+  it("requires configured provider, explicit consent, actor and matching client phone; keeps email-only working", async () => {
+    const f = await smsFixture(); const fetch = provider();
+    await expect(sendQuote(f.studioId, f.id, { sms: { ...sms, consent: false } }, userId)).rejects.toThrow();
+    await expect(sendQuote(f.studioId, f.id, { sms })).rejects.toThrow();
+    await expect(sendQuote(f.studioId, f.id, { sms: { ...sms, phone: "600700800" } }, userId)).rejects.toThrow();
+    vi.stubEnv("SMSAPI_TOKEN", "");
+    await expect(sendQuote(f.studioId, f.id, { sms }, userId)).rejects.toThrow();
+    expect((await f.db.quote.findFirstOrThrow({ where: { id: f.id } })).status).toBe("draft");
+    await sendQuote(f.studioId, f.id);
+    await deliverQuoteMails(); await deliverQuoteSms();
+    expect(fetch).not.toHaveBeenCalled();
+    expect(await f.db.quoteSendSms.count({ where: { quoteId: f.id } })).toBe(0);
+  });
+  it("sends one SMS after email, serializes workers, audits consent and persists only hashes", async () => {
+    const f = await smsFixture(); const fetch = provider();
+    await Promise.all([sendQuote(f.studioId, f.id, { sms }, userId), sendQuote(f.studioId, f.id, { sms }, userId)]);
+    await deliverQuoteSms(); expect(fetch).not.toHaveBeenCalled();
+    await deliverQuoteMails();
+    await Promise.all([deliverQuoteSms(), deliverQuoteSms()]);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const [endpoint, options] = fetch.mock.calls[0]!;
+    expect(endpoint).toBe("https://api.smsapi.pl/sms.do");
+    expect(options.headers.Authorization).toBe("Bearer test-secret");
+    expect(options.body.get("to")).toBe("48500600700");
+    expect(options.body.get("check_idx")).toBe("1");
+    const text = options.body.get("message");
+    const token = text.match(/\/p\/([\w-]+)/)![1];
+    expect(text).not.toContain("Adam"); expect(text).not.toContain("WA TEST");
+    expect(await f.db.portalLink.count({ where: { quoteId: f.id, tokenHash: hashPortalToken(token) } })).toBe(1);
+    const job = await f.db.quoteSendSms.findFirstOrThrow({ where: { quoteId: f.id } });
+    expect(job).toMatchObject({ status: "sent", consentBy: userId, recipient: "48500600700", attempts: 1 });
+    expect(job.consentAt).toBeInstanceOf(Date); expect(JSON.stringify(job)).not.toContain(token);
+    await sendQuote(f.studioId, f.id, { sms }, userId); await deliverQuoteMails(); await deliverQuoteSms();
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(await studioDb(studios[1]!).quoteSendSms.findFirst({ where: { id: job.id } })).toBeNull();
+    await expect(sendQuote(studios[1]!, f.id, { sms }, userId)).rejects.toThrow();
+  });
+  it("keeps accepted links valid on timeout and retries without resending email; handles duplicate IDX", async () => {
+    const f = await smsFixture(); const fetch = provider();
+    await sendQuote(f.studioId, f.id, { sms }, userId); await deliverQuoteMails(); mocks.send.mockClear();
+    fetch.mockRejectedValueOnce(new Error("timeout with secret URL"));
+    await deliverQuoteSms();
+    const token = fetch.mock.calls[0]![1].body.get("message").match(/\/p\/([\w-]+)/)![1];
+    expect(await f.db.portalLink.count({ where: { tokenHash: hashPortalToken(token) } })).toBe(1);
+    await deliverQuoteSms(); expect(fetch).toHaveBeenCalledTimes(1);
+    await f.db.quoteSendSms.updateMany({ where: { quoteId: f.id }, data: { nextAttemptAt: new Date(0) } });
+    fetch.mockResolvedValueOnce({ ok: true, json: async () => ({ error: 53 }) });
+    await deliverQuoteSms(); expect(fetch).toHaveBeenCalledTimes(2);
+    expect((await f.db.quoteSendSms.findFirstOrThrow({ where: { quoteId: f.id } })).status).toBe("sent");
+    expect(mocks.send).not.toHaveBeenCalled();
+  });
+  it("does not mark provider errors or malformed responses as accepted and ends after five tries", async () => {
+    const f = await smsFixture(); const fetch = provider();
+    await sendQuote(f.studioId, f.id, { sms }, userId); await deliverQuoteMails();
+    for (const response of [
+      { ok: false, json: async () => ({ error: 101 }) },
+      { ok: true, json: async () => ({ error: 14 }) },
+      { ok: true, json: async () => ({ count: 0, list: [] }) },
+      { ok: true, json: async () => { throw new Error("invalid JSON"); } },
+      { ok: true, json: async () => ({}) },
+    ]) {
+      await f.db.quoteSendSms.updateMany({ where: { quoteId: f.id }, data: { nextAttemptAt: new Date(0) } });
+      fetch.mockResolvedValueOnce(response);
+      await deliverQuoteSms();
+    }
+    const job = await f.db.quoteSendSms.findFirstOrThrow({ where: { quoteId: f.id } });
+    expect(job).toMatchObject({ status: "failed", attempts: 5, sentAt: null });
+    await deliverQuoteSms(); expect(fetch).toHaveBeenCalledTimes(5);
+    expect(await f.db.quoteSendMail.count({ where: { quoteId: f.id, sentAt: { not: null } } })).toBe(1);
+  });
+  it("cancels for changed phone or portal decision and stops exhausted retries", async () => {
+    const fetch = provider();
+    for (const reason of ["phone", "decision", "attempts", "old"] as const) {
+      const f = await smsFixture(); await sendQuote(f.studioId, f.id, { sms }, userId); await deliverQuoteMails();
+      if (reason === "phone") await f.db.client.updateMany({ where: { id: f.input.clientId }, data: { phone: "600700800" } });
+      if (reason === "decision") await f.db.quote.updateMany({ where: { id: f.id }, data: { status: "accepted", decidedAt: new Date() } });
+      if (reason === "attempts") await f.db.quoteSendSms.updateMany({ where: { quoteId: f.id }, data: { attempts: 5 } });
+      if (reason === "old") await f.db.quoteSendSms.updateMany({ where: { quoteId: f.id }, data: { attempts: 1, createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000) } });
+      await deliverQuoteSms();
+      expect((await f.db.quoteSendSms.findFirstOrThrow({ where: { quoteId: f.id } })).status).toBe(["phone", "decision"].includes(reason) ? "cancelled" : "failed");
+    }
+    expect(fetch).not.toHaveBeenCalled();
+  });
+});
+
+
+it("validates SMS options at the authenticated HTTP boundary", async () => {
+  vi.stubEnv("SMSAPI_TOKEN", "test-secret"); vi.stubEnv("SMSAPI_SENDER", "Detailflow");
+  const f = await fixture();
+  await f.db.client.updateMany({ where: { id: f.input.clientId }, data: { phone: "500600700" } });
+  await saveQuote(f.studioId, f.id, f.input);
+  const context = { params: Promise.resolve({ studioId: f.studioId, quoteId: f.id }) };
+  const request = (body: unknown) => new Request(`http://localhost:3000/api/studios/${f.studioId}/quotes/${f.id}/send`, {
+    method: "POST", headers: { origin: "http://localhost:3000", "Content-Type": "application/json" }, body: JSON.stringify(body),
+  });
+  expect((await POST(request({ sms: { phone: "500600700", consent: false } }), context)).status).toBe(400);
+  mocks.session.mockResolvedValueOnce({ user: { id: workerId } });
+  expect((await POST(request({ sms: { phone: "500600700", consent: true } }), context)).status).toBe(403);
+  expect((await POST(request({ sms: { phone: "500600700", consent: true } }), context)).status).toBe(202);
+  expect(await f.db.quoteSendSms.count({ where: { quoteId: f.id, consentBy: userId } })).toBe(1);
 });

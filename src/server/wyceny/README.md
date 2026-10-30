@@ -64,3 +64,9 @@ Uruchomienie lokalne: `pnpm db:deploy`, `pnpm dev`, `pnpm worker` z
 Kreator używa klientów/pojazdów aktywnego studia; pusta baza wymaga dodania
 klienta z autem. Szkic lokalny jest przypisany do studioId/userId. Terminy
 pozostają demonstracyjne, nie są rezerwacją ani częścią wysyłanego maila.
+
+## SMS klienta (#149)
+
+Opcjonalne `sms: { phone, consent: true }` w żądaniu wysyłki tworzy osobny
+outbox `QuoteSendSms`. E-mail jest nadal wymagany. Konfiguracja, zgoda,
+statusy i ograniczenia: [SMS klienta](../../../docs/sms-klienta.md).

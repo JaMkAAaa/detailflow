@@ -5,5 +5,5 @@ import { loadQuoteWizard } from "@/src/server/wyceny/query";
 export default async function NewQuotePage() {
   const { studioId, user } = await requireStudio("quotes:write");
   const data = await loadQuoteWizard(studioId, user.id);
-  return <QuoteWizard key={`${studioId}:${user.id}`} studioId={studioId} userId={user.id} clientChoices={data.clients} serviceChoices={data.services} heldServices={data.heldServices} initialQuote={data.quote} />;
+  return <QuoteWizard key={`${studioId}:${user.id}`} studioId={studioId} userId={user.id} smsAvailable={data.smsAvailable} clientChoices={data.clients} serviceChoices={data.services} heldServices={data.heldServices} initialQuote={data.quote} />;
 }

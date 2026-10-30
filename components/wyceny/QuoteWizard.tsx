@@ -19,17 +19,19 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   return <label className="flex min-w-0 flex-col gap-2 text-df-label text-df-muted">{label}{children}</label>;
 }
 
-type ClientChoice = { id: string; name: string; email: string | null; vehicles: readonly { id: string; label: string }[] };
+type ClientChoice = { id: string; name: string; email: string | null; phone?: string | null; vehicles: readonly { id: string; label: string }[] };
 type InitialQuote = {
   id: string;
   revision: number;
   status: string;
   pending: boolean;
+  smsStatus?: string | null;
   items: readonly { serviceId: string | null; name: string; basePrice: string; durationMin: number | null }[];
   draft: Draft;
 };
 
-export function QuoteWizard({ studioId, userId, clientChoices, serviceChoices, heldServices, initialQuote }: {
+export function QuoteWizard({ studioId, userId, clientChoices, serviceChoices, heldServices, initialQuote, smsAvailable = false }: {
+  smsAvailable?: boolean;
   studioId: string;
   userId: string;
   clientChoices?: readonly ClientChoice[];
@@ -39,7 +41,7 @@ export function QuoteWizard({ studioId, userId, clientChoices, serviceChoices, h
 }) {
   const mobile = useMobile();
   const [options, setOptions] = useState(false);
-  const clients = clientChoices ?? demoClients;
+  const clients: readonly ClientChoice[] = clientChoices ?? demoClients;
   const operational = clientChoices !== undefined;
   const availableServices = serviceChoices ?? demoServices;
   const defaultServiceIds = operational
@@ -75,6 +77,8 @@ export function QuoteWizard({ studioId, userId, clientChoices, serviceChoices, h
   const [saved, setSaved] = useState(initialQuote ? (initialQuote.pending ? "Wiadomość oczekuje na wysyłkę" : initialQuote.status === "sent" ? "✓ Wysłano wycenę" : "✓ Zapisano szkic w studiu") : "Odczytywanie szkicu…");
   const [catalog, setCatalog] = useState(false);
   const [editingServiceId, setEditingServiceId] = useState(services[0]?.id ?? "");
+  const [smsConsent, setSmsConsent] = useState(false);
+  const [smsStatus, setSmsStatus] = useState<string | null>(initialQuote?.smsStatus ?? null);
   const [confirmed, setConfirmed] = useState(false);
   const [complete, setComplete] = useState(!!initialQuote && initialQuote.status !== "draft");
   const [restoreError, setRestoreError] = useState("");
@@ -168,7 +172,8 @@ export function QuoteWizard({ studioId, userId, clientChoices, serviceChoices, h
         setSaved("✓ Zapisano szkic na serwerze");
       }
       if (send) {
-        await request(`${base}/send`, "POST");
+        const sent = await request(`${base}/send`, "POST", smsConsent ? { sms: { phone: client?.phone, consent: true } } : {});
+        setSmsStatus(sent.smsStatus ?? null); setSmsConsent(false);
         setServerStatus("sent"); setComplete(true);
         setSaved("✓ Wysłano wycenę");
       }
@@ -195,6 +200,7 @@ export function QuoteWizard({ studioId, userId, clientChoices, serviceChoices, h
   }
 
   function newQuote() {
+    setSmsConsent(false); setSmsStatus(null);
     setDraft(blankStart);
     setServices([...(serviceChoices ?? demoServices)]);
     setPriceInputs({});
@@ -237,6 +243,7 @@ export function QuoteWizard({ studioId, userId, clientChoices, serviceChoices, h
       <h2 className="text-df-section">{operational ? "Wycena zapisana i przekazana do wysyłki" : "Wycena gotowa do wysłania"}</h2>
       <p>{client.name} · {vehicle.label} · {pln(price.gross)}</p>
       <p className="text-df-muted">{operational ? "Worker wyśle e-mail z linkiem do portalu klienta. Termin nie został zarezerwowany." : "To demonstracja interfejsu. Wiadomość nie została wysłana, a termin nie został zarezerwowany. Szkic jest zapisany lokalnie w tej przeglądarce."}</p>
+      {smsStatus && <p role="status">{({ pending: "SMS z linkiem oczekuje na wysyłkę po e-mailu. Odśwież stronę, aby sprawdzić status.", sent: "SMS przekazany dostawcy.", failed: "Nie udało się wysłać SMS. E-mail pozostaje dostępny; skontaktuj się z klientem.", cancelled: "SMS anulowany: zmieniono numer lub rozstrzygnięto wycenę." } as Record<string, string>)[smsStatus]}</p>}
       {operational ? <><Button disabled={busy || serverStatus !== "sent"} onClick={() => void persist(true)}>Wyślij ponownie</Button><Button variant="secondary" onClick={newQuote}>Nowa wycena</Button></> : <Button variant="secondary" onClick={() => { setComplete(false); setConfirmed(false); }}>Wróć do wyceny</Button>}
     </Panel> : <>
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,2.016fr)_minmax(300px,1fr)]">
@@ -246,6 +253,7 @@ export function QuoteWizard({ studioId, userId, clientChoices, serviceChoices, h
               {draft.step === 2 && <button type="button" onClick={() => go(1)} className="text-df-label text-df-muted">Zmień klienta ↗</button>}</div>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Klient"><select className={control} value={draft.clientId} onChange={(event) => {
+                setSmsConsent(false);
                 const next = clients.find((client) => client.id === event.target.value)!;
                 update({ clientId: next.id, vehicleId: next.vehicles[0]!.id });
               }}>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select></Field>
@@ -304,6 +312,10 @@ export function QuoteWizard({ studioId, userId, clientChoices, serviceChoices, h
                 <p>Do zobaczenia w studiu!</p>
               </div>
               <p className="text-df-label text-df-muted">{operational ? "Wiadomość zawiera link do portalu ważny 14 dni. Termin demonstracyjny nie rezerwuje boksu." : "Tryb demonstracyjny: potwierdzenie nie wysyła wiadomości i nie rezerwuje boksu."}</p>
+              {operational && smsAvailable && <div className="space-y-2">
+                <label className="flex items-start gap-3"><input type="checkbox" className="mt-0.5 accent-df-lime" disabled={!client.phone} checked={smsConsent} onChange={(event) => setSmsConsent(event.target.checked)} />Wyślij także jeden SMS z linkiem. Potwierdzam zgodę klienta na tę wiadomość{client.phone ? ` na numer +${client.phone}` : ". Uzupełnij poprawny polski numer w karcie klienta."}</label>
+                <p className="text-df-label text-df-muted">E-mail zostanie wysłany niezależnie. SMS jest płatny według taryfy dostawcy.</p>
+              </div>}
               <label className="flex items-start gap-3"><input type="checkbox" className="mt-0.5 accent-df-lime" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} />Sprawdziłem dane klienta, zakres usług i termin.</label>
             </Panel>
           </>}
