@@ -131,7 +131,7 @@ Fikcyjne opinie i logotypy klientów **nie idą na produkcję**. Zastępujemy je
 | D-09 | Faktury / Szczegóły i KSeF | Podgląd FV, numer KSeF, historia wysyłki, UPO XML, PDF, korekta |
 | D-10 | Faktury / Wymagają uwagi | Odrzucenia KSeF, zaległości, błędy NIP |
 
-Nawigacja sidebara (IA docelowa): Pulpit, Kalendarz, Zlecenia, Faktury, Klienci i auta, Usługi i cennik, Magazyn, Statystyki, Portfolio. **Usługi i cennik** to katalog studia. Magazyn chemii jest ekranem `/inventory` (#143). **Statystyki** to ekran właściciela `/statistics` (#144, widoczny w menu tylko dla ownera). **Portfolio** to ekran `/portfolio` i publiczna galeria `/realizacje/[slug]` (#145): studio ręcznie publikuje zdjęcie, domyślnie nic nie jest publiczne, brak publikacji to pusty stan. Pełne Ustawienia/Konto pozostają poza ukończonym zakresem — nie jako puste moduły.
+Nawigacja sidebara (IA docelowa): Pulpit, Kalendarz, Zlecenia, Faktury, Klienci i auta, Usługi i cennik, Magazyn, Statystyki, Portfolio. **Usługi i cennik** to katalog studia. Magazyn chemii jest ekranem `/inventory` (#143). **Statystyki** to ekran właściciela `/statistics` (#144, widoczny w menu tylko dla ownera). **Portfolio** to ekran `/portfolio` i publiczna galeria `/realizacje/[slug]` (#145): studio ręcznie publikuje zdjęcie, domyślnie nic nie jest publiczne, brak publikacji to pusty stan. Konto użytkownika (`/account`, #151) zawiera zmianę hasła, sesje i preferencję przypomnienia trialowego; [kontrakt](konto.md).
 
 Akcje globalne pulpitu (wersja po audycie): **Nowa wycena**, **Wystaw fakturę**, **+ Nowe zlecenie**, paleta ⌘K.
 
@@ -929,3 +929,7 @@ Do tego momentu makieta pozostaje **specyfikacją wizualną i dziedzinową**, a 
 ## 19. Eksport JPK_FA(4) — #150
 
 Desktopowa lista faktur pobiera XML dla jawnego okresu wg daty wystawienia Europe/Warsaw, tylko jednego studia i środowiska KSeF. Pusty okres to komunikat bez pliku. Bez Stripe Billing i bez wysyłki do MF. Wymagane dane urzędu/adresu, walidacja oficjalnym XSD i ograniczenia: [kontrakt](jpk-fa.md).
+
+## 20. Konto użytkownika — #151
+
+`/account` dla każdej roli studia: zmiana hasła unieważnia pozostałe sesje po stronie serwera, lista własnych sesji i ich wylogowanie, preferencja maila trialowego na koncie osoby. Maile transakcyjne (faktura, reset, magic link) pozostają niezależne. [Kontrakt i testy](konto.md).

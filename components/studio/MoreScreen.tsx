@@ -97,9 +97,9 @@ export function MoreScreen({
         <div className="mt-4"><GlobalSearchTrigger compact /></div>
       </header>
       <StudioPicker choices={choices} studioId={studioId} />
-      <button
-        type="button"
-        onClick={() => soon("Konto")}
+      <Link
+        href="/account"
+        aria-label={`Konto — ${name}`}
         className="flex w-full items-center gap-3 rounded-[18px] bg-df-panel p-4 text-left"
       >
         <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-df-raised text-[15px] font-semibold">
@@ -121,7 +121,7 @@ export function MoreScreen({
           </span>
         </span>
         <MaskIcon name="chevron-right" size={18} className="text-df-muted" />
-      </button>
+      </Link>
       {groups.map((group) => (
         <section key={group.title} className="space-y-4">
           <h2 className="text-[11px] font-semibold text-df-muted">

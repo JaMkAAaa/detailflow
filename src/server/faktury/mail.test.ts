@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({ send: vi.fn() }));
 vi.mock("nodemailer", () => ({ createTransport: () => ({ sendMail: mocks.send }) }));
 const tag = randomUUID();
 let a: string, b: string, id: string, clientId: string;
+let ownerId: string;
 const db = () => studioDb(b);
 const invoice = () => db().invoice.findFirstOrThrow({ where: { id } });
 const mail = () => db().invoiceMail.findFirstOrThrow({ where: { invoiceId: id, sentAt: null } });
@@ -19,6 +20,8 @@ const request = () => requestInvoiceMail(b, id, { env: "test" });
 beforeAll(async () => {
   const studios = await Promise.all(["a", "b"].map(suffix => platformDb.studio.create({ data: { publicCode: `${tag}-${suffix}`, slug: `${tag}-${suffix}`, name: suffix, nip: "9512345678", address: "Rzemieślnicza 12", postal: "02-675", city: "Warszawa" } }).then(s => s.id)));
   a = studios[0]!; b = studios[1]!;
+  ownerId = (await platformDb.user.create({ data: { name: "Owner", email: `${tag}@example.com`, trialReminderEnabled: false } })).id;
+  await db().membership.create({ data: { studioId: b, userId: ownerId, role: "owner" } });
   const client = await db().client.create({ data: { studioId: b, name: "Buyer", email: "buyer@example.com" } }); clientId = client.id;
   const vehicle = await db().vehicle.create({ data: { studioId: b, clientId, make: "BMW", model: "X3", plate: tag } });
   const fixture = invoiceFixture();
@@ -28,7 +31,10 @@ beforeAll(async () => {
     items: { create: items.map(line => ({ ...line, id: undefined, studioId: undefined, invoiceId: undefined })) },
   } }); id = result.id;
 });
-afterAll(async () => { await platformDb.studio.deleteMany({ where: { id: { in: [a, b].filter(Boolean) } } }); });
+afterAll(async () => {
+  await platformDb.studio.deleteMany({ where: { id: { in: [a, b].filter(Boolean) } } });
+  if (ownerId) await platformDb.user.delete({ where: { id: ownerId } });
+});
 afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); mocks.send.mockReset(); });
 it("rejects a foreign tenant, a wrong environment and missing/invalid email without queueing", async () => {
   await expect(requestInvoiceMail(a, id, { env: "test" })).rejects.toMatchObject({ status: 404 });
@@ -62,7 +68,7 @@ it("logs a secret-free dev preview without pretending delivery when SMTP is miss
   expect((await mail()).sentAt).toBeNull();
   expect((await invoice()).emailedAt).toEqual(old);
 });
-it("retains the outbox on SMTP failure, retries with PDF and only then records the timestamp", async () => {
+it("retries with PDF despite the owner's trial opt-out and only then records the timestamp", async () => {
   vi.stubEnv("SMTP_URL", "smtp://unused.invalid");
   vi.spyOn(console, "error").mockImplementation(() => {});
   const old = (await invoice()).emailedAt;

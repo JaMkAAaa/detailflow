@@ -113,6 +113,67 @@ describe("auth (Better Auth + Postgres)", () => {
     expect(await (await call("/get-session", undefined, cookie)).json()).toBeNull();
   });
 
+  describe("account security", () => {
+    it("still sends reset and magic-link mail after opting out of trial reminders", async () => {
+      await platformDb.user.update({ where: { id: userId }, data: { trialReminderEnabled: false } });
+      try {
+        expect((await call("/request-password-reset", { email: DEMO.ownerEmail, redirectTo: "/reset-password" })).status).toBe(200);
+        expect((await call("/sign-in/magic-link", { email: DEMO.ownerEmail, callbackURL: "/" })).status).toBe(200);
+        expect(mails).toHaveLength(2);
+        expect(mails.every(mail => mail.to === DEMO.ownerEmail)).toBe(true);
+      } finally {
+        await platformDb.user.update({ where: { id: userId }, data: { trialReminderEnabled: true } });
+      }
+    });
+    it("requires authentication and same Origin for password changes and revocation", async () => {
+      expect((await call("/change-password", { currentPassword: DEMO.ownerPassword, newPassword: "new-password-2026" })).ok).toBe(false);
+      expect((await call("/revoke-other-sessions", {})).ok).toBe(false);
+      const cookie = sessionCookie(await signIn())!.split(";")[0]!;
+      for (const path of ["/change-password", "/revoke-other-sessions"]) {
+        const response = await auth.handler(new Request(`${APP}/api/auth${path}`, {
+          method: "POST", headers: { origin: "https://evil.example", cookie, "content-type": "application/json" },
+          body: JSON.stringify({ currentPassword: DEMO.ownerPassword, newPassword: "new-password-2026" }),
+        }));
+        expect(response.status).toBe(403);
+      }
+    });
+
+    it("rejects wrong/short passwords and forces revocation even when the client opts out", async () => {
+      const first = sessionCookie(await signIn())!.split(";")[0]!;
+      const second = sessionCookie(await signIn())!.split(";")[0]!;
+      for (const body of [
+        { currentPassword: "incorrect-password", newPassword: "new-password-2026" },
+        { currentPassword: DEMO.ownerPassword, newPassword: "short" },
+      ]) expect((await call("/change-password", body, first)).ok).toBe(false);
+      expect(await platformDb.session.count({ where: { userId } })).toBe(2);
+      try {
+        const result = await call("/change-password", {
+          currentPassword: DEMO.ownerPassword, newPassword: "new-password-2026", revokeOtherSessions: false,
+        }, first);
+        expect(result.status).toBe(200);
+        const replacement = sessionCookie(result)!.split(";")[0]!;
+        expect(await platformDb.session.count({ where: { userId } })).toBe(1);
+        for (const cookie of [first, second]) expect(await (await call("/get-session", undefined, cookie)).json()).toBeNull();
+        expect((await (await call("/get-session", undefined, replacement)).json()).user.id).toBe(userId);
+        expect((await signIn()).status).toBe(401);
+        expect((await signIn("new-password-2026")).status).toBe(200);
+      } finally { await seed(); }
+    });
+
+    it("revokes only the caller's other sessions, preserving current and foreign users", async () => {
+      const foreign = await platformDb.user.create({ data: { name: "Foreign", email: `sessions-${crypto.randomUUID()}@example.com` } });
+      try {
+        const foreignSession = await platformDb.session.create({ data: { userId: foreign.id, token: crypto.randomUUID(), expiresAt: new Date(Date.now() + 60_000) } });
+        const first = sessionCookie(await signIn())!.split(";")[0]!;
+        const second = sessionCookie(await signIn())!.split(";")[0]!;
+        expect((await call("/revoke-other-sessions", {}, first)).status).toBe(200);
+        expect((await (await call("/get-session", undefined, first)).json()).user.id).toBe(userId);
+        expect(await (await call("/get-session", undefined, second)).json()).toBeNull();
+        expect(await platformDb.session.findUnique({ where: { id: foreignSession.id } })).not.toBeNull();
+      } finally { await platformDb.user.delete({ where: { id: foreign.id } }); }
+    });
+  });
+
   describe("password reset", () => {
     it("answers identically whether or not the e-mail exists, and mails only real accounts", async () => {
       const known = await call("/request-password-reset", { email: DEMO.ownerEmail, redirectTo: "/reset-password" });

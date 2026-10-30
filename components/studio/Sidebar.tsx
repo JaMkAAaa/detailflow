@@ -140,6 +140,7 @@ export function Sidebar({
           })}
         </ul>
         <div className="pt-4">
+          <Link href="/account" className="block p-3 text-df-label">Konto</Link>
           {current.role === "owner" && <Link href="/billing" className="block p-3 text-df-label">Abonament Detailflow</Link>}
           {current.role === "owner" && <Link href="/settings" className="block p-3 text-df-label">Ustawienia i KSeF</Link>}
           {current.role !== "worker" && (
