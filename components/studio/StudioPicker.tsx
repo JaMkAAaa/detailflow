@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Select } from "@/components/ui/select";
 
 type StudioChoice = { studioId: string; studio: { name: string } };
 
@@ -33,14 +34,14 @@ export function StudioPicker({ choices, studioId }: { choices: StudioChoice[]; s
       {choices.length > 1 ? (
         <label className="block text-[13px] text-df-muted">
           Wybierz studio
-          <select
+          <Select
+            aria-label="Wybierz studio"
+            className="mt-2"
             value={studioId}
             disabled={pending}
             onChange={(event) => void switchStudio(event.target.value)}
-            className="mt-2 min-h-11 w-full rounded-lg bg-df-raised px-3 text-[15px] text-df-text"
-          >
-            {choices.map((choice) => <option key={choice.studioId} value={choice.studioId}>{choice.studio.name}</option>)}
-          </select>
+            options={choices.map((choice) => ({ value: choice.studioId, label: choice.studio.name }))}
+          />
         </label>
       ) : <p className="text-[15px]">{current?.studio.name}</p>}
       {pending && <p role="status" className="mt-2 text-[13px] text-df-muted">Zmieniam studio…</p>}

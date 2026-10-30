@@ -1,5 +1,6 @@
 "use client";
 import { BILLING_CATALOG, type BillingInterval } from "@/lib/billing/catalog";
+import { Select } from "@/components/ui/select";
 import { useState } from "react";
 
 export function CheckoutForm({ studioId }: { studioId: string }) {
@@ -23,13 +24,9 @@ export function CheckoutForm({ studioId }: { studioId: string }) {
     }
   }}>
     <label htmlFor="billing-interval">Okres rozliczeń</label>
-    <select id="billing-interval" value={interval} disabled={pending} onChange={e => setInterval(e.target.value as BillingInterval)} className="rounded-lg bg-df-raised p-3">
-      <option value="monthly">Miesięcznie</option><option value="yearly">Rocznie — opłata z góry, automatyczne odnowienie</option>
-    </select>
+    <Select id="billing-interval" aria-label="Okres rozliczeń" value={interval} disabled={pending} onChange={e => setInterval(e.target.value as BillingInterval)} options={[{ value: "monthly", label: "Miesięcznie" }, { value: "yearly", label: "Rocznie — opłata z góry, automatyczne odnowienie" }]} />
     <label htmlFor="billing-plan">Plan (netto PLN)</label>
-    <select id="billing-plan" name="plan" disabled={pending} className="rounded-lg bg-df-raised p-3">
-      {Object.entries(BILLING_CATALOG).map(([plan, config]) => <option key={plan} value={plan}>{config.name} — {config[interval]} zł / {interval === "yearly" ? "rok" : "mies."}</option>)}
-    </select>
+    <Select id="billing-plan" name="plan" aria-label="Plan (netto PLN)" disabled={pending} options={Object.entries(BILLING_CATALOG).map(([plan, config]) => ({ value: plan, label: `${config.name} — ${config[interval]} zł / ${interval === "yearly" ? "rok" : "mies."}` }))} />
     <p className="text-df-muted">Do ceny zostanie doliczony właściwy podatek w Stripe Checkout.</p>
     <button disabled={pending} className="rounded-lg bg-df-lime p-3 text-df-bg disabled:opacity-50">{pending ? "Otwieranie…" : "Przejdź do Stripe Checkout"}</button>
     {error && <p role="alert" className="text-df-error">{error}</p>}

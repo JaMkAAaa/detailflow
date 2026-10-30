@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import Decimal from "decimal.js";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Sheet } from "@/components/studio/Sheet";
 import { useMobile } from "@/components/studio/useMobile";
@@ -252,12 +253,12 @@ export function QuoteWizard({ studioId, userId, clientChoices, serviceChoices, h
             <div className="flex min-h-7 items-center justify-between gap-2"><h2 className="text-df-section">Klient i samochód</h2>
               {draft.step === 2 && <button type="button" onClick={() => go(1)} className="text-df-label text-df-muted">Zmień klienta ↗</button>}</div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Klient"><select className={control} value={draft.clientId} onChange={(event) => {
+              <Field label="Klient"><Select aria-label="Klient" value={draft.clientId} onChange={(event) => {
                 setSmsConsent(false);
                 const next = clients.find((client) => client.id === event.target.value)!;
                 update({ clientId: next.id, vehicleId: next.vehicles[0]!.id });
-              }}>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select></Field>
-              <Field label="Samochód"><select className={control} value={draft.vehicleId} onChange={(event) => update({ vehicleId: event.target.value as Draft["vehicleId"] })}>{client.vehicles.map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{vehicle.label}</option>)}</select></Field>
+              }} options={clients.map((client) => ({ value: client.id, label: client.name }))} /></Field>
+              <Field label="Samochód"><Select aria-label="Samochód" value={draft.vehicleId} onChange={(event) => update({ vehicleId: event.target.value as Draft["vehicleId"] })} options={client.vehicles.map((vehicle) => ({ value: vehicle.id, label: vehicle.label }))} /></Field>
             </div>
             <fieldset className="mt-1"><legend className="mb-2 text-df-label text-df-muted">Wielkość auta</legend>
               <div className="grid grid-cols-3 gap-3">{sizes.map((size) => <label key={size.id} className={cn("flex min-h-10 cursor-pointer items-center justify-center rounded-lg border px-1 text-center text-df-label", draft.size === size.id ? "border-df-muted bg-df-line" : "border-transparent bg-df-raised")}>
@@ -266,8 +267,8 @@ export function QuoteWizard({ studioId, userId, clientChoices, serviceChoices, h
               </label>)}</div>
             </fieldset>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Stan lakieru"><select className={control} value={draft.paint} onChange={(event) => update({ paint: event.target.value as Draft["paint"] })}>{paints.map((paint) => <option key={paint.id} value={paint.id}>{paint.label}</option>)}</select></Field>
-              <Field label="Zabrudzenie wnętrza"><select className={control} value={draft.interior} onChange={(event) => update({ interior: event.target.value as Draft["interior"] })}>{["Lekkie", "Umiarkowane", "Silne"].map((label) => <option key={label}>{label}</option>)}</select></Field>
+              <Field label="Stan lakieru"><Select aria-label="Stan lakieru" value={draft.paint} onChange={(event) => update({ paint: event.target.value as Draft["paint"] })} options={paints.map((paint) => ({ value: paint.id, label: paint.label }))} /></Field>
+              <Field label="Zabrudzenie wnętrza"><Select aria-label="Zabrudzenie wnętrza" value={draft.interior} onChange={(event) => update({ interior: event.target.value as Draft["interior"] })} options={["Lekkie", "Umiarkowane", "Silne"].map((label) => ({ value: label, label }))} /></Field>
             </div>
           </Panel>}
 
@@ -352,7 +353,7 @@ export function QuoteWizard({ studioId, userId, clientChoices, serviceChoices, h
       {catalogServices.map((service) => <label key={service.id} className="flex cursor-pointer items-center gap-3 rounded-lg bg-df-raised p-4"><input type="checkbox" className="accent-df-lime" checked={draft.serviceIds.includes(service.id)} onChange={() => toggleService(service.id)} /><span className="flex-1"><span className="block text-df-strong">{service.name}</span><span className="block text-df-label text-df-muted">{service.description}</span></span><span>{pln(service.price)}</span></label>)}
       {operational && editingService && <form className="flex flex-col gap-3" onSubmit={saveService}>
         <h3 className="text-df-strong">Edytuj usługę katalogu</h3>
-        <Field label="Usługa do edycji"><select required name="serviceId" value={editingService?.id ?? ""} onChange={(event) => setEditingServiceId(event.target.value)} className={control}>{catalogServices.map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}</select></Field>
+        <Field label="Usługa do edycji"><Select required name="serviceId" aria-label="Usługa do edycji" value={editingService?.id ?? ""} onChange={(event) => setEditingServiceId(event.target.value)} options={catalogServices.map((service) => ({ value: service.id, label: service.name }))} /></Field>
         <Field label="Nazwa usługi"><input required name="name" defaultValue={editingService?.name} key={`name-${editingService?.id}`} maxLength={120} className={control} /></Field>
         <Field label="Cena bazowa brutto PLN"><input required name="basePrice" defaultValue={editingService?.price} key={`price-${editingService?.id}`} inputMode="decimal" pattern="[0-9]+([.,][0-9]{1,2})?" className={control} /></Field>
         <Field label="Czas bazowy (min)"><input required name="durationMin" defaultValue={editingService?.durationMin ?? 0} key={`duration-${editingService?.id}`} type="number" min={0} max={60000} className={control} /></Field>

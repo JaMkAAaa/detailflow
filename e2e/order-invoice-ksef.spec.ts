@@ -62,9 +62,13 @@ test("@smoke nowe zlecenie → zakończenie → faktura → kolejka KSeF TEST", 
     await page.goto("/orders");
     await page.getByRole("button", { name: "＋ Nowe zlecenie", exact: true }).first().click();
     const dialog = page.getByRole("dialog", { name: "Nowe zlecenie" });
-    await expect(dialog.getByLabel("Usługa", { exact: true }).locator("option")).toHaveText(["E2E Korekta"]);
-    await dialog.getByLabel("Klient", { exact: true }).selectOption(clientId);
-    await dialog.getByLabel("Auto", { exact: true }).selectOption(vehicleId);
+    await dialog.getByLabel("Usługa", { exact: true }).click();
+    await expect(page.getByRole("option")).toHaveText(["E2E Korekta"]);
+    await page.keyboard.press("Escape");
+    await dialog.getByLabel("Klient", { exact: true }).click();
+    await page.getByRole("option", { name: "E2E Nabywca" }).click();
+    await dialog.getByLabel("Auto", { exact: true }).click();
+    await page.getByRole("option", { name: "E2E Auto · E2E TEST" }).click();
     await dialog.getByLabel("Kwota brutto", { exact: true }).fill("123.00");
     const created = page.waitForResponse(response => response.request().method() === "POST" && response.url().endsWith(`/studios/${studioId}/orders`));
     await dialog.getByRole("button", { name: "Utwórz zlecenie" }).click();
@@ -97,7 +101,8 @@ test("@smoke nowe zlecenie → zakończenie → faktura → kolejka KSeF TEST", 
     expect(savedOrder.completedAt).not.toBeNull();
 
     await page.goto("/invoices/new");
-    await page.getByLabel("Zakończone zlecenie").selectOption(order.id);
+    await page.getByLabel("Zakończone zlecenie").click();
+    await page.getByRole("option", { name: `#${order.number} · E2E Nabywca · E2E Auto` }).click();
     await expect(page.getByLabel("Imię i nazwisko", { exact: true })).toHaveValue("E2E Nabywca");
     await page.getByRole("button", { name: "Dalej: pozycje →", exact: true }).click();
     await page.getByRole("button", { name: "Dalej: podgląd →", exact: true }).click();

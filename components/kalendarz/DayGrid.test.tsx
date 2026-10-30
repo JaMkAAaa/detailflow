@@ -21,7 +21,8 @@ it("filters employees, navigates dates and opens the day from the week", async (
   render(<DayGrid />);
   expect(screen.getByRole("link", { name: /Porsche Panamera/ }).getAttribute("href")).toBe("/orders/DF-0248");
   expect(screen.getByLabelText("Teraz 11:30")).toBeTruthy();
-  await user.selectOptions(screen.getByRole("combobox"), "Kamil");
+  await user.click(screen.getByRole("combobox"));
+  await user.click(screen.getByRole("option", { name: "Kamil" }));
   expect(screen.queryByText("Porsche Panamera")).toBeNull();
   expect(screen.getByText("Audi Q5")).toBeTruthy();
   await user.click(screen.getByRole("button", { name: "Następny okres" }));

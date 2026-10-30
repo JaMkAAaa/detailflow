@@ -8,6 +8,7 @@ import {
 } from "@dnd-kit/core";
 import { EmptyState, NoResultsState } from "@/components/states";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { OrderCreateDialog, type OrderClientChoice, type OrderServiceChoice } from "./OrderCreateDialog";
 import { OrderCardBody, cardClass } from "./OrderCard";
@@ -80,9 +81,7 @@ export function OrdersBoard({ studioId, orders, clients, services, onCreated, on
       <div className="relative w-[300px] shrink-0"><span aria-hidden="true" className="pointer-events-none absolute top-0 left-3.5 flex h-10 items-center text-df-label text-df-muted">⌕</span>
         <input type="search" aria-label="Szukaj auta lub klienta" placeholder="Szukaj auta lub klienta…" value={query} onChange={(event) => setQuery(event.target.value)} className={cn(fieldClass, "w-full pl-9 placeholder:text-df-text/60")} />
       </div>
-      <select aria-label="Filtruj usługę" value={service} onChange={(event) => setService(event.target.value)} className={cn(fieldClass, "w-[180px]")}>
-        <option value="">Wszystkie usługi</option>{serviceNames.map((name) => <option key={name}>{name}</option>)}
-      </select>
+      <Select aria-label="Filtruj usługę" size="filter" className="w-[180px] shrink-0" value={service} onChange={(event) => setService(event.target.value)} options={[{ value: "", label: "Wszystkie usługi" }, ...serviceNames.map((name) => ({ value: name, label: name }))]} />
       <p role="status" className="min-w-0 flex-1 truncate pt-2 text-df-body">{dropNotice}</p>
       <div role="group" aria-label="Widok zleceń" className="flex gap-3">{([ ["board", "Tablica"], ["list", "Lista"] ] as const).map(([value, label]) => <button key={value} aria-pressed={view === value} onClick={() => setView(value)} className={cn("h-7 rounded-md border px-2.5 text-df-body font-medium", view === value ? "border-df-muted bg-df-line text-df-text" : "border-transparent bg-df-raised text-df-muted hover:bg-df-hover")}>{label}</button>)}</div>
     </div>

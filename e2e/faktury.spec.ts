@@ -9,8 +9,10 @@ test("@smoke faktura nie powstaje z otwartego zlecenia DF-0248", async ({ page }
   await page.goto("/invoices/new");
   const source = page.getByLabel("Zakończone zlecenie");
   await expect(source).toBeVisible();
-  await expect(source).not.toContainText("DF-0243");
-  await expect(source).not.toContainText("DF-0248");
+  await source.click();
+  const options = page.getByRole("listbox", { name: "Zakończone zlecenie" });
+  await expect(options).not.toContainText("DF-0243");
+  await expect(options).not.toContainText("DF-0248");
   const eligible = await many<{ id: string }>(`
     SELECT w.id FROM "WorkOrder" w
     WHERE w."studioId" = $1 AND w.status = 'completed' AND w."completedAt" IS NOT NULL
@@ -22,9 +24,11 @@ test("@smoke faktura nie powstaje z otwartego zlecenia DF-0248", async ({ page }
     ORDER BY w."completedAt" DESC
   `, [studio.id]);
   expect(eligible.length).toBeGreaterThan(0);
-  await expect(source.locator("option")).toHaveCount(eligible.length);
-  expect(await source.locator("option").evaluateAll(options => options.map(option => (option as HTMLOptionElement).value))).toEqual(eligible.map(order => order.id));
-  await expect(source).toHaveValue(eligible[0]!.id);
+  const choices = page.getByRole("option");
+  await expect(choices).toHaveCount(eligible.length);
+  expect(await choices.evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-value")))).toEqual(eligible.map((order) => order.id));
+  await expect(source).toHaveAttribute("data-value", eligible[0]!.id);
+  await page.keyboard.press("Escape");
 
   const response = await page.request.post(`/api/studios/${studio.id}/invoices`, {
     headers: { origin: "http://127.0.0.1:3100" },

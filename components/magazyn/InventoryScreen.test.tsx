@@ -30,7 +30,8 @@ it("creates a measured piece count, refreshes on success and shows read-only/emp
   const { rerender } = render(<InventoryScreen studioId="a" chemicals={[]} canManage actions={actions} />);
   expect(screen.getByRole("status").textContent).toContain("Brak chemii");
   await user.type(screen.getByLabelText("Nazwa"), "Powłoka");
-  await user.selectOptions(screen.getByLabelText("Jednostka"), "piece");
+  await user.click(screen.getByLabelText("Jednostka"));
+  await user.click(screen.getByRole("option", { name: "szt." }));
   await user.clear(screen.getByLabelText("Stan początkowy"));
   await user.type(screen.getByLabelText("Stan początkowy"), "0.5");
   await user.type(screen.getByLabelText("Powód wpisu / korekty"), "Spis");

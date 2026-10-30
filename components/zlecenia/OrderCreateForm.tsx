@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 
 export type OrderClientChoice = { id: string; name: string; vehicles: { id: string; label: string }[] };
 export type OrderServiceChoice = { id: string; name: string; basePrice: string };
@@ -62,19 +63,13 @@ export function OrderCreateForm({ studioId, clients, services, onCreated, onCanc
   return (
     <form onSubmit={submit} className="mt-5 flex flex-col gap-4">
       <label className="flex flex-col gap-2 text-df-label text-df-muted">Klient
-        <select disabled={!!quote} required aria-label="Klient" className={control} value={clientId} onChange={(event) => { setClientId(event.target.value); setVehicleId(clients.find((item) => item.id === event.target.value)?.vehicles[0]?.id ?? ""); }}>
-          {clients.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-        </select>
+        <Select disabled={!!quote} required aria-label="Klient" value={clientId} onChange={(event) => { setClientId(event.target.value); setVehicleId(clients.find((item) => item.id === event.target.value)?.vehicles[0]?.id ?? ""); }} options={clients.map((item) => ({ value: item.id, label: item.name }))} />
       </label>
       <label className="flex flex-col gap-2 text-df-label text-df-muted">Auto
-        <select disabled={!!quote} required aria-label="Auto" className={control} value={vehicleId} onChange={(event) => setVehicleId(event.target.value)}>
-          {(client?.vehicles ?? []).map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{vehicle.label}</option>)}
-        </select>
+        <Select disabled={!!quote} required aria-label="Auto" value={vehicleId} onChange={(event) => setVehicleId(event.target.value)} options={(client?.vehicles ?? []).map((vehicle) => ({ value: vehicle.id, label: vehicle.label }))} />
       </label>
       <label className="flex flex-col gap-2 text-df-label text-df-muted">Usługa
-        {quote ? <input aria-label="Usługa" className={control} readOnly value={quote.service} /> : <select required aria-label="Usługa" className={control} value={serviceId} onChange={(event) => { const next = services.find((item) => item.id === event.target.value); setServiceId(event.target.value); if (next) setTotalGross(next.basePrice); }}>
-          {services.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-        </select>}
+        {quote ? <input aria-label="Usługa" className={control} readOnly value={quote.service} /> : <Select required aria-label="Usługa" value={serviceId} onChange={(event) => { const next = services.find((item) => item.id === event.target.value); setServiceId(event.target.value); if (next) setTotalGross(next.basePrice); }} options={services.map((item) => ({ value: item.id, label: item.name }))} />}
       </label>
       {!quote && services.length === 0 && <p role="status" className="text-df-muted">Brak aktywnych usług w cenniku.</p>}
       <label className="flex flex-col gap-2 text-df-label text-df-muted">Kwota brutto (PLN)
@@ -82,10 +77,7 @@ export function OrderCreateForm({ studioId, clients, services, onCreated, onCanc
       </label>
       {bays && (
         <label className="flex flex-col gap-2 text-df-label text-df-muted">Boks
-          <select required aria-label="Boks" className={control} value={bayId} onChange={(event) => setBayId(event.target.value)}>
-            <option value="">Wybierz boks</option>
-            {bays.map((bay) => <option key={bay.id} value={bay.id}>{bay.name}</option>)}
-          </select>
+          <Select required aria-label="Boks" value={bayId} placeholder="Wybierz boks" onChange={(event) => setBayId(event.target.value)} options={[{ value: "", label: "Wybierz boks" }, ...bays.map((bay) => ({ value: bay.id, label: bay.name }))]} />
         </label>
       )}
       <div className="grid grid-cols-2 gap-3">
@@ -94,10 +86,7 @@ export function OrderCreateForm({ studioId, clients, services, onCreated, onCanc
       </div>
       {members && (
         <label className="flex flex-col gap-2 text-df-label text-df-muted">Pracownik
-          <select aria-label="Pracownik" className={control} value={assigneeId} onChange={(event) => setAssigneeId(event.target.value)}>
-            <option value="">Nieprzypisane</option>
-            {members.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}
-          </select>
+          <Select aria-label="Pracownik" value={assigneeId} onChange={(event) => setAssigneeId(event.target.value)} options={[{ value: "", label: "Nieprzypisane" }, ...members.map((member) => ({ value: member.id, label: member.name }))]} />
         </label>
       )}
       {error && <p role="alert" className="text-df-body text-df-error">{error}</p>}

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useActionState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { idleForm, type FormState } from "@/src/server/admin/errors";
 import { ROLE_LABEL, canManageFlags, canManageRoles } from "@/src/server/admin/operator-policy";
 import type { Administration } from "@/src/server/admin/operators";
@@ -36,11 +37,7 @@ function RoleForm({
     <form action={formAction} className="flex flex-wrap items-center gap-2">
       <input type="hidden" name="userId" value={operator.userId} />
       <label className="sr-only" htmlFor={`role-${operator.userId}`}>Rola {operator.name}</label>
-      <select id={`role-${operator.userId}`} name="role" defaultValue={operator.role} className="h-10 rounded-lg bg-df-raised px-3 text-df-body">
-        {(Object.keys(ROLE_LABEL) as PlatformRole[]).map((role) => (
-          <option key={role} value={role}>{ROLE_LABEL[role]}</option>
-        ))}
-      </select>
+      <Select id={`role-${operator.userId}`} name="role" defaultValue={operator.role} className="w-auto" options={(Object.keys(ROLE_LABEL) as PlatformRole[]).map((role) => ({ value: role, label: ROLE_LABEL[role] }))} />
       <Button type="submit" variant="secondary">Zapisz</Button>
       <Message state={state} />
     </form>

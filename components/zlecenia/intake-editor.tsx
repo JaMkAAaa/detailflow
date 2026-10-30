@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Select } from "@/components/ui/select";
 import type { IntakeDamage, OrderDetailsData, OrderPhoto } from "./order-types";
 import { IntakeSchematic } from "./intake-schematic";
 import { acceptOrderProtocol, MAX_PROTOCOL_DAMAGES, OrderMediaError, saveOrderProtocol, type ProtocolRecord } from "./order-media";
@@ -159,10 +160,7 @@ export function IntakeEditor({
               {linked.length > 0 && (
                 <label className="flex flex-col gap-1 text-df-label text-df-muted">
                   Zdjęcie
-                  <select aria-label={`Zdjęcie punktu ${damage.no}`} className={control} value={damage.photoId ?? ""} onChange={(event) => update(damage.no, { photoId: event.target.value || undefined })}>
-                    <option value="">Bez zdjęcia</option>
-                    {linked.map((photo) => <option key={photo.id} value={photo.id}>#{String(photo.no).padStart(2, "0")} {photo.caption}</option>)}
-                  </select>
+                  <Select aria-label={`Zdjęcie punktu ${damage.no}`} value={damage.photoId ?? ""} onChange={(event) => update(damage.no, { photoId: event.target.value || undefined })} options={[{ value: "", label: "Bez zdjęcia" }, ...linked.flatMap((photo) => photo.id ? [{ value: photo.id, label: `#${String(photo.no).padStart(2, "0")} ${photo.caption}` }] : [])]} />
                 </label>
               )}
               <button type="button" onClick={() => remove(damage.no)} className="h-11 justify-self-start text-df-label text-df-muted hover:text-df-text">

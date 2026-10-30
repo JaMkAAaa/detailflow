@@ -23,12 +23,13 @@ it("switches from the mobile More screen and reloads the dashboard after the coo
   const fetchMock = vi.fn(() => new Promise<Response>((resolve) => { complete = resolve; }));
   vi.stubGlobal("fetch", fetchMock);
   render(<MoreScreen {...props} />);
-  const picker = screen.getByRole("combobox", { name: "Wybierz studio" }) as HTMLSelectElement;
-  await user.selectOptions(picker, "b");
+  const picker = screen.getByRole("combobox", { name: "Wybierz studio" });
+  await user.click(picker);
+  await user.click(screen.getByRole("option", { name: "Studio B" }));
   expect(fetchMock).toHaveBeenCalledExactlyOnceWith("/api/studios/active", {
     method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ studioId: "b" }),
   });
-  expect(picker.disabled).toBe(true);
+  expect((picker as HTMLButtonElement).disabled).toBe(true);
   expect(assign).not.toHaveBeenCalled();
   complete(new Response(JSON.stringify({ studioId: "b" }), { status: 200 }));
   await waitFor(() => expect(assign).toHaveBeenCalledExactlyOnceWith("/"));
@@ -41,12 +42,14 @@ it.each(["forbidden", "network"])("keeps the active studio and allows retry afte
   else fetchMock.mockRejectedValue(new Error("network"));
   vi.stubGlobal("fetch", fetchMock);
   render(<MoreScreen {...props} />);
-  const picker = screen.getByRole("combobox", { name: "Wybierz studio" }) as HTMLSelectElement;
-  await user.selectOptions(picker, "b");
+  const picker = screen.getByRole("combobox", { name: "Wybierz studio" });
+  await user.click(picker);
+  await user.click(screen.getByRole("option", { name: "Studio B" }));
   expect(await screen.findByRole("alert")).toBeTruthy();
-  expect(picker.value).toBe("a");
-  expect(picker.disabled).toBe(false);
-  await user.selectOptions(picker, "b");
+  expect(picker.getAttribute("data-value")).toBe("a");
+  expect((picker as HTMLButtonElement).disabled).toBe(false);
+  await user.click(picker);
+  await user.click(screen.getByRole("option", { name: "Studio B" }));
   expect(fetchMock).toHaveBeenCalledTimes(2);
 });
 

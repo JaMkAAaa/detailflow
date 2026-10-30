@@ -31,7 +31,8 @@ it("filters by search and service, and keeps the list view in sync", async () =>
   await user.clear(screen.getByRole("searchbox"));
   await user.click(screen.getByRole("button", { name: "Lista" }));
   expect(within(screen.getByRole("table")).getAllByRole("row")).toHaveLength(9);
-  await user.selectOptions(screen.getByLabelText("Filtruj usługę"), "Mycie + wosk");
+  await user.click(screen.getByLabelText("Filtruj usługę"));
+  await user.click(screen.getByRole("option", { name: "Mycie + wosk" }));
   expect(within(screen.getByRole("table")).getAllByRole("row")).toHaveLength(2);
 });
 
@@ -39,8 +40,10 @@ it("posts a new order and keeps the form open with a 409 server error", async ()
   const user = userEvent.setup(); renderBoard([]);
   await user.click(screen.getAllByRole("button", { name: /Nowe zlecenie/ })[0]!);
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: "Zlecenie zostało zmienione równolegle." }), { status: 409, headers: { "Content-Type": "application/json" } })));
-  await user.selectOptions(screen.getByLabelText("Klient"), "client-a");
-  await user.selectOptions(screen.getByLabelText("Auto"), "vehicle-a");
+  await user.click(screen.getByLabelText("Klient"));
+  await user.click(screen.getByRole("option", { name: "Jan Test" }));
+  await user.click(screen.getByLabelText("Auto"));
+  await user.click(screen.getByRole("option", { name: "Toyota Corolla · WA12345" }));
   await user.click(screen.getByRole("button", { name: "Utwórz zlecenie" }));
   expect((await screen.findByRole("alert")).textContent).toContain("Zlecenie zostało zmienione równolegle.");
   expect(screen.getByRole("dialog", { name: "Nowe zlecenie" }).hasAttribute("open")).toBe(true);
