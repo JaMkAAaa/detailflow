@@ -14,6 +14,8 @@ test("@smoke pulpit i mobilny plus otwierają wspólny formularz zlecenia", asyn
   await expect(page.getByRole("dialog", { name: "Powiadomienia" })).toBeVisible();
   await page.keyboard.press("Escape");
   await page.getByRole("navigation", { name: "Nawigacja mobilna" }).getByRole("link", { name: "Nowe zlecenie", exact: true }).click();
-  await expect(page.getByRole("dialog", { name: "Nowe zlecenie" })).toBeVisible();
+  await expect(page).toHaveURL(/\/orders\/new$/);
+  await expect(page.getByRole("heading", { name: "Nowe zlecenie" })).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Utwórz zlecenie" })).toBeEnabled();
 });

@@ -60,8 +60,9 @@ it("filters by status chip and by search incl. plate, and clears", async () => {
   expect(screen.getAllByRole("listitem")).toHaveLength(7);
 });
 
-it("links every order to its operational detail page", () => {
+it("links every order to its operational detail page and new orders to the mobile page", () => {
   render(<MobileOrders orders={boardOrders} />);
   expect(screen.getByRole("link", { name: /Audi Q5/ }).getAttribute("href")).toBe("/orders/DF-0249");
+  expect(screen.getByRole("link", { name: "＋ Nowe" }).getAttribute("href")).toBe("/orders/new");
   expect(screen.queryByRole("dialog")).toBeNull();
 });

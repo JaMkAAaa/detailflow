@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { Button, buttonVariants } from "@/components/ui/button";
 
 export type OrderClientChoice = { id: string; name: string; vehicles: { id: string; label: string }[] };
-export type OrderServiceChoice = { id: string; name: string; basePrice: string };
+export type OrderServiceChoice = { id: string; name: string; basePrice: string; durationMin?: number };
 /** Boks i godziny z wolnego okna kalendarza (czas lokalny `YYYY-MM-DDTHH:mm`, Europe/Warsaw). */
 export type OrderSlot = { bayId: string; from: string; to: string };
 type Props = {

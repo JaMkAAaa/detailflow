@@ -40,8 +40,8 @@ Alerty:
   wybranym przez studio. TEST i PROD mają osobne oznaczenia i wyniki. Do
   podłączenia integracji E9 wyniki pochodzą z istniejących rekordów/seeda.
 
-Pulpit i mobilny „+” otwierają `/orders?new=1`: ten sam `OrderCreateDialog`
-co tablica. Karty i wiersze prowadzą do zlecenia, mobilne zakończenie etapu
+Pulpit (desktop) otwiera `/orders?new=1`: ten sam `OrderCreateDialog` co tablica.
+Mobilny „+” prowadzi do pełnego ekranu `/orders/new`. Karty i wiersze prowadzą do zlecenia, mobilne zakończenie etapu
 wywołuje API advance i odświeża dane. Link klienta powstaje przez `portal-links`;
 URL jest widoczny tylko do zamknięcia dialogu, bez zapisu w przeglądarce i logach.
 Faktury otwierają istniejący kreator z wyborem wyłącznie zakończonych zleceń;

@@ -758,7 +758,7 @@ Dane pochodzą z `studioDb`; **nie ma fallbacku na dane demo**, gdy baza jest pu
 | Alert ceramiki | unikalni klienci z `CoatingReminder` po terminie lub do końca dnia za 7 dni |
 | Alert KSeF | faktury `rejected` w środowisku skonfigurowanym dla studia |
 
-„Na warsztacie”: pierwsze `in_progress` w boksie, którego przedział przecina dzisiejszy dzień. Plan dnia pokazuje 08:00–16:00. Akcje są podłączone do API: „+ Nowe zlecenie” (pulpit i mobilny „+”) otwiera `/orders?new=1` z tym samym formularzem co tablica; „Zakończ etap” i „Zdjęcie” (mobile) wołają `POST …/advance` i upload zdjęcia; „Link dla klienta” (desktop) tworzy link przez `POST …/portal-links` i pokazuje go tylko do zamknięcia dialogu. „Wystaw fakturę” otwiera kreator (pracownik dostaje komunikat o uprawnieniach). Dzwonek mobilny pokazuje alerty ceramiki i KSeF z tych samych danych co pulpit.
+„Na warsztacie”: pierwsze `in_progress` w boksie, którego przedział przecina dzisiejszy dzień. Plan dnia pokazuje 08:00–16:00. Akcje są podłączone do API: desktopowe „+ Nowe zlecenie” otwiera `/orders?new=1` z formularzem tablicy, a mobilny „+” prowadzi do pełnego ekranu `/orders/new`; „Zakończ etap” i „Zdjęcie” (mobile) wołają `POST …/advance` i upload zdjęcia; „Link dla klienta” (desktop) tworzy link przez `POST …/portal-links` i pokazuje go tylko do zamknięcia dialogu. „Wystaw fakturę” otwiera kreator (pracownik dostaje komunikat o uprawnieniach). Dzwonek mobilny pokazuje alerty ceramiki i KSeF z tych samych danych co pulpit.
 
 ### 9.4 Kalendarz i rezerwacje
 

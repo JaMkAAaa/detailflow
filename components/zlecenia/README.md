@@ -62,6 +62,9 @@ Referencje: [M-03](https://www.figma.com/design/3pssHgZjGzo0UeyBC8yZ3S?node-id=1
 `/orders` i `/orders/[number]` renderują `MobileOrders` / `MobileOrderDetails` poniżej `lg`
 i wersję desktopową powyżej (CSS). Oba widoki używają rekordów z API i bazy aktywnego studia.
 
+- **Nowe zlecenie** na telefonie to `/orders/new`: plus w tab barze i „＋ Nowe” na liście.
+  Tab bar się chowa, zamknięcie wraca do poprzedniego ekranu. Boksy i pracownik są
+  na stronie, gdy studio je ma. Desktop zostaje przy dialogu `/orders?new=1`.
 - **M-03** pokazuje wszystkie aktywne zlecenia w jednej przewijanej treści strony (bez
   wysokości na „fold”, bez wirtualizacji). Grupy: W trakcie, Do odbioru, Przyjęte. Chipy statusu i szukajka (auto, klient, numer, rejestracja —
   `BoardOrder.plate` z seeda; dotyczy też wyszukiwania na tablicy) działają razem; brak wyników

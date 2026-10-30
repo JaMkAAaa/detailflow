@@ -17,7 +17,7 @@ const tabs = {
 /** Trasy bez własnej zakładki — podświetlają „Więcej”. */
 const moreRoutes = ["/more", "/invoices", "/customers", "/services", "/statistics", "/portfolio", "/team", "/settings"];
 
-/** Szczegóły zlecenia, FV i kreator wyceny mają własne akcje mobilne. */
+/** Szczegóły zlecenia, nowe zlecenie, FV i kreator wyceny mają własne akcje mobilne. */
 const isOrderDetails = (pathname: string) => /^\/orders\/[^/]+/.test(pathname);
 
 const isUnder = (pathname: string, href: string) =>
@@ -65,7 +65,7 @@ export function TabBar() {
           <RouteTab key={tab.href} {...tab} active={isUnder(pathname, tab.href)} />
         ))}
         <Link
-          href="/orders?new=1"
+          href="/orders/new"
           aria-label="Nowe zlecenie"
           className="flex h-12 w-14 shrink-0 items-center justify-center rounded-[18px] bg-df-lime text-df-bg"
         >

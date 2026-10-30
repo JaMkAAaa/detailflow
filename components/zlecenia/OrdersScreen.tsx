@@ -51,7 +51,7 @@ export function OrdersScreen({ studioId, clients, services, createRequested = fa
   return (
     <>
       {createRequested && <OrderCreateDialog studioId={studioId} clients={clients} services={services} onCreated={created} onClose={() => router.replace("/orders")} />}
-      <div className="lg:hidden"><MobileOrders studioId={studioId} orders={orders} clients={clients} services={services} onCreated={created} /></div>
+      <div className="lg:hidden"><MobileOrders orders={orders} /></div>
       <div className="hidden lg:block"><OrdersBoard studioId={studioId} orders={orders} clients={clients} services={services} onCreated={created} onChangeStatus={changeStatus} /></div>
     </>
   );
