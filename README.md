@@ -9,7 +9,7 @@
 
 Ten plik jest **opisem stanu kodu** i główną dokumentacją techniczną repozytorium. Opisuje architekturę, wdrożony zakres, reguły biznesowe, dane demonstracyjne, ograniczenia i sposób pracy z kodem. Szczegółowe dokumenty modułów są linkowane w sekcji [Dokumentacja źródłowa](#16-dokumentacja-źródłowa). **Specyfikacją docelową produktu** jest [`docs/dokumentacja-wdrozenia.md`](docs/dokumentacja-wdrozenia.md); przy sprzeczności o stanie wdrożenia wygrywa kod, potem ten plik.
 
-> **Ważne:** repozytorium zawiera działający produkt v1 w fazie twardnienia, a nie makietę: zlecenia, kalendarz, wyceny, portal, faktury z wysyłką do kolejki KSeF, billing Stripe i panel platformy działają na bazie. To **nie jest deklaracja gotowości produkcyjnej ani prawnej**: strony prawne są szkicami, integracja KSeF jest testowana na transporcie zastępczym (bez dowodu z prawdziwym MF w repozytorium), a część elementów pozostaje demonstracją (m.in. terminy w kreatorze wyceny, eksport JPK, podgląd papieru faktury). Dokładny stan opisuje [macierz wdrożenia](#3-status-wdrożenia), a otwarte luki — [sekcja 15](#15-luki-i-plan).
+> **Ważne:** repozytorium zawiera działający produkt v1 w fazie twardnienia, a nie makietę: zlecenia, kalendarz, wyceny, portal, faktury z wysyłką do kolejki KSeF, billing Stripe i panel platformy działają na bazie. To **nie jest deklaracja gotowości produkcyjnej ani prawnej**: strony prawne są szkicami, integracja KSeF jest testowana na transporcie zastępczym (bez dowodu z prawdziwym MF w repozytorium), a część elementów pozostaje demonstracją (m.in. terminy w kreatorze wyceny, podgląd papieru faktury). Dokładny stan opisuje [macierz wdrożenia](#3-status-wdrożenia), a otwarte luki — [sekcja 15](#15-luki-i-plan).
 
 ---
 
@@ -250,7 +250,7 @@ Status opisuje **kod**, nie gotowość produkcyjną ani prawną. „Działa” z
 | Wyceny D-06 / M-05 | **Działa** | kreator, katalog z bazy, zapis szkicu, wysyłka maila z linkiem portalu, lista i karta, zlecenie z zaakceptowanej wyceny, wygaszanie wysłanych wycen w workerze | **terminy w kreatorze są demonstracyjne** i nie rezerwują boksu |
 | Usługi i cennik | **Działa** | `/services`: nazwa, cena bazowa brutto Decimal PLN, czas, aktywna/ukryta; menu desktop i Więcej; pusty stan | owner/manager; worker nie widzi menu; ukryte usługi nie wchodzą do nowych wycen i zleceń |
 | Portal P-01/P-02 | **Działa** | tokeny, decyzja o wycenie, status zlecenia z bazy (3 etapy), zdjęcia zlecenia i akceptacja protokołu, P-02 dla złego/wygasłego/odwołanego linku, mail do właścicieli | `app/p/quote-preview` to placeholder; link samej wyceny nie pokazuje zdjęć ani protokołu |
-| Faktury D-07/D-10 | **Działa** | lista, filtry, wyszukiwanie, „wymagają uwagi”, płatność, korekta, ponowienie wysyłki KSeF i poprawa NIP odrzuconej faktury | lista pobiera wszystkie faktury środowiska i paginuje po 7 w UI; „Eksport JPK” pokazuje tylko komunikat, offline jest wyłączony |
+| Faktury D-07/D-10 | **Działa** | lista, filtry, wyszukiwanie, „wymagają uwagi”, płatność, korekta, ponowienie wysyłki KSeF i poprawa NIP odrzuconej faktury | lista pobiera wszystkie faktury środowiska i paginuje po 7 w UI; eksport JPK_FA(4) z okresem i środowiskiem, offline jest wyłączony |
 | Kreator faktury D-08 | **Działa** | kroki, walidacja, podgląd, autosave, `POST /invoices` ze zlecenia `completed`, obsługa 400/409 | wystawienie nie kolejkuje KSeF ani nie wysyła maila (to osobne akcje na szczegółach) |
 | Szczegóły faktury D-09/M-08 | **Działa** | dane, PDF, XML FA(3) także dla korekt, płatność, korekta, „Wyślij do KSeF”, „Wyślij ponownie” (PDF przez outbox), UPO z DB | podgląd „papieru” w UI jest oznaczony jako demonstracyjny (w tym ilustracyjny QR); UPO istnieje tylko po odpowiedzi MF (seed go nie ma) |
 | KSeF TEST/PROD | **Częściowo** | klient API, szyfrowanie tokenu per środowisko, kolejka i worker, retry, historia, UPO; wysyłka z UI do kolejki; PROD za flagą `ksef_prod` | brak dowodu z prawdziwym MF w repozytorium (testy używają transportu zastępczego); E2E kończy się na kolejce; seed tylko udaje dokumenty i UPO; brak offline |
@@ -270,7 +270,7 @@ Status opisuje **kod**, nie gotowość produkcyjną ani prawną. „Działa” z
 - **Dane demo są prawdziwe w bazie** dla pulpitu, kalendarza, klientów, zleceń, wycen, faktur, portalu i panelu platformy. Ekrany operacyjne nie mają fallbacku na dane demo; wyjątki to terminy w kreatorze wyceny i statyczny podgląd pulpitu na landingu.
 - **Możesz** zakończyć etap, zmienić status, dodać zdjęcie i protokół z karty zlecenia, utworzyć zlecenie z formularza, wystawić fakturę kreatorem i zakolejkować ją do KSeF TEST przyciskiem na szczegółach faktury.
 - **Nie oczekuj** pełnej wysyłki do MF bez uruchomionego workera, `KSEF_TOKEN_ENCRYPTION_KEY`, NIP i tokenu studia. Seedowe faktury FV/41 mają numer KSeF i historię, ale nie mają `KsefSubmission` ani UPO.
-- **Nie oczekuj** działającego eksportu JPK, trybu offline KSeF, linku portalu z przycisku na karcie zlecenia ani rezerwacji boksu z terminów kreatora wyceny.
+- **Nie oczekuj** trybu offline KSeF, linku portalu z przycisku na karcie zlecenia ani rezerwacji boksu z terminów kreatora wyceny.
 - Wystawienie faktury z `#DF-0248` jest odrzucane (zlecenie nie jest `completed`); seedowa FV/41 pochodzi z `#DF-0243`.
 - Panel platformy: `/admin/login` (operator demo z [§2.2](#22-wariant-docker-zalecany)). Zmiany ról i flag wymagają włączonego MFA operatora.
 
@@ -870,7 +870,7 @@ accepted ──▶ in_progress ──▶ ready_for_pickup ──▶ completed
 - Paginacja: **7 dokumentów**, ale lista pobiera wszystkie faktury studia w danym środowisku i tnie je w UI.
 - Licznik „do uwagi” obejmuje `issued` + `ksefStatus` `rejected`/`retrying`.
 - Kwoty sumowane przez Decimal; karta brutto/VAT obejmuje przyjęte faktury, bez szkiców i odrzuceń.
-- „Ponów wysyłkę” i „Popraw NIP i wyślij ponownie” wołają `POST …/ksef/retry` (tylko `rejected`/`retrying`, bez numeru KSeF; NIP można zmienić po potwierdzonym odrzuceniu — patrz [§9.10](#910-ksef-20-test-i-prod-za-flagą)). „Eksport JPK” pokazuje tylko komunikat o niedostępności, a „Offline” jest wyłączony (poza v1).
+- „Ponów wysyłkę” i „Popraw NIP i wyślij ponownie” wołają `POST …/ksef/retry` (tylko `rejected`/`retrying`, bez numeru KSeF; NIP można zmienić po potwierdzonym odrzuceniu — patrz [§9.10](#910-ksef-20-test-i-prod-za-flagą)). „Eksport JPK” pobiera JPK_FA(4) po wybraniu okresu i uzupełnieniu danych urzędu/adresu, oddzielnie dla TEST/PROD; pusty okres pokazuje komunikat bez pliku. [Kontrakt #150](docs/jpk-fa.md). „Offline” pozostaje wyłączony.
 
 #### Wystawianie
 
@@ -1360,7 +1360,7 @@ Suma brutto musi równać się `totalGross` zlecenia; w przeciwnym razie API zwr
 Brak wymienionych elementów oznacza niezweryfikowane lub niezaimplementowane w repozytorium — nie dowód, że ryzyko nie istnieje.
 
 - zatwierdzonych prawnie regulaminu, polityki prywatności i umowy powierzenia (strony `/regulamin` itd. to szkice),
-- dowodu wysyłki do prawdziwego KSeF (TEST/PROD) i wyniku z MF; JPK, KSeF offline,
+- dowodu wysyłki do prawdziwego KSeF (TEST/PROD) i wyniku z MF; KSeF offline,
 - MFA dla studia i MFA przy każdej akcji operatora platformy (kod jest wymagany tylko do zmian ról i flag),
 - widoku „tylko do odczytu” i ręcznego zakończenia sesji wsparcia; audytu zleceń, wycen i faktur; niezmienności audytu na poziomie bazy,
 - limitów API per plan i egzekwowania limitu użytkowników (zapisy studia mają wspólny limit 60/min na użytkownika),
@@ -1544,7 +1544,7 @@ To nie jest lista blokad „kodowych” — część pozycji wymaga decyzji, dow
 | Metryki A-06 nie mierzą dostępności MF, Stripe ani poczty | operator nie widzi realnego stanu zależności | sondy zewnętrzne i alerty (poza repo) |
 | Backup bez automatycznego testu odtwarzania i PITR | nieznany RTO/RPO | cykliczny restore na kopię, PITR w bazie zarządzanej |
 | Brak limitów planów dla liczby użytkowników; boksy tylko przez API | plany nie są w pełni egzekwowane | UI boksów i egzekwowanie limitów |
-| Poza ukończonym zakresem | — | JPK, KSeF offline, płatność online klienta (osobno od Stripe Billing), zaawansowane statystyki. SMS wyceny (#149) jest opcjonalny po konfiguracji i zgodzie, bez dowodu rzeczywistej dostawy. Katalog usług, magazyn chemii, statystyki studia i portfolio realizacji są wdrożone. Moduły #142–#151 wchodzą pojedynczo |
+| Poza ukończonym zakresem | — | KSeF offline, płatność online klienta (osobno od Stripe Billing), zaawansowane statystyki. SMS wyceny (#149) jest opcjonalny po konfiguracji i zgodzie, bez dowodu rzeczywistej dostawy. Katalog usług, magazyn chemii, statystyki studia i portfolio realizacji są wdrożone. Moduły #142–#151 wchodzą pojedynczo |
 
 ### 15.3 Znane drobne niedokończenia
 
@@ -1587,7 +1587,7 @@ Kolejność prac wynika z issue i faz w [`docs/dokumentacja-wdrozenia.md`](docs/
 | [Figma](https://www.figma.com/design/3pssHgZjGzo0UeyBC8yZ3S) | źródło prawdy UI |
 | [Issues](https://github.com/JaMkAAaa/detailflow/issues) | backlog, epiki, zadania `agent-ready` |
 
-**Uwaga o rozbieżności:** `docs/dokumentacja-wdrozenia.md` opisuje docelowy produkt i miejscami wyprzedza kod albo go nie zawiera (np. pełne Ustawienia, JPK, automatyczne zużycie chemii). Ten README opisuje **stan faktyczny** i wskazuje luki. Przy sprzeczności: kod i migracje > ten README > dokumentacja wdrożenia > makieta.
+**Uwaga o rozbieżności:** `docs/dokumentacja-wdrozenia.md` opisuje docelowy produkt i miejscami wyprzedza kod albo go nie zawiera (np. pełne Ustawienia, automatyczne zużycie chemii). Ten README opisuje **stan faktyczny** i wskazuje luki. Przy sprzeczności: kod i migracje > ten README > dokumentacja wdrożenia > makieta.
 
 ---
 

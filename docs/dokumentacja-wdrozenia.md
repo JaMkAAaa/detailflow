@@ -925,3 +925,7 @@ Produkt jest wdrożony, gdy:
 Do tego momentu makieta pozostaje **specyfikacją wizualną i dziedzinową**, a ten dokument — **specyfikacją implementacji**.
 
 *Stan względem kryteriów:* kryteria 1–3 i 5–6 mają implementację i testy w repozytorium (Stripe w trybie testowym/stubie, portal, A-01 z bazy, rozdział TEST/PROD, Compose). Kryterium 4 jest zaimplementowane do kolejki i walidacji XSD; **numer KSeF z prawdziwego środowiska MF nie ma dowodu w repozytorium** (testy używają transportu zastępczego). Zatem „wdrożone” w sensie tego dokumentu nie jest jeszcze potwierdzone, a gotowość prawna i produkcyjna nie jest deklarowana. Aktualna lista luk: README §15.
+
+## 19. Eksport JPK_FA(4) — #150
+
+Desktopowa lista faktur pobiera XML dla jawnego okresu wg daty wystawienia Europe/Warsaw, tylko jednego studia i środowiska KSeF. Pusty okres to komunikat bez pliku. Bez Stripe Billing i bez wysyłki do MF. Wymagane dane urzędu/adresu, walidacja oficjalnym XSD i ograniczenia: [kontrakt](jpk-fa.md).

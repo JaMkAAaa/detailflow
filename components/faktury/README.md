@@ -22,7 +22,7 @@ Karta brutto/VAT obejmuje przyjęte faktury, bez szkiców i odrzuceń.
 Daty i próby na D-10 pochodzą z historii; komunikaty archiwalne są datowane.
 Panel połączenia nie udaje pomiarów MF ani ważności tokenu. Ponowienie i poprawa
 NIP są jawną demonstracją bez zapisu, wysyłki do MF i usuwania błędów z kolejki.
-Eksport JPK pokazuje informację o niedostępności, offline pozostaje wyłączony.
+Eksport JPK_FA(4) pobiera walidowany XML dla wybranego okresu i środowiska; pusty okres pokazuje komunikat. [Kontrakt](../../docs/jpk-fa.md). Offline pozostaje wyłączony.
 Zaległe płatności mają osobną sekcję. Używamy istniejących lokalnych assetów
 badge 6 × 6 oraz wspólnego sidebara, fontów i tokenów.
 
