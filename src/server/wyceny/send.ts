@@ -1,3 +1,4 @@
+import { normalizeSmsPhone, smsConfigured } from "./sms-config";
 import { z } from "zod";
 import { Prisma } from "@/lib/db/generated/client";
 import { studioDb } from "@/lib/db/tenant";
@@ -48,7 +49,13 @@ export async function saveQuote(studioId: string, id: string, input: unknown, au
   }, { isolationLevel: "Serializable" });
 }
 
-export async function sendQuote(studioId: string, id: string) {
+export const quoteSendInput = z.object({
+  sms: z.object({ phone: z.string().max(30), consent: z.literal(true) }).strict().optional(),
+}).strict();
+
+export async function sendQuote(studioId: string, id: string, input: unknown = {}, actorId?: string) {
+  const { sms } = quoteSendInput.parse(input);
+  if (sms && (!smsConfigured() || !actorId)) throw new AccessError(403, "Wysyłka SMS jest niedostępna.");
   const db = studioDb(studioId);
   return db.$transaction(async (tx) => {
     const changed = await tx.quote.updateMany({ where: { id, status: { in: ["draft", "sent"] }, decidedAt: null }, data: { status: "sent" } });
@@ -56,9 +63,16 @@ export async function sendQuote(studioId: string, id: string) {
     const quote = await tx.quote.findFirstOrThrow({ where: { id }, include: { client: true, items: true } });
     if (!quote.client.email || !z.email().safeParse(quote.client.email).success) throw new AccessError(403, "Uzupełnij poprawny e-mail klienta przed wysyłką.");
     if (!quote.items.length) throw new AccessError(403, "Dodaj pozycje wyceny.");
+    if (sms) {
+      const recipient = normalizeSmsPhone(quote.client.phone);
+      if (!recipient || recipient !== normalizeSmsPhone(sms.phone)) throw new AccessError(400, "Uzupełnij poprawny numer klienta i ponownie potwierdź zgodę na SMS.");
+      await tx.quoteSendSms.upsert({ where: { quoteId: id }, update: {},
+        create: { studioId, quoteId: id, recipient, consentAt: new Date(), consentBy: actorId! } });
+    }
     // Powtórne kliknięcie, gdy job oczekuje, scala się z oczekującą wysyłką.
     await tx.quoteSendMail.upsert({ where: { quoteId: id },
       create: { studioId, quoteId: id }, update: { sentAt: null, createdAt: new Date() } });
-    return { id, status: "sent", queued: true };
+    const smsJob = await tx.quoteSendSms.findFirst({ where: { quoteId: id }, select: { status: true } });
+    return { id, status: "sent", queued: true, smsStatus: smsJob?.status ?? null };
   });
 }

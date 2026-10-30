@@ -168,6 +168,7 @@ model Studio {
   portalLinks        PortalLink[]
   quoteDecisionMails QuoteDecisionMail[]
   quoteSendMails     QuoteSendMail[]
+  quoteSendSms       QuoteSendSms[]
   invoiceMails       InvoiceMail[]
   orderPhotos        OrderPhoto[]
   intakeProtocols      IntakeProtocol[]
@@ -583,6 +584,7 @@ model Quote {
   portalLinks  PortalLink[]
   decisionMail QuoteDecisionMail?
   sendMail     QuoteSendMail?
+  sendSms      QuoteSendSms?
 
   @@unique([id, studioId])
   @@index([studioId, status])
@@ -950,4 +952,24 @@ model ClientPaymentEvent {
   invoiceId String
   invoice Invoice @relation(fields: [invoiceId, studioId], references: [id, studioId], onDelete: Cascade)
   @@index([studioId, invoiceId])
+}
+
+// Jedna opcjonalna wiadomość SMS na wycenę. Nigdy nie przechowuje surowego tokenu.
+model QuoteSendSms {
+  id            String    @id @default(cuid())
+  studioId      String
+  quoteId       String    @unique
+  recipient     String
+  consentAt     DateTime
+  consentBy     String
+  status        String    @default("pending")
+  attempts      Int       @default(0)
+  nextAttemptAt DateTime  @default(now())
+  sentAt        DateTime?
+  createdAt     DateTime  @default(now())
+  studio        Studio    @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  quote         Quote     @relation(fields: [quoteId, studioId], references: [id, studioId], onDelete: Cascade)
+
+  @@unique([quoteId, studioId])
+  @@index([studioId, status, nextAttemptAt])
 }

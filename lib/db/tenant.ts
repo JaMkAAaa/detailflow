@@ -26,6 +26,7 @@ export const TENANT_MODELS = [
   "PortalLink",
   "QuoteDecisionMail",
   "QuoteSendMail",
+  "QuoteSendSms",
   "CoatingReminder",
   "OrderPhoto",
   "IntakeProtocol",

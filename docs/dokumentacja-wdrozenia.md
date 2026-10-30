@@ -773,6 +773,7 @@ KSEF_API_URL=https://api-test.ksef.mf.gov.pl
 KSEF_TOKEN_ENCRYPTION_KEY=
 RESEND_API_KEY= EMAIL_FROM=
 SMSAPI_TOKEN=
+SMSAPI_SENDER=
 SENTRY_DSN=
 APP_URL=https://app.detailflow.pl
 ```
@@ -891,7 +892,7 @@ Decyzje do potwierdzenia ze stakeholderem:
 1. Czy v1 robi KSeF tylko TEST, a PROD w sprincie osobnym?
 2. Czy płatność klienta za detailing jest przelewem ręcznym (v1), czy Stripe Checkout?
 3. Limity planów (ile użytkowników / boksów / faktur)? Makieta A-03 ma limity — trzeba je spisać.
-4. SMS od startu czy tylko e-mail?
+4. SMS: #149 dodaje opcjonalną jedną wiadomość z linkiem przy wycenie, po obowiązkowym mailu i potwierdzeniu zgody. Bez konfiguracji opcja jest niewidoczna. [Kontrakt i uruchomienie](sms-klienta.md).
 5. Czy jeden człowiek może należeć do wielu studiów (picker w sidebarze sugeruje, że tak)?
 
 ---

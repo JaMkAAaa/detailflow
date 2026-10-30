@@ -5,6 +5,7 @@ import { initSentry } from "../src/observability/sentry";
 import { deliverQuoteDecisionMails } from "../src/server/portal/mail";
 import { deliverInvoiceMails } from "../src/server/faktury/mail";
 import { deliverQuoteMails } from "../src/server/wyceny/mail";
+import { deliverQuoteSms } from "../src/server/wyceny/sms";
 import { expireQuotes } from "../src/server/wyceny/expire";
 import { cleanupUnconfirmedPhotos } from "../src/server/zlecenia/cleanup-photos";
 import { ksefQueue } from "../src/ksef/queue";
@@ -21,7 +22,7 @@ log.info("worker started");
 let current: Promise<void> | undefined;
 function tick() {
   if (current) return;
-  current = Promise.all([deliverInvoiceMails(), deliverQuoteDecisionMails(), deliverQuoteMails(), recoverKsefOutbox(), expireQuotes(), cleanupUnconfirmedPhotos()]).then(() => undefined)
+  current = Promise.all([deliverInvoiceMails(), deliverQuoteDecisionMails(), deliverQuoteMails(), deliverQuoteSms(), recoverKsefOutbox(), expireQuotes(), cleanupUnconfirmedPhotos()]).then(() => undefined)
     .catch(error => {
       log.error("worker outbox failed");
       reportWorkerError(error, { queue: "outbox" });
